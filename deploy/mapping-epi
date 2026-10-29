@@ -25,6 +25,7 @@ case "${1:-aide}" in
     "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/deploy/requirements-serveur.txt"
     install -m 644 "$APP_DIR/deploy/mapping-epi.service" /etc/systemd/system/mapping-epi.service
     install -m 755 "$APP_DIR/deploy/mapping-epi" /usr/local/bin/mapping-epi
+    install -d -m 755 /etc/caddy/sites /srv/sites
     if [ -f /etc/mapping-epi/domaine ]; then
       sed -e "s|__DOMAINE__|$(cat /etc/mapping-epi/domaine)|g" -e "s|__PORT__|8050|g" \
           "$APP_DIR/deploy/Caddyfile.modele" > /etc/caddy/Caddyfile.nouveau
@@ -52,6 +53,69 @@ case "${1:-aide}" in
     rm -f "$DATA_DIR/mapping_epi.sqlite-wal" "$DATA_DIR/mapping_epi.sqlite-shm"
     [ -d "$tmp/cas" ] && cp -r "$tmp/cas/." "$DATA_DIR/cas/" && chown -R "$SVC_USER:$SVC_USER" "$DATA_DIR/cas"
     rm -rf "$tmp" && systemctl start mapping-epi && echo "Restauré depuis $f" ;;
+  ajouter-site)
+    # mapping-epi ajouter-site NOM DEPOT_GIT [SOUS_DOMAINE]   (site statique : HTML/JS/CSS)
+    nom="${2:?Usage : mapping-epi ajouter-site NOM https://github.com/compte/depot [sous-domaine]}"
+    depot="${3:?Indiquez le depot GitHub}"
+    case "$nom" in *[!a-z0-9-]*|"") echo "NOM : minuscules, chiffres et tirets uniquement."; exit 1;; esac
+    ip="$(curl -4fsS https://api.ipify.org || hostname -I | awk '{print $1}')"
+    domaine="${4:-$nom}"
+    case "$domaine" in *.*) ;; *) domaine="${domaine}.${ip//./-}.sslip.io";; esac
+    dir="/srv/sites/$nom"
+    install -d -m 755 /etc/caddy/sites /srv/sites
+    grep -q 'import /etc/caddy/sites/' /etc/caddy/Caddyfile \
+      || printf '\n# Autres sites hébergés sur ce serveur\nimport /etc/caddy/sites/*.caddy\n' >> /etc/caddy/Caddyfile
+    if [ -d "$dir/.git" ]; then echo "Le site $nom existe déjà : mapping-epi maj-site $nom"; exit 1; fi
+    echo "Téléchargement de $depot …"
+    GIT_LFS_SKIP_SMUDGE=1 git clone -q --depth 1 "$depot" "$dir"
+    chmod -R a+rX "$dir"
+    cat > "/etc/caddy/sites/$nom.caddy" <<CADDY
+$domaine {
+	root * $dir
+	encode gzip zstd
+	@prive path /.git /.git/* /.github/* /README* /*.md
+	respond @prive 404
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Frame-Options SAMEORIGIN
+		X-Robots-Tag "noindex, nofollow"
+		Strict-Transport-Security "max-age=31536000"
+	}
+	@donnees path *.json *.js
+	header @donnees Cache-Control "no-cache"
+	file_server
+}
+CADDY
+    if ! caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+      echo "Configuration Caddy invalide, site retiré."; rm -f "/etc/caddy/sites/$nom.caddy"; exit 1
+    fi
+    systemctl reload caddy
+    echo "*/10 * * * * root /usr/local/bin/mapping-epi maj-site $nom >/dev/null 2>&1" > "/etc/cron.d/site-$nom"
+    echo
+    echo "Site « $nom » en ligne : https://$domaine"
+    echo "(certificat HTTPS délivré en moins d'une minute ; mise à jour automatique depuis GitHub toutes les 10 min)" ;;
+  maj-site)
+    nom="${2:?Usage : mapping-epi maj-site NOM}"
+    dir="/srv/sites/$nom"
+    [ -d "$dir/.git" ] || { echo "Site inconnu : $nom"; exit 1; }
+    br="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"
+    GIT_LFS_SKIP_SMUDGE=1 git -C "$dir" fetch -q --depth 1 origin "$br" && git -C "$dir" reset -q --hard "origin/$br"
+    chmod -R a+rX "$dir"
+    [ -t 1 ] && echo "Site $nom à jour : $(git -C "$dir" log -1 --format='%cd — %s' --date=format:'%d/%m/%Y %H:%M')" ;;
+  sites)
+    for f in /etc/caddy/sites/*.caddy; do
+      [ -e "$f" ] || { echo "Aucun autre site hébergé."; break; }
+      n="$(basename "$f" .caddy)"
+      echo "$n  →  https://$(head -n1 "$f" | awk '{print $1}')  (màj : $(git -C "/srv/sites/$n" log -1 --format='%cd' --date=format:'%d/%m/%Y %H:%M' 2>/dev/null))"
+    done ;;
+  retirer-site)
+    nom="${2:?Usage : mapping-epi retirer-site NOM}"
+    rm -f "/etc/caddy/sites/$nom.caddy" "/etc/cron.d/site-$nom"
+    systemctl reload caddy
+    [ -d "/srv/sites/$nom" ] && mv "/srv/sites/$nom" "/srv/sites/.retire-$nom-$(date +%Y%m%d%H%M)"
+    echo "Site $nom retiré (fichiers conservés dans /srv/sites/.retire-$nom-…)." ;;
   *)
     cat <<'TXT'
 Mapping Épi — commandes :
@@ -64,6 +128,9 @@ Mapping Épi — commandes :
   restaurer FICHIER      revenir à une sauvegarde
   mise-a-jour            installer la dernière version publiée sur GitHub
   etat | journal | redemarrer
+Autres sites (statiques) sur ce serveur :
+  ajouter-site NOM DEPOT [SOUS-DOMAINE]   ex. ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site outbreak
+  sites | maj-site NOM | retirer-site NOM
 TXT
     ;;
 esac

@@ -87,6 +87,18 @@ scp root@91.98.12.34:/var/backups/mapping-epi/*.tar.gz ~/Documents/mapping-epi/s
 ```
 Chaque fiche peut aussi être téléchargée en JSON depuis le site, puis importée dans l'application de bureau.
 
+## Héberger un autre site sur le même serveur
+
+Un site statique (HTML / JavaScript / CSS, par exemple un tableau de bord publié sur GitHub) peut être servi
+à côté de Mapping Épi, avec sa propre adresse et le HTTPS :
+
+```bash
+mapping-epi ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site outbreak
+```
+→ `https://outbreak.<ip>.sslip.io`, mis à jour automatiquement depuis GitHub toutes les 10 minutes.
+`mapping-epi sites` liste les sites, `mapping-epi maj-site NOM` force une mise à jour,
+`mapping-epi retirer-site NOM` le retire.
+
 ## Sécurité mise en place
 
 - HTTPS automatique (certificat Let's Encrypt renouvelé tout seul).

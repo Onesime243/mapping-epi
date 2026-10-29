@@ -113,7 +113,7 @@ IP4="$(curl -4fsS https://api.ipify.org || hostname -I | awk '{print $1}')"
 if [ -z "${DOMAINE:-}" ]; then
   if [ -f /etc/mapping-epi/domaine ]; then DOMAINE="$(cat /etc/mapping-epi/domaine)"; else DOMAINE="mapping-epi.${IP4//./-}.sslip.io"; fi
 fi
-install -d -m 755 /etc/mapping-epi
+install -d -m 755 /etc/mapping-epi /etc/caddy/sites /srv/sites
 echo "$DOMAINE" > /etc/mapping-epi/domaine
 {
   if [ -n "${EMAIL:-}" ]; then printf '{\n\temail %s\n}\n\n' "$EMAIL"; fi

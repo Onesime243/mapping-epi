@@ -15,3 +15,6 @@ __DOMAINE__ {
 	}
 	# journal : journalctl -u caddy
 }
+
+# Autres sites hébergés sur ce serveur (mapping-epi ajouter-site …)
+import /etc/caddy/sites/*.caddy
