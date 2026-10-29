@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Mes cas — Mapping Épi{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between; margin-bottom:12px">
+  <h1 style="margin:0">{{ "Tous les cas" if me.is_admin else "Mes cas" }}</h1>
+  <div class="row">
+    <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">＋ Nouveau cas</button></form>
+    <form method="post" action="{{ url_for('demo_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" title="Cas fictif complet pour s'entraîner">Exemple fictif</button></form>
+  </div>
+</div>
+<div class="card">
+  <form class="row" method="get" style="margin-bottom:10px">
+    <input name="q" value="{{ q }}" placeholder="Rechercher (ZS, AS, maladie{% if me.is_admin %}, agent{% endif %}…)" style="flex:1; min-width:220px">
+    <button class="btn">Rechercher</button>
+  </form>
+  {% if items %}
+  <div style="overflow-x:auto"><table class="list">
+    <tr><th>Fiche</th>{% if me.is_admin %}<th>Agent</th>{% endif %}<th>Modifiée le</th><th></th></tr>
+    {% for it in items %}
+    <tr>
+      <td><a href="{{ url_for('editor', cid=it.id) }}"><b>{{ it.titre }}</b></a></td>
+      {% if me.is_admin %}<td>{{ it.owner or "bureau" }}</td>{% endif %}
+      <td class="muted">{{ it.updated }}</td>
+      <td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}">Ouvrir</a></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}
+  <p class="muted">Aucune fiche pour l'instant. Cliquez sur « Nouveau cas » pour commencer, ou « Exemple fictif » pour voir un cas complet.</p>
+  {% endif %}
+</div>
+<div class="card" style="margin-top:14px">
+  <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <b>Importer une fiche</b> <span class="muted">(JSON ou Excel exporté par l'outil)</span>
+    <input type="file" name="fichier" accept=".json,.xlsx" required style="max-width:340px">
+    <button class="btn">Importer</button>
+  </form>
+</div>
+{% endblock %}

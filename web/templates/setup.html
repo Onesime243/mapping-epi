@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Installation — Mapping Épi{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Premier lancement</h1>
+  <form class="card stack" method="post">
+    <p class="hint">Créez le compte <b>administrateur</b>. Il pourra ensuite créer les comptes des agents de terrain.</p>
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div><label class="f">Nom complet</label><input name="nom" required></div>
+    <div><label class="f">Identifiant</label><input name="username" placeholder="ex. admin" pattern="[a-z0-9._\-]{3,32}" required>
+      <div class="hint">3 à 32 caractères : minuscules, chiffres, point, tiret.</div></div>
+    <div><label class="f">Mot de passe</label><input name="password" type="password" minlength="8" autocomplete="new-password" required>
+      <div class="hint">8 caractères minimum, avec au moins une lettre et un chiffre.</div></div>
+    <div><label class="f">Confirmer le mot de passe</label><input name="password2" type="password" minlength="8" autocomplete="new-password" required></div>
+    <button class="btn primary" style="width:100%">Créer le compte administrateur</button>
+  </form>
+</div>
+{% endblock %}

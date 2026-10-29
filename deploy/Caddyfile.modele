@@ -1,0 +1,22 @@
+__DOMAINE__ {
+	encode gzip zstd
+	request_body {
+		max_size 10MB
+	}
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+	}
+	reverse_proxy 127.0.0.1:__PORT__ {
+		transport http {
+			read_timeout 180s
+		}
+	}
+	log {
+		output file /var/log/caddy/mapping-epi.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

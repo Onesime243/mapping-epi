@@ -1,0 +1,32 @@
+[Unit]
+Description=Mapping Épi (version web)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mappingepi
+Group=mappingepi
+WorkingDirectory=/opt/mapping-epi
+Environment=MAPPING_EPI_DONNEES=/var/lib/mapping-epi
+Environment=MAPPING_EPI_PUBLIC=1
+Environment=QT_QPA_PLATFORM=offscreen
+Environment=QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu --no-sandbox
+Environment=XDG_RUNTIME_DIR=/var/lib/mapping-epi/.run
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/usr/bin/install -d -m 700 /var/lib/mapping-epi/.run
+ExecStart=/opt/mapping-epi/.venv/bin/python /opt/mapping-epi/serveur_web.py --public --port 8050
+Restart=always
+RestartSec=3
+# Durcissement
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/mapping-epi /opt/mapping-epi/logs
+ProtectKernelTunables=true
+ProtectControlGroups=true
+MemoryMax=3G
+
+[Install]
+WantedBy=multi-user.target

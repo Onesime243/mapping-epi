@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Administration de Mapping Épi sur le serveur.  Usage : mapping-epi <commande>
+set -euo pipefail
+APP_DIR=/opt/mapping-epi
+DATA_DIR=/var/lib/mapping-epi
+BACKUP_DIR=/var/backups/mapping-epi
+SVC_USER=mappingepi
+PY="$APP_DIR/.venv/bin/python"
+
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+
+manage() { sudo -u "$SVC_USER" env MAPPING_EPI_DONNEES="$DATA_DIR" "$PY" "$APP_DIR/manage.py" "$@"; }
+
+case "${1:-aide}" in
+  creer-admin|creer-utilisateur|utilisateurs|mot-de-passe|desactiver|activer)
+    manage "$@" ;;
+  sauvegarde)
+    out="$(manage sauvegarde /tmp)"
+    mv "$out" "$BACKUP_DIR/" && chmod 600 "$BACKUP_DIR/$(basename "$out")"
+    find "$BACKUP_DIR" -name 'mapping_epi_*.tar.gz' -mtime +14 -delete
+    echo "Sauvegarde : $BACKUP_DIR/$(basename "$out")" ;;
+  mise-a-jour)
+    "$0" sauvegarde
+    git -C "$APP_DIR" fetch -q origin main && git -C "$APP_DIR" reset -q --hard origin/main
+    "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/deploy/requirements-serveur.txt"
+    install -m 644 "$APP_DIR/deploy/mapping-epi.service" /etc/systemd/system/mapping-epi.service
+    install -m 755 "$APP_DIR/deploy/mapping-epi" /usr/local/bin/mapping-epi
+    systemctl daemon-reload && systemctl restart mapping-epi
+    sleep 3 && curl -fsS http://127.0.0.1:8050/sante && echo && echo "Mise à jour terminée." ;;
+  etat)
+    systemctl --no-pager status mapping-epi caddy | head -n 30
+    echo "Adresse : https://$(cat /etc/mapping-epi/domaine 2>/dev/null)" ;;
+  journal)
+    journalctl -u mapping-epi -n "${2:-80}" --no-pager ;;
+  redemarrer)
+    systemctl restart mapping-epi && echo "Redémarré." ;;
+  restaurer)
+    f="${2:?Usage : mapping-epi restaurer /var/backups/mapping-epi/mapping_epi_AAAAMMJJ_HHMM.tar.gz}"
+    systemctl stop mapping-epi
+    "$0" sauvegarde || true
+    tmp="$(mktemp -d)" && tar xzf "$f" -C "$tmp"
+    install -m 640 -o "$SVC_USER" -g "$SVC_USER" "$tmp/mapping_epi.sqlite" "$DATA_DIR/mapping_epi.sqlite"
+    rm -f "$DATA_DIR/mapping_epi.sqlite-wal" "$DATA_DIR/mapping_epi.sqlite-shm"
+    [ -d "$tmp/cas" ] && cp -r "$tmp/cas/." "$DATA_DIR/cas/" && chown -R "$SVC_USER:$SVC_USER" "$DATA_DIR/cas"
+    rm -rf "$tmp" && systemctl start mapping-epi && echo "Restauré depuis $f" ;;
+  *)
+    cat <<'TXT'
+Mapping Épi — commandes :
+  creer-admin            créer un compte administrateur
+  creer-utilisateur      créer un compte agent (ZS / AS)
+  utilisateurs           lister les comptes
+  mot-de-passe IDENT     changer le mot de passe d'un compte
+  desactiver IDENT       désactiver un compte   (activer IDENT pour réactiver)
+  sauvegarde             sauvegarde immédiate (les sauvegardes quotidiennes sont automatiques)
+  restaurer FICHIER      revenir à une sauvegarde
+  mise-a-jour            installer la dernière version publiée sur GitHub
+  etat | journal | redemarrer
+TXT
+    ;;
+esac

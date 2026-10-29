@@ -1,0 +1,2 @@
+# Sauvegarde quotidienne de Mapping Épi à 02h30 (14 jours conservés)
+30 2 * * * root /usr/local/bin/mapping-epi sauvegarde >/var/log/mapping-epi-sauvegarde.log 2>&1

@@ -1,0 +1,53 @@
+# Paramètres épidémiologiques par maladie.
+# incubation_min / incubation_max : jours avant le début des symptômes (fenêtre d'exposition probable = J-max à J-min)
+# suivi_contacts : durée du suivi des contacts (jours après le dernier contact)
+# contagiosite : "jusqu_inhumation" (le corps reste contagieux) ou un nombre de jours après J0
+# labo_delai_alerte_h : délai prélèvement -> résultat au-delà duquel une action est suggérée
+MVE:
+  nom: "Maladie à virus Ebola"
+  incubation_min: 2
+  incubation_max: 21
+  suivi_contacts: 21
+  contagiosite: jusqu_inhumation
+  corps_contagieux: true
+  labo_delai_alerte_h: 48
+Marburg:
+  nom: "Maladie à virus Marburg"
+  incubation_min: 2
+  incubation_max: 21
+  suivi_contacts: 21
+  contagiosite: jusqu_inhumation
+  corps_contagieux: true
+  labo_delai_alerte_h: 48
+Mpox:
+  nom: "Mpox"
+  incubation_min: 3
+  incubation_max: 21
+  suivi_contacts: 21
+  contagiosite: 28
+  corps_contagieux: false
+  labo_delai_alerte_h: 72
+Choléra:
+  nom: "Choléra"
+  incubation_min: 0
+  incubation_max: 5
+  suivi_contacts: 5
+  contagiosite: 10
+  corps_contagieux: true
+  labo_delai_alerte_h: 48
+Rougeole:
+  nom: "Rougeole"
+  incubation_min: 7
+  incubation_max: 21
+  suivi_contacts: 21
+  contagiosite: 8
+  corps_contagieux: false
+  labo_delai_alerte_h: 72
+Autre:
+  nom: "Autre maladie"
+  incubation_min: 2
+  incubation_max: 21
+  suivi_contacts: 21
+  contagiosite: 14
+  corps_contagieux: false
+  labo_delai_alerte_h: 72

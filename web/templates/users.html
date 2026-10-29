@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs — Mapping Épi{% endblock %}
+{% block content %}
+<h1>Utilisateurs</h1>
+{% if err %}<div class="alert err">{{ err }}</div>{% endif %}
+{% if new_pwd %}
+<div class="alert ok"><b>Compte « {{ new_pwd[0] }} »</b> — mot de passe : <code style="font-size:16px">{{ new_pwd[1] }}</code><br>
+Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
+{% endif %}
+<div class="card">
+  <h2 style="margin-top:0">Nouveau compte</h2>
+  <form method="post" class="grid">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="create">
+    <div><label class="f">Identifiant</label><input name="username" placeholder="ex. agent.ganga" pattern="[a-z0-9._\-]{3,32}" required></div>
+    <div><label class="f">Nom complet</label><input name="nom" required></div>
+    <div><label class="f">Zone de santé</label><input name="zs" placeholder="facultatif"></div>
+    <div><label class="f">Rôle</label><select name="role"><option value="agent">Agent (ses cas)</option><option value="admin">Administrateur</option></select></div>
+    <div><label class="f">Mot de passe</label><input name="password" value="{{ suggested }}" minlength="8"></div>
+    <div style="align-self:end"><button class="btn primary" style="width:100%">Créer le compte</button></div>
+  </form>
+</div>
+<div class="card" style="margin-top:14px; overflow-x:auto">
+  <table class="list">
+    <tr><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>ZS</th><th>Fiches</th><th>Statut</th><th>Dernière connexion</th><th></th></tr>
+    {% for u in users %}
+    <tr>
+      <td><b>{{ u.username }}</b></td><td>{{ u.nom }}</td><td><span class="pill">{{ u.role }}</span></td><td>{{ u.zs }}</td>
+      <td>{{ counts.get(u.username, 0) }}</td>
+      <td>{% if u.actif %}actif{% else %}<span style="color:var(--danger)">désactivé</span>{% endif %}</td>
+      <td class="muted">{{ (u.derniere_connexion or "—").replace("T", " ") }}</td>
+      <td class="row" style="justify-content:flex-end">
+        {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer"), ("role", "Rendre agent" if u.is_admin else "Rendre admin")] %}
+        <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}">
+          <input type="hidden" name="username" value="{{ u.username }}"><button class="btn small">{{ label }}</button></form>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

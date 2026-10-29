@@ -1,0 +1,20 @@
+# Données locales : ne jamais publier
+donnees/
+data/
+data_ancienne_version/
+logs/
+exports/
+*.sqlite
+*.sqlite-*
+secret.key
+# Python / outils
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.spec
+.DS_Store

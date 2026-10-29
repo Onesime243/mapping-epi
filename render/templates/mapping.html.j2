@@ -1,0 +1,210 @@
+{% set two = v.rows|length > 1 %}
+<style>
+.m-head { height: 56px; background: linear-gradient(180deg, {{ t.NAVY }} 0%, {{ t.NAVY_DARK }} 100%); color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px; }
+.m-title { font-size: 22px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; max-width: 100%; }
+.m-sub { font-size: 10.5px; opacity: .78; margin-top: 3px; letter-spacing: .3px; }
+.m-wrap { position: absolute; top: 56px; left: 0; right: 0; bottom: 0; padding: 9px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
+
+.m-id { display: grid; grid-template-columns: repeat({{ v.identity|length }}, 1fr); background: #fff;
+  border: 1px solid {{ t.BORDER }}; border-radius: 9px; height: 46px; box-shadow: 0 1px 2px rgba(20,40,70,.06); }
+.m-id > div { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-left: 1px solid {{ t.BORDER }}; padding: 0 6px; min-width: 0; }
+.m-id > div:first-child { border-left: 0; }
+.m-id .k { font-size: 8.5px; letter-spacing: .8px; color: {{ t.MUTED }}; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+.m-id .v { font-size: 14.5px; font-weight: 800; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+.pill { display: inline-block; background: {{ t.NAVY }}; color: #fff; font-size: 10px; font-weight: 800;
+  letter-spacing: .7px; padding: 5px 12px; border-radius: 6px; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+
+.m-tl { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
+.m-tl-head { display: flex; align-items: center; justify-content: space-between; }
+.legend { display: flex; gap: 12px; font-size: 9px; color: {{ t.MUTED }}; align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.lg-exp { background: repeating-linear-gradient(135deg, rgba(46,106,142,.35) 0 3px, rgba(46,106,142,.12) 3px 6px); }
+.lg-con { background: rgba(192,57,43,.28); }
+.m-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: {{ 6 if two else 0 }}px; }
+.m-row { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.bands, .cards { display: grid; column-gap: 6px; }
+.bands { height: 15px; margin-bottom: 3px; }
+.band { border-radius: 4px; font-size: 8.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 6px; }
+.band.exposition { background: repeating-linear-gradient(135deg, rgba(46,106,142,.22) 0 4px, rgba(46,106,142,.08) 4px 8px); color: {{ t.BLUE }}; }
+.band.contagieux { background: rgba(192,57,43,.13); color: {{ t.RED }}; }
+.cards { flex: 1 1 auto; min-height: 0; position: relative; }
+.line { position: absolute; left: 10px; right: 10px; height: 2px; background: #C9D2DD; z-index: 0;
+  top: {{ 4 + (34 if two else 46) + 12 }}px; }
+.card { position: relative; z-index: 1; background: #fff; border: 1px solid {{ t.BORDER }}; border-radius: 8px;
+  overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; box-shadow: 0 1px 3px rgba(20,40,70,.07); }
+.card.uncertain .bar { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.65) 0 5px, transparent 5px 10px); }
+.bar { height: 4px; flex: none; }
+.chead { height: {{ 34 if two else 46 }}px; flex: none; padding: {{ 4 if two else 6 }}px 5px 0; text-align: center; overflow: hidden; font-size: 11px; }
+.cdate { font-size: 1em; font-weight: 800; white-space: nowrap; }
+.cplace { font-size: .98em; font-weight: 700; margin-top: {{ 2 if two else 6 }}px; line-height: 1.15; }
+.cdot { height: 24px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
+.dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 3px #fff; }
+.rel { position: absolute; right: 4px; top: 5px; font-size: 8px; font-weight: 700; color: {{ t.MUTED }};
+  background: {{ t.BG }}; border-radius: 3px; padding: 1px 3px; }
+.rel.j0 { background: {{ t.GREEN }}; color: #fff; }
+.cbody { flex: 1 1 auto; min-height: 0; overflow: hidden; text-align: center; padding: {{ 3 if two else 6 }}px 5px 2px; font-size: 11px; }
+.ctitle { font-weight: 800; font-size: 1.02em; line-height: 1.18; }
+.cdesc { color: {{ t.MUTED }}; font-size: .86em; line-height: 1.3; margin-top: 4px; }
+.badge { flex: none; margin: 4px 6px 6px; border-radius: 5px; color: #fff; font-weight: 800; text-align: center;
+  font-size: {{ 9.5 if two else 10.5 }}px; padding: {{ 3 if two else 5 }}px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: .55em; }
+.chip { display: inline-flex; align-items: center; gap: .25em; font-size: .74em; font-weight: 600; color: {{ t.NAVY }};
+  background: #EDF1F6; border-radius: 1em; padding: .2em .55em; line-height: 1.2; }
+.chip svg { width: 1.05em; height: 1.05em; flex: none; }
+.chip.warn { background: #FBEAE8; color: {{ t.RED }}; }
+.auto-mark { opacity: .8; font-weight: 600; }
+
+.m-panels { flex: none; height: {{ 226 if two else 258 }}px; display: grid; grid-template-columns: 1fr 1.42fr .86fr .92fr; gap: 10px; }
+.panel { background: #fff; border: 1px solid {{ t.BORDER }}; border-radius: 9px; padding: 9px 11px 9px; display: flex;
+  flex-direction: column; min-width: 0; min-height: 0; box-shadow: 0 1px 3px rgba(20,40,70,.07); }
+.panel .pill { align-self: flex-start; margin-bottom: 8px; }
+.pbody { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 10.5px; }
+.rows { display: flex; flex-direction: column; gap: .48em; }
+.prow { display: grid; align-items: center; gap: .6em; }
+.pl { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr) auto; }
+.pl .tag { min-width: 6.4em; }
+.pl .nm { font-weight: 800; }
+.pl .pp { color: {{ t.MUTED }}; font-size: .9em; line-height: 1.2; }
+.tag { color: #fff; font-weight: 800; border-radius: .4em; text-align: center; padding: .38em .3em; font-size: .9em; line-height: 1.1; }
+.ct { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.2em; row-gap: .5em; }
+.ct .prow { grid-template-columns: minmax(0,1fr) auto auto; }
+.ct .tag { min-width: 4.8em; }
+.ct .nm { font-weight: 700; line-height: 1.2; }
+.ct .num { font-weight: 800; color: {{ t.NAVY }}; text-align: right; white-space: nowrap; }
+.ct .num.q { color: {{ t.RED }}; font-size: 1.1em; }
+.ct .num small { font-weight: 500; color: {{ t.MUTED }}; font-size: .82em; }
+.phrase { color: {{ t.RED }}; font-weight: 700; font-size: .92em; margin-top: .75em; line-height: 1.3; text-align: center; }
+.ipc .prow { grid-template-columns: minmax(0,1fr) auto; }
+.ipc .tag { min-width: 4.6em; padding: .38em .55em; }
+.ipc .nm { font-weight: 700; }
+.note { color: {{ t.MUTED }}; font-size: .88em; margin-top: .7em; line-height: 1.3; }
+.ac { display: flex; flex-direction: column; gap: .62em; }
+.ac div { display: flex; gap: .65em; align-items: flex-start; font-weight: 700; line-height: 1.25; }
+.ac div.done { color: {{ t.MUTED }}; text-decoration: line-through; }
+.ac b { flex: none; width: .72em; height: .72em; border-radius: 50%; margin-top: .25em; }
+.ac-note { font-size: .8em; color: {{ t.MUTED }}; font-weight: 500; margin-top: .5em; font-style: italic; }
+
+.m-foot { flex: none; height: 24px; background: #E7EBF0; border: 1px solid {{ t.BORDER }}; border-radius: 6px;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 9.5px; color: {{ t.MUTED }}; gap: 16px; }
+.m-foot span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-foot span:last-child { white-space: nowrap; font-size: 8.5px; }
+</style>
+
+<div class="page mapping">
+  <div class="m-head">
+    <div class="m-title" data-fit="13" data-max="22">{{ v.title }}</div>
+    <div class="m-sub">{{ v.subtitle }}</div>
+  </div>
+  <div class="m-wrap">
+    <div class="m-id">
+      {% for c in v.identity %}
+      <div{% if c.tip %} title="{{ c.tip }}"{% endif %}><span class="k">{{ c.k }}</span><span class="v"{% if c.color %} style="color:{{ c.color }}"{% endif %}>{{ c.v }}</span></div>
+      {% endfor %}
+    </div>
+
+    <div class="m-tl">
+      <div class="m-tl-head">
+        <span class="pill">Chronologie du parcours</span>
+        <div class="legend">
+          <span><i class="lg-exp"></i>Fenêtre d'exposition probable</span>
+          <span><i class="lg-con"></i>Période contagieuse</span>
+          <span>J±n : jours depuis le début des symptômes</span>
+        </div>
+      </div>
+      <div class="m-rows">
+      {% for row in v.rows %}
+        {% set ncol = row|length if row|length > 0 else 1 %}
+        <div class="m-row">
+          <div class="bands" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
+            {% for b in v.bands[loop.index0] %}
+            <div class="band {{ b.phase }}" style="grid-column: {{ b.col }} / span {{ b.span }};">{{ b.label }}</div>
+            {% endfor %}
+          </div>
+          <div class="cards" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
+            <div class="line"></div>
+            {% for c in row %}
+            <div class="card{% if c.uncertain %} uncertain{% endif %}" title="{{ c.reason }}">
+              <div class="bar" style="background-color: {{ c.type_color }};"></div>
+              <div class="chead" data-fit="7" data-max="{{ 11.5 if two else 12.5 }}" data-group="chead">
+                <div class="cdate" style="color: {{ c.type_color }};">{{ c.date }}</div>
+                <div class="cplace">{{ c.place }}</div>
+              </div>
+              <div class="cdot">
+                <span class="dot" style="background: {{ c.type_color }};">{{ c.icon | safe }}</span>
+                {% if c.rel %}<span class="rel{% if c.rel == 'J0' %} j0{% endif %}">{{ c.rel }}</span>{% endif %}
+              </div>
+              <div class="cbody" data-fit="6.5" data-max="{{ 12 if two else 14 }}" data-group="cbody">
+                <div class="ctitle">{{ c.title }}</div>
+                {% if c.desc %}<div class="cdesc">{{ c.desc }}</div>{% endif %}
+                {% if c.chips %}<div class="chips">{% for ch in (c.chips[:1] if two else c.chips) %}<span class="chip{% if ch.warn %} warn{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}</div>{% endif %}
+              </div>
+              <div class="badge" style="background: {{ c.risk_color }};">{{ c.risk }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+
+    <div class="m-panels">
+      <div class="panel">
+        <span class="pill">Lieux &amp; expositions</span>
+        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
+          <div class="rows">
+          {% for p in v.places %}
+            <div class="prow pl"><span class="nm">{{ p.n }}. {{ p.name }}</span><span class="pp">{{ p.popu }}</span><span class="tag" style="background: {{ p.color }};">{{ p.risk }}</span></div>
+          {% else %}
+            <div class="note">Aucun lieu renseigné.</div>
+          {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="pill">Contacts à identifier / suivre</span>
+        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
+          <div class="ct">
+          {% for c in v.contacts %}
+            <div class="prow"><span class="nm">{{ c.name }}</span><span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span><span class="tag" style="background: {{ c.color }};">{{ c.risk }}</span></div>
+          {% else %}
+            <div class="note">Aucune catégorie de contacts renseignée.</div>
+          {% endfor %}
+          </div>
+          <div class="phrase">{{ v.contact_phrase }}</div>
+        </div>
+      </div>
+
+      <div class="panel ipc">
+        <span class="pill">PCI / décontamination</span>
+        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
+          <div class="rows">
+          {% for x in v.ipc %}
+            <div class="prow"><span class="nm">{{ x.site }}</span><span class="tag" style="background: {{ x.color }};">{{ x.status }}</span></div>
+          {% endfor %}
+          </div>
+          <div class="note">{{ v.ipc_phrase }}</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="pill">Actions immédiates</span>
+        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
+          <div class="ac">
+          {% for a in v.actions %}
+            <div{% if a.done %} class="done"{% endif %}><b style="background: {{ a.color }};"></b><span>{{ a.t }}</span></div>
+          {% endfor %}
+          </div>
+          {% if v.actions_auto %}<div class="ac-note">Actions suggérées automatiquement — à valider.</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="m-foot"><span>{{ v.footer }}</span><span>{{ v.meta }}</span></div>
+  </div>
+</div>

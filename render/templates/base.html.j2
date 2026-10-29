@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<base href="{{ assets }}">
+<title>{{ title }}</title>
+<style>
+@font-face { font-family: 'Inter'; font-weight: 400; src: url('fonts/Inter-Regular.otf'); }
+@font-face { font-family: 'Inter'; font-weight: 500; src: url('fonts/Inter-Medium.otf'); }
+@font-face { font-family: 'Inter'; font-weight: 600; src: url('fonts/Inter-SemiBold.otf'); }
+@font-face { font-family: 'Inter'; font-weight: 700; src: url('fonts/Inter-Bold.otf'); }
+@font-face { font-family: 'Inter'; font-weight: 800; src: url('fonts/Inter-ExtraBold.otf'); }
+@page { size: {{ W }}px {{ H }}px; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: {{ W }}px; height: {{ H }}px; overflow: hidden; }
+body {
+  font-family: {{ t.FONT_STACK|safe }}; color: {{ t.TEXT }}; background: {{ t.BG }};
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  -webkit-font-smoothing: antialiased;
+}
+.page { width: {{ W }}px; height: {{ H }}px; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.svgpage { width: {{ W }}px; height: {{ H }}px; background: #fff; }
+.svgpage > svg { display: block; width: {{ W }}px; height: {{ H }}px; }
+.overflow { outline: 2px dashed #ff00aa; }
+{{ extra_css }}
+</style>
+</head>
+<body>
+{{ body | safe }}
+<script>
+(function () {
+  function overflowing(el) {
+    return el.scrollHeight > el.clientHeight + 0.5 || el.scrollWidth > el.clientWidth + 0.5;
+  }
+  function fitOne(el) {
+    var min = parseFloat(el.getAttribute('data-fit')) || 6;
+    var max = parseFloat(el.getAttribute('data-max'));
+    var fs = max || parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = fs + 'px';
+    var guard = 0;
+    while (overflowing(el) && fs > min && guard < 120) { fs -= 0.25; el.style.fontSize = fs + 'px'; guard++; }
+    return fs;
+  }
+  function fitAll() {
+    var groups = {};
+    document.querySelectorAll('[data-fit]').forEach(function (el) {
+      var fs = fitOne(el);
+      var g = el.getAttribute('data-group');
+      if (g) { groups[g] = Math.min(groups[g] || 999, fs); }
+    });
+    Object.keys(groups).forEach(function (g) {
+      document.querySelectorAll('[data-group="' + g + '"]').forEach(function (el) { el.style.fontSize = groups[g] + 'px'; });
+    });
+    document.querySelectorAll('[data-fit]').forEach(function (el) {
+      if (overflowing(el)) { el.classList.add('overflow'); }
+    });
+    window.__fitDone = true;
+  }
+  window.__overflow = function () {
+    return Array.prototype.map.call(document.querySelectorAll('.overflow'), function (e) {
+      return (e.className + ' : ' + e.textContent.replace(/\s+/g, ' ').trim()).slice(0, 90);
+    });
+  };
+  window.__fitDone = false;
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fitAll); } else { fitAll(); }
+  setTimeout(function () { if (!window.__fitDone) fitAll(); }, 1500);
+})();
+</script>
+</body>
+</html>

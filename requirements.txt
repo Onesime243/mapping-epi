@@ -1,0 +1,9 @@
+PySide6>=6.6
+python-pptx>=0.6.23
+Jinja2>=3.1
+pydantic>=2.5
+openpyxl>=3.1
+PyYAML>=6.0
+Flask>=3.0
+waitress>=3.0
+pytest>=8.0

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Connexion — Mapping Épi{% endblock %}
+{% block content %}
+<div class="auth">
+  <h1>Connexion</h1>
+  <form class="card stack" method="post" autocomplete="on">
+    {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div><label class="f" for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus></div>
+    <div><label class="f" for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" style="width:100%">Se connecter</button>
+    <p class="hint">Pas de compte ? Demandez-le à l'administrateur de l'outil.</p>
+  </form>
+</div>
+{% endblock %}
