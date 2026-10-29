@@ -138,4 +138,10 @@ sample_data/           cas de démonstration fictif (lieux, personnes et dates i
 tests/                 pytest
 ```
 
+## Crédits
+
+Système de gestion de l’incident, **SGI-RDC**, avec l’appui de **UMIE-INRB**.
+Équipe de développement : Onesime Mbulayi et al.
+Pour tout contact : [mbonesime@gmail.com](mailto:mbonesime@gmail.com), [dav.ebengo@umie-inrb.org](mailto:dav.ebengo@umie-inrb.org)
+
 Police : Inter (SIL Open Font License). Données géographiques : GRID3 / HDX.

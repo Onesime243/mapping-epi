@@ -20,7 +20,7 @@ from pathlib import Path
 from flask import (Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_file,
                    send_from_directory, session, url_for)
 
-from config import theme
+from config import credits, theme
 from core import pyramide, rules, schema, storage
 from core.models import Action, Case, Event
 from core.paths import data_dir
@@ -106,7 +106,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     @app.context_processor
     def inject():
-        return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": H.APP_VERSION}
+        return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": H.APP_VERSION,
+                "credits": credits}
 
     @app.after_request
     def headers(resp):

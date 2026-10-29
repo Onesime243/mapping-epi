@@ -36,6 +36,10 @@
   {% endwith %}
   {% block content %}{% endblock %}
 </main>
+<footer class="credits">
+  {{ credits.INSTITUTION }} · {{ credits.EQUIPE }} · Pour tout contact :
+  {% for m in credits.CONTACTS %}<a href="mailto:{{ m }}">{{ m }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+</footer>
 {% block scripts %}{% endblock %}
 </body>
 </html>

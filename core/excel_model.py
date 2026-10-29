@@ -426,6 +426,11 @@ def _readme(ws):
     r += 1
     ws.cell(row=r, column=2, value=f"Modèle généré le {datetime.now():%d/%m/%Y} — Mapping Épi").font = \
         Font(italic=True, size=9, color=MUTED)
+    from config import credits
+    for line in (credits.INSTITUTION, credits.EQUIPE, "Pour tout contact : " + ", ".join(credits.CONTACTS)):
+        r += 1
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
+        ws.cell(row=r, column=2, value=line).font = Font(size=9, color=MUTED)
     _print_setup(ws, 1, landscape=False)
 
 

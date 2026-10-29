@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFileDia
                                QVBoxLayout, QWidget)
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
-from config import theme
+from config import credits, theme
 from core import rules, storage
 from core.models import Action, Case, Event
 from render import dashboard, gantt, html_renderer as H, map_view, network
@@ -829,7 +829,9 @@ class MainWindow(QMainWindow):
             "<p><b>Règle d'or :</b> une information inconnue reste « ? ». Ne jamais remplacer par 0.</p>"
             "<p>Dates : JJ/MM/AAAA (clic droit sur un champ date pour l'effacer). "
             "Heures labo : JJ/MM/AAAA HH:MM.</p>"
-            "<p>Sauvegarde automatique toutes les 30 s ; Ctrl+S crée une version dans l'historique.</p>"))
+            "<p>Sauvegarde automatique toutes les 30 s ; Ctrl+S crée une version dans l'historique.</p>"
+            f"<hr><p style='color:#5F6B7A'>{credits.INSTITUTION}<br>{credits.EQUIPE}<br>Pour tout contact : "
+            + ", ".join(f"<a href='mailto:{m}'>{m}</a>" for m in credits.CONTACTS) + "</p>"))
 
     def closeEvent(self, e):
         self.stop_web()
