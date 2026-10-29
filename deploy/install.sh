@@ -119,10 +119,15 @@ echo "$DOMAINE" > /etc/mapping-epi/domaine
   if [ -n "${EMAIL:-}" ]; then printf '{\n\temail %s\n}\n\n' "$EMAIL"; fi
   sed -e "s|__DOMAINE__|${DOMAINE}|g" -e "s|__PORT__|${PORT}|g" "$APP_DIR/deploy/Caddyfile.modele"
 } > /etc/caddy/Caddyfile
-install -d -o caddy -g caddy /var/log/caddy 2>/dev/null || true
 caddy validate --config /etc/caddy/Caddyfile >/dev/null
+[ -d /var/log/caddy ] && chown -R caddy:caddy /var/log/caddy
 systemctl enable caddy >/dev/null 2>&1 || true
-systemctl reload caddy 2>/dev/null || systemctl restart caddy
+systemctl restart caddy
+sleep 2
+if ! systemctl is-active --quiet caddy; then
+  rouge "Caddy (HTTPS) n'a pas démarré. Détails : journalctl -u caddy -n 30"
+  exit 1
+fi
 
 vert "[8/8] Vérification…"
 for i in $(seq 1 30); do

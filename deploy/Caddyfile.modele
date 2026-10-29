@@ -13,10 +13,5 @@ __DOMAINE__ {
 			read_timeout 180s
 		}
 	}
-	log {
-		output file /var/log/caddy/mapping-epi.log {
-			roll_size 10MiB
-			roll_keep 5
-		}
-	}
+	# journal : journalctl -u caddy
 }
