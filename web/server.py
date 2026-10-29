@@ -362,6 +362,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
                        case=new.model_dump(mode="json") if request.args.get("echo") else None)
 
     def controls(c: Case) -> dict:
+        try:
+            return _controls(c)
+        except Exception:                       # une donnée mal formée ne doit jamais bloquer la fiche
+            log.exception("Calcul des contrôles impossible pour %s", c.id)
+            return {"score": 0, "missing": ["Contrôles indisponibles : vérifier les données saisies"], "risk": "Inconnu",
+                    "risk_why": "", "risk_color": theme.BLUE, "exposure": None, "contagious": None,
+                    "incubation": [2, 21], "followup": 21,
+                    "contacts": {"phrase": "", "total": 0, "suivis": 0, "pct": None}, "lab_delay": None,
+                    "lab_threshold": 48, "issues": [{"level": "erreur", "msg": "Une donnée empêche les calculs : "
+                                                     "vérifier les lignes vides ou incomplètes des tableaux."}],
+                    "suggestions": [], "computed": {"events": [], "places": [], "contacts": [], "labs": []}}
+
+    def _controls(c: Case) -> dict:
         w = rules.windows(c)
         p = rules.disease_params(c.maladie)
         score, missing = rules.completeness(c)

@@ -47,3 +47,13 @@ def test_contact_list_import(tmp_path):
     assert groups["Famille & amis"].nombre == 2 and groups["Famille & amis"].suivis == 1
     assert groups["Motard(s)"].risque == "Très haut"
     assert str(groups["Famille & amis"].dernier_contact) == "2026-07-29"
+
+
+def test_import_ignores_title_rows_and_empty_categories(demo, tmp_path):
+    from core import rules
+    p = tmp_path / "c.xlsx"
+    storage.export_excel(demo, p)
+    back = storage.import_excel(p)
+    assert all(g.categorie for g in back.contacts)
+    demo.contacts.append(type(demo.contacts[0])(categorie="", nombre=None))
+    rules.suggest_actions(demo)          # ne doit pas planter sur une catégorie vide

@@ -325,9 +325,11 @@ def suggest_actions(case: Case) -> List[Suggestion]:
 
     if case.contacts:
         add("Boucler tous les contacts", "Urgent", s.phrase)
-    unknown = [g.categorie for g in case.contacts if g.nombre is None]
+    unknown = [g.categorie.strip() for g in case.contacts if g.nombre is None and g.categorie.strip()]
     if unknown:
-        add("Identifier " + " / ".join(c[0].lower() + c[1:] if c[:2].isupper() is False else c for c in unknown[:3]) + (" …" if len(unknown) > 3 else ""),
+        def low(c: str) -> str:
+            return c if c[:2].isupper() else c[0].lower() + c[1:]
+        add("Identifier " + " / ".join(low(c) for c in unknown[:3]) + (" …" if len(unknown) > 3 else ""),
             "Urgent", "Catégories de contacts non dénombrées")
     if any(e.type == "Exposition" and event_risk(e, case) in ("À investiguer", "Inconnu") for e in case.events) \
             or not any(e.type == "Exposition" for e in case.events):

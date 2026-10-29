@@ -217,6 +217,8 @@ SHEETS = {
         ("texte", "Action"), ("priorite", "Priorité"), ("responsable", "Responsable"),
         ("echeance", "Échéance"), ("statut", "Statut")]),
 }
+# colonnes pré-remplies par défaut (listes) qui ne suffisent pas à faire une ligne
+DEFAULTED = {"Chronologie": ("type",), "Contacts": ("risque",), "PCI": ("statut",), "Actions": ("priorite", "statut")}
 _LIST_ATTR = {"Chronologie": "events", "Lieux": "places", "Contacts": "contacts", "PCI": "ipc",
               "Laboratoire": "labs", "Actions": "actions"}
 _CHOICES = {
@@ -350,6 +352,10 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
                 except ValueError as exc:
                     errors.append(f"{sheet} ligne {n} : {exc}")
             kw = {k: v for k, v in kw.items() if v is not None or _field_type(model, k)[1]}
+            first_key = cols[0][0]
+            if not str(kw.get(first_key) or "").strip() and not any(
+                    v not in (None, "", False) for k, v in kw.items() if k != first_key and k not in DEFAULTED.get(sheet, ())):
+                continue                       # ligne sans contenu utile
             items.append(model(**kw))
         setattr(data, _LIST_ATTR[sheet], items)
     if errors:
