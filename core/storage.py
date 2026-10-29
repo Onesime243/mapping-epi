@@ -9,9 +9,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional, Tuple, get_args
 
-from openpyxl import Workbook, load_workbook
+from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill
-from openpyxl.worksheet.datavalidation import DataValidation
 
 from config import theme
 from core.models import Action, Case, ContactGroup, Event, IPCSite, LabSample, Place
@@ -303,40 +302,10 @@ def _from_cell(model, key, v):
     return str(v).strip()
 
 
-def export_excel(case: Case, path: Path | str) -> None:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Cas"
-    ws.append(["Champ", "Valeur"])
-    for c in ws[1]:
-        c.fill, c.font = _HEAD_FILL, _HEAD_FONT
-    for key, label in _CASE_FIELDS:
-        ws.append([label, _to_cell(getattr(case, key))])
-    ws.column_dimensions["A"].width = 30
-    ws.column_dimensions["B"].width = 50
-    for sheet, (model, cols) in SHEETS.items():
-        sh = wb.create_sheet(sheet)
-        sh.append([label for _, label in cols])
-        for c in sh[1]:
-            c.fill, c.font = _HEAD_FILL, _HEAD_FONT
-        for item in getattr(case, _LIST_ATTR[sheet]):
-            row = []
-            for key, _ in cols:
-                v = getattr(item, key)
-                if key in ("nombre", "suivis") and v is None and sheet == "Contacts":
-                    v = "?"
-                row.append(_to_cell(v))
-            sh.append(row)
-        for i, (key, _) in enumerate(cols):
-            letter = sh.cell(row=1, column=i + 1).column_letter
-            sh.column_dimensions[letter].width = 22
-            if (sheet, key) in _CHOICES:
-                dv = DataValidation(type="list", formula1='"' + ",".join(_CHOICES[(sheet, key)]) + '"',
-                                    allow_blank=True)
-                sh.add_data_validation(dv)
-                dv.add(f"{letter}2:{letter}500")
-        sh.freeze_panes = "A2"
-    wb.save(str(path))
+def export_excel(case: Case, path: Path | str, preview_png: Optional[Path] = None) -> None:
+    """Classeur mis en forme (modèle de saisie), réimportable tel quel : voir core/excel_model.py."""
+    from core.excel_model import save_workbook
+    save_workbook(case, path, preview_png)
 
 
 def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
@@ -345,8 +314,8 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
     errors: List[str] = []
     if "Cas" in wb.sheetnames:
         labels = {label: key for key, label in _CASE_FIELDS}
-        for row in wb["Cas"].iter_rows(min_row=2, values_only=True):
-            if not row or row[0] not in labels:
+        for row in wb["Cas"].iter_rows(min_row=1, values_only=True):
+            if not row or len(row) < 2 or row[0] not in labels:
                 continue
             key, v = labels[row[0]], row[1]
             try:
@@ -362,10 +331,16 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
         rows = list(wb[sheet].iter_rows(values_only=True))
         if not rows:
             continue
-        header = [str(h or "").strip() for h in rows[0]]
+        # la ligne d'en-têtes est la première (parmi les 6 premières) qui contient le libellé de la 1re colonne
+        hrow = 0
+        for i, r in enumerate(rows[:6]):
+            if cols[0][1] in [str(h or "").strip() for h in r]:
+                hrow = i
+                break
+        header = [str(h or "").strip() for h in rows[hrow]]
         idx = {key: header.index(label) for key, label in cols if label in header}
         items = []
-        for n, r in enumerate(rows[1:], start=2):
+        for n, r in enumerate(rows[hrow + 1:], start=hrow + 2):
             if not r or all(v in (None, "") for v in r):
                 continue
             kw = {}

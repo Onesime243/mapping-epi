@@ -76,6 +76,7 @@ def test_web_flow(app):
                  headers={"Content-Type": "application/json"}).status_code == 400   # sans jeton CSRF
     for k in ("mapping", "network", "route", "gantt", "dashboard"):
         assert c.get(f"/cas/{cid}/apercu/{k}").status_code == 200
+    assert c.get("/modele-excel").status_code == 200
     for fmt in ("svg", "pptx", "json", "xlsx"):
         r = c.get(f"/cas/{cid}/telecharger/{fmt}")
         assert r.status_code == 200 and len(r.data) > 1000

@@ -483,6 +483,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
             pass
         return send_file(io.BytesIO(data), as_attachment=True, download_name=name)
 
+    @app.route("/modele-excel")
+    @login_required
+    def excel_model():
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.xlsx"
+        storage.export_excel_template(out)
+        return _send_and_delete(out, "Modele_Mapping_ZS_vierge.xlsx")
+
     @app.route("/sante")
     def health():
         return jsonify(ok=True, version=H.APP_VERSION)
