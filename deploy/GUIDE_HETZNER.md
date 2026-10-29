@@ -99,6 +99,29 @@ mapping-epi ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site 
 `mapping-epi sites` liste les sites, `mapping-epi maj-site NOM` force une mise à jour,
 `mapping-epi retirer-site NOM` le retire.
 
+## Héberger les outils provinciaux Ebola (Nord-Kivu, Tshopo…)
+
+Les outils provinciaux (dépôt des fichiers par les zones, analyses, rapports, comptes) tournent sur le serveur
+au lieu du Mac + Tailscale : ils restent accessibles même Mac éteint.
+
+1. Sur le Mac, double-cliquez **`07_ENVOYER_AU_SERVEUR_MAC.command`** dans le dossier de l’outil
+   (ou : `bash deploy/envoyer_outil_mac.sh ~/Documents/…/Ebola_NK_Hub nord-kivu 8790`).
+   Le mot de passe root du serveur est demandé une fois. Code, comptes et données sont envoyés et installés.
+2. Ouvrez l’adresse affichée (ex. `https://nord-kivu.<ip>.sslip.io`), connectez-vous avec le compte provincial
+   habituel et lancez **Analyser** une première fois (les rapports sont refaits sur le serveur).
+
+Ensuite le serveur est la référence : les zones y déposent leurs fichiers. Relancer le `.command` met à jour le
+code ; il demande avant de remplacer les données du serveur par celles du Mac.
+
+| Commande (serveur) | Effet |
+|---|---|
+| `mapping-epi outils` | outils installés, adresse, état |
+| `mapping-epi journal-outil nord-kivu` | erreurs de l’outil |
+| `mapping-epi analyser-outil nord-kivu` | analyse complète en ligne de commande |
+| `mapping-epi retirer-outil nord-kivu` | retirer l’outil (fichiers conservés) |
+
+Données et comptes des outils : sauvegardés chaque nuit avec Mapping Épi (7 jours conservés).
+
 ## Sécurité mise en place
 
 - HTTPS automatique (certificat Let's Encrypt renouvelé tout seul).

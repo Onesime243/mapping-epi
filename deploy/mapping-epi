@@ -6,6 +6,9 @@ DATA_DIR=/var/lib/mapping-epi
 BACKUP_DIR=/var/backups/mapping-epi
 SVC_USER=mappingepi
 PY="$APP_DIR/.venv/bin/python"
+OUTILS_DIR=/srv/outils            # outils provinciaux Ebola (Nord-Kivu, Tshopo…) : un dossier par outil
+OUTILS_VENV=/opt/outils-venv
+OUTILS_USER=outils
 
 [ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
 
@@ -18,7 +21,13 @@ case "${1:-aide}" in
     out="$(manage sauvegarde /tmp)"
     mv "$out" "$BACKUP_DIR/" && chmod 600 "$BACKUP_DIR/$(basename "$out")"
     find "$BACKUP_DIR" -name 'mapping_epi_*.tar.gz' -mtime +14 -delete
-    echo "Sauvegarde : $BACKUP_DIR/$(basename "$out")" ;;
+    echo "Sauvegarde : $BACKUP_DIR/$(basename "$out")"
+    for d in "$OUTILS_DIR"/*/; do                       # données et comptes des outils provinciaux (7 jours)
+      [ -f "$d/scripts/serveur.py" ] || continue
+      n="$(basename "$d")"; f="$BACKUP_DIR/outil_${n}_$(date +%Y%m%d_%H%M).tar.gz"
+      tar czf "$f" -C "$d" donnees config 2>/dev/null && chmod 600 "$f" && echo "Sauvegarde : $f"
+    done
+    find "$BACKUP_DIR" -name 'outil_*.tar.gz' -mtime +7 -delete ;;
   mise-a-jour)
     "$0" sauvegarde
     git -C "$APP_DIR" fetch -q origin main && git -C "$APP_DIR" reset -q --hard origin/main
@@ -116,6 +125,102 @@ CADDY
     systemctl reload caddy
     [ -d "/srv/sites/$nom" ] && mv "/srv/sites/$nom" "/srv/sites/.retire-$nom-$(date +%Y%m%d%H%M)"
     echo "Site $nom retiré (fichiers conservés dans /srv/sites/.retire-$nom-…)." ;;
+  installer-outil)
+    # mapping-epi installer-outil NOM PORT [SOUS_DOMAINE]
+    # Outil provincial (serveur Python avec comptes, dépôt de fichiers, analyses) déjà copié dans /srv/outils/NOM
+    nom="${2:?Usage : mapping-epi installer-outil NOM PORT [sous-domaine]}"
+    port="${3:?Indiquez le port local de l’outil (ex. 8790)}"
+    case "$nom" in *[!a-z0-9-]*|"") echo "NOM : minuscules, chiffres et tirets uniquement."; exit 1;; esac
+    case "$port" in *[!0-9]*|"") echo "PORT : un nombre (ex. 8790)."; exit 1;; esac
+    dir="$OUTILS_DIR/$nom"
+    [ -f "$dir/scripts/serveur.py" ] || { echo "Outil introuvable : $dir/scripts/serveur.py (envoyez d’abord l’outil depuis le Mac)."; exit 1; }
+    id "$OUTILS_USER" >/dev/null 2>&1 || useradd --system --home-dir "$OUTILS_DIR" --shell /usr/sbin/nologin "$OUTILS_USER"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fonts-dejavu-core fonts-liberation fonts-crosextra-carlito >/dev/null 2>&1 || true
+    [ -x "$OUTILS_VENV/bin/python" ] || python3 -m venv "$OUTILS_VENV"
+    echo "Bibliothèques Python de l’outil (quelques minutes la première fois)…"
+    "$OUTILS_VENV/bin/pip" install -q --upgrade pip >/dev/null
+    "$OUTILS_VENV/bin/pip" install -q -r "$dir/requirements.txt"
+    find "$dir" -name '._*' -delete 2>/dev/null || true
+    mkdir -p "$dir/.cache" && chown -R "$OUTILS_USER:$OUTILS_USER" "$dir" && chmod 750 "$OUTILS_DIR" "$dir"
+    chown root:"$OUTILS_USER" "$OUTILS_DIR"
+    cat > "/etc/systemd/system/outil-$nom.service" <<UNIT
+[Unit]
+Description=Ebola Outbreak - outil provincial $nom
+After=network.target
+
+[Service]
+User=$OUTILS_USER
+Group=$OUTILS_USER
+WorkingDirectory=$dir
+Environment=HOME=$dir PYTHONUTF8=1 PYTHONIOENCODING=utf-8 MPLCONFIGDIR=$dir/.cache/matplotlib MPLBACKEND=Agg
+ExecStart=$OUTILS_VENV/bin/python -u scripts/serveur.py --port $port --sans-navigateur
+Restart=always
+RestartSec=5
+Nice=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=$dir
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    ip="$(curl -4fsS https://api.ipify.org || hostname -I | awk '{print $1}')"
+    domaine="${4:-$nom}"
+    case "$domaine" in *.*) ;; *) domaine="${domaine}.${ip//./-}.sslip.io";; esac
+    install -d -m 755 /etc/caddy/sites
+    grep -q 'import /etc/caddy/sites/' /etc/caddy/Caddyfile \
+      || printf '\n# Autres sites hébergés sur ce serveur\nimport /etc/caddy/sites/*.caddy\n' >> /etc/caddy/Caddyfile
+    cat > "/etc/caddy/sites/outil-$nom.caddy" <<CADDY
+$domaine {
+	encode gzip zstd
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Frame-Options SAMEORIGIN
+		X-Robots-Tag "noindex, nofollow"
+		Strict-Transport-Security "max-age=31536000"
+	}
+	reverse_proxy 127.0.0.1:$port
+}
+CADDY
+    if ! caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1; then
+      echo "Configuration Caddy invalide, adresse retirée."; rm -f "/etc/caddy/sites/outil-$nom.caddy"; exit 1
+    fi
+    systemctl daemon-reload && systemctl enable -q "outil-$nom" && systemctl restart "outil-$nom"
+    systemctl reload caddy
+    sleep 3
+    if curl -fsS -o /dev/null "http://127.0.0.1:$port/tableau/ping.js"; then
+      echo
+      echo "Outil « $nom » en ligne : https://$domaine"
+      echo "  Comptes : les mêmes que sur le Mac. Données du serveur sauvegardées chaque nuit."
+      [ -d "$dir/sortie" ] || echo "  Première fois : connectez-vous avec le compte provincial et lancez « Analyser » pour produire les rapports."
+    else
+      echo "L outil ne répond pas : mapping-epi journal-outil $nom"; exit 1
+    fi ;;
+  outils)
+    for d in "$OUTILS_DIR"/*/; do
+      [ -f "$d/scripts/serveur.py" ] || { echo "Aucun outil provincial installé."; break; }
+      n="$(basename "$d")"
+      echo "$n  →  https://$(head -n1 "/etc/caddy/sites/outil-$n.caddy" 2>/dev/null | awk '{print $1}')  [$(systemctl is-active "outil-$n")]  données : $(du -sh "$d/donnees" 2>/dev/null | cut -f1)"
+    done ;;
+  journal-outil)
+    journalctl -u "outil-${2:?Usage : mapping-epi journal-outil NOM}" -n "${3:-80}" --no-pager ;;
+  redemarrer-outil)
+    systemctl restart "outil-${2:?Usage : mapping-epi redemarrer-outil NOM}" && echo "Redémarré." ;;
+  analyser-outil)
+    nom="${2:?Usage : mapping-epi analyser-outil NOM [options de tout.py]}"; shift 2
+    cd "$OUTILS_DIR/$nom" && sudo -u "$OUTILS_USER" env HOME="$OUTILS_DIR/$nom" MPLCONFIGDIR="$OUTILS_DIR/$nom/.cache/matplotlib" PYTHONUTF8=1 \
+      nice -n 5 "$OUTILS_VENV/bin/python" -u scripts/tout.py "$@" ;;
+  retirer-outil)
+    nom="${2:?Usage : mapping-epi retirer-outil NOM}"
+    systemctl disable --now "outil-$nom" 2>/dev/null || true
+    rm -f "/etc/systemd/system/outil-$nom.service" "/etc/caddy/sites/outil-$nom.caddy"
+    systemctl daemon-reload; systemctl reload caddy
+    [ -d "$OUTILS_DIR/$nom" ] && mv "$OUTILS_DIR/$nom" "$OUTILS_DIR/.retire-$nom-$(date +%Y%m%d%H%M)"
+    echo "Outil $nom retiré (fichiers conservés dans $OUTILS_DIR/.retire-$nom-…)." ;;
   *)
     cat <<'TXT'
 Mapping Épi — commandes :
@@ -131,6 +236,9 @@ Mapping Épi — commandes :
 Autres sites (statiques) sur ce serveur :
   ajouter-site NOM DEPOT [SOUS-DOMAINE]   ex. ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site outbreak
   sites | maj-site NOM | retirer-site NOM
+Outils provinciaux Ebola (Nord-Kivu, Tshopo…) envoyés depuis le Mac dans /srv/outils/NOM :
+  installer-outil NOM PORT [SOUS-DOMAINE]  ex. installer-outil nord-kivu 8790
+  outils | journal-outil NOM | redemarrer-outil NOM | analyser-outil NOM | retirer-outil NOM
 TXT
     ;;
 esac
