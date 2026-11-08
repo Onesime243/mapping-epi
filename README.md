@@ -1,8 +1,8 @@
-# Mapping Épi — parcours épidémiologique des cas
+# Mapping Épi : parcours épidémiologique des cas
 
 Outil pour saisir l'investigation d'un cas (MVE, Marburg, Mpox, choléra…) et générer automatiquement le
 **« Mapping complet – parcours épidémiologique »** : chronologie, lieux & expositions, contacts,
-PCI / décontamination, actions immédiates — plus le réseau de contacts, la carte du parcours, la frise
+PCI / décontamination, actions immédiates, plus le réseau de contacts, la carte du parcours, la frise
 temporelle et un tableau de bord multi-cas.
 
 Deux façons de l'utiliser, **sur les mêmes données locales** :
@@ -73,7 +73,7 @@ sur un petit serveur Hetzner (≈ 6–7 $/mois) en **une commande** :
 curl -fsSL https://raw.githubusercontent.com/Onesime243/mapping-epi/main/deploy/install.sh | bash
 ```
 
-Guide pas à pas : [deploy/GUIDE_HETZNER.md](deploy/GUIDE_HETZNER.md) — HTTPS automatique, pare-feu,
+Guide pas à pas : [deploy/GUIDE_HETZNER.md](deploy/GUIDE_HETZNER.md) : HTTPS automatique, pare-feu,
 sauvegardes quotidiennes, comptes par agent, commande `mapping-epi` pour l'administration.
 
 ---
@@ -124,7 +124,7 @@ saisie : elle est mémorisée et proposée ensuite (`donnees/pyramide_perso.csv`
   paramètres dans `config/diseases.yaml`), jours relatifs sur chaque étape.
 - Risque suggéré par règles explicites (règle visible en info-bulle), risque global, contrôles de cohérence,
   trous de chronologie, actions suggérées, fin du suivi des contacts, délai laboratoire.
-- Les inconnues restent « ? » — jamais 0.
+- Les inconnues restent « ? », jamais 0.
 - Exports : PNG HD / 4K, PDF, SVG, **PowerPoint modifiable**, rapport complet, Excel, JSON.
 
 ---

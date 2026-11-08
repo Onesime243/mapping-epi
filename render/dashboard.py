@@ -92,7 +92,7 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
         risk, _ = rules.global_risk(c)
         col = theme.risk_color(risk)
         lab = K.ellipsize(c.code_cas.strip() or (f"Cas {c.rang}" if c.rang else "Cas ?"), 2 * r - 8, 11 if r > 25 else 9, 800)
-        nodes.append(f'<g><title>{K.esc(case_label(c))} — {K.esc(c.aire_sante or "?")} — risque {K.esc(risk)}</title>'
+        nodes.append(f'<g><title>{K.esc(case_label(c))}, {K.esc(c.aire_sante or "?")}, risque {K.esc(risk)}</title>'
                      f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{theme.NAVY}" stroke="{col}" stroke-width="5" filter="url(#sh)"/>'
                      f'<text x="{x:.1f}" y="{y + 1:.1f}" text-anchor="middle" fill="#fff" font-size="{11 if r > 25 else 9}" '
                      f'font-weight="800">{K.esc(lab)}</text>'

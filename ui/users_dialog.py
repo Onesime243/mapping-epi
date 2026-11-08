@@ -82,7 +82,7 @@ class UsersDialog(QDialog):
         self.table.setRowCount(len(us))
         for r, u in enumerate(us):
             for c, v in enumerate([u.username, u.nom, u.role, u.zs, "oui" if u.actif else "non",
-                                   (u.derniere_connexion or "—").replace("T", " ")]):
+                                   (u.derniere_connexion or "jamais").replace("T", " ")]):
                 it = QTableWidgetItem(v)
                 if c == 4 and not u.actif:
                     it.setForeground(QColor("#C0392B"))

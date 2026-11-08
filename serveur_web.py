@@ -38,7 +38,7 @@ def main() -> int:
     from web.server import create_app
     app = create_app()
     host = "127.0.0.1" if (args.local or args.public) else "0.0.0.0"
-    print("\n  Mapping Épi — version web")
+    print("\n  Mapping Épi : version web")
     print(f"  Sur cet ordinateur : http://localhost:{args.port}")
     if not (args.local or args.public):
         for u in lan_urls(args.port):

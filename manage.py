@@ -90,7 +90,7 @@ def main(argv) -> int:
     if cmd == "utilisateurs":
         for u in us.list():
             print(f"{u.username:24} {u.role:6} {'actif' if u.actif else 'désactivé':10} {u.nom}  "
-                  f"(dernière connexion : {u.derniere_connexion or '—'})")
+                  f"(dernière connexion : {u.derniere_connexion or 'jamais'})")
         return 0
     if cmd in ("mot-de-passe", "desactiver", "activer") and args:
         try:

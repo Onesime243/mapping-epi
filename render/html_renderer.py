@@ -197,7 +197,7 @@ def build_mapping_view(case: Case) -> MappingView:
             desc=ev.description, risk=risk, risk_color=theme.risk_color(risk), type_color=et["color"],
             icon=icon_svg(et["icon"], 13, "#fff", 2.2), rel=rules.relative_day(ev.date_debut, w.j0),
             phase=rules.event_stage(ev, ph), uncertain=ev.date_incertaine or not ev.date_debut,
-            reason=("Saisi" if ev.risque else "Suggéré") + f" — {why}", auto=not ev.risque,
+            reason=("Saisi" if ev.risque else "Suggéré") + f" : {why}", auto=not ev.risque,
             chips=event_chips(ev)))
 
     n = len(cards)

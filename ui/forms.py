@@ -74,7 +74,7 @@ class IdentityTab(QWidget):
         for s, lim in ((self.lat, 90), (self.lon, 180)):
             s.setRange(-lim - 1, lim)
             s.setDecimals(5)
-            s.setSpecialValueText("—")
+            s.setSpecialValueText("vide")
             s.setValue(s.minimum())
         gps = QHBoxLayout()
         gps.addWidget(QLabel("Lat."))
@@ -449,7 +449,7 @@ class ChecksTab(QWidget):
         issues = rules.check_consistency(c)
         col = {"erreur": theme.RED, "alerte": theme.ORANGE, "info": theme.BLUE}
         html = [f"<h3 style='color:{theme.NAVY}'>Synthèse automatique</h3><ul>"]
-        html.append(f"<li><b>Risque global :</b> <span style='color:{theme.risk_color(grisk)}'><b>{grisk}</b></span> — {why}</li>")
+        html.append(f"<li><b>Risque global :</b> <span style='color:{theme.risk_color(grisk)}'><b>{grisk}</b></span> : {why}</li>")
         if w.exposition:
             html.append(f"<li><b>Fenêtre d'exposition probable :</b> {w.exposition[0]:%d/%m/%Y} → {w.exposition[1]:%d/%m/%Y} "
                         f"(J-{p['incubation_max']} → J-{p['incubation_min']})</li>")
@@ -471,7 +471,7 @@ class ChecksTab(QWidget):
         if issues:
             html.append("<ul>")
             for i in issues:
-                html.append(f"<li><span style='color:{col[i.niveau]}'><b>{i.niveau.upper()}</b></span> — {i.message}</li>")
+                html.append(f"<li><span style='color:{col[i.niveau]}'><b>{i.niveau.upper()}</b></span> : {i.message}</li>")
             html.append("</ul>")
         else:
             html.append("<p style='color:#2E8B57'>Aucune incohérence détectée.</p>")

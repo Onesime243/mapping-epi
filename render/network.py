@@ -154,7 +154,7 @@ def render_svg(case: Case) -> str:
                      f'stroke-opacity=".75"/>')
         icon = PLACE_ICON.get(p.type if p else "", "pin")
         shapes.append(f'<circle cx="{nd.x:.1f}" cy="{nd.y:.1f}" r="{nd.r}" fill="{col}" stroke="#fff" stroke-width="3" '
-                      f'filter="url(#sh)"><title>{K.esc(nd.parent)} — {K.esc(risk)}</title></circle>'
+                      f'filter="url(#sh)"><title>{K.esc(nd.parent)} : {K.esc(risk)}</title></circle>'
                       + icon_group(icon, nd.x, nd.y, 24, "#fff", 2))
     for nd in nodes:
         if nd.kind == "group":

@@ -40,7 +40,7 @@ class _CalendarMixin:
         self.setCalendarPopup(True)
         self.setMinimumDate(_sentinel())
         self.setMaximumDate(QDate(2100, 12, 31))
-        self.setSpecialValueText("— inconnue —")
+        self.setSpecialValueText("inconnue")
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda _: self.set_value(None))
         self.setToolTip("Calendrier à partir de " + str(ANNEE_MIN) + ". « inconnue » si la date n'est pas connue. "

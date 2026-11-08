@@ -146,7 +146,7 @@ class Store:
         return self.db.execute(q + " ORDER BY updated DESC", args).fetchall()
 
     def rows_full(self, owner: Optional[str] = None):
-        """(id, modifiée le, compte propriétaire, fiche) — toutes les fiches si owner est None."""
+        """(id, modifiée le, compte propriétaire, fiche) : toutes les fiches si owner est None."""
         q = "SELECT id, updated, owner, data FROM cases"
         args: tuple = ()
         if owner is not None:
@@ -268,7 +268,7 @@ SHEETS = {
         ("texte", "Action"), ("priorite", "Priorité"), ("responsable", "Responsable"),
         ("echeance", "Échéance"), ("statut", "Statut")]),
 }
-# colonnes qui font exister une ligne (les autres seules — risque, type, statut, oui/non — ne suffisent pas)
+# colonnes qui font exister une ligne (les autres seules (risque, type, statut, oui/non) ne suffisent pas)
 ESSENTIEL = {
     "Chronologie": ("date_debut", "date_fin", "lieu", "lieu_arrivee", "titre", "description"),
     "Lieux": ("nom",),

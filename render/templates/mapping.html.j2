@@ -124,7 +124,7 @@
       </div>
       <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
         {% for p in v.phase_strip %}
-        <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} — {{ p.detail }}">
+        <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} : {{ p.detail }}">
           <span class="l1"><b>{{ loop.index }}. {{ p.label }}</b> · {{ p.contag }}</span>
           <span class="l2">{{ p.dates }}</span>
           <span class="l3">{{ p.detail }}</span>
@@ -222,7 +222,7 @@
             {% for a in done %}<div class="done"><i>✓</i><span>{{ a.t }}</span></div>{% endfor %}
           {% endif %}
           </div>
-          {% if v.actions_auto %}<div class="ac-note">Actions suggérées automatiquement — à valider.</div>{% endif %}
+          {% if v.actions_auto %}<div class="ac-note">Actions suggérées automatiquement, à valider.</div>{% endif %}
         </div>
       </div>
     </div>

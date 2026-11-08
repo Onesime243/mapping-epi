@@ -1,4 +1,4 @@
-"""Icônes vectorielles sobres (24×24, trait), dessinées pour l'outil — aucune dépendance externe."""
+"""Icônes vectorielles sobres (24×24, trait), dessinées pour l'outil, aucune dépendance externe."""
 
 ICONS = {
     "alert": '<path d="M12 3 2.5 20h19L12 3z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".6"/>',

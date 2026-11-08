@@ -1,7 +1,7 @@
 """Export PowerPoint NATIF et MODIFIABLE (python-pptx).
 
 Le mapping est reconstruit en formes PowerPoint (rectangles, ovales, zones de
-texte) — pas une image collée : chaque texte, couleur et badge reste éditable
+texte), pas une image collée : chaque texte, couleur et badge reste éditable
 dans PowerPoint, Keynote ou LibreOffice. Géométrie identique à l'aperçu HTML
 (1280×720 px ⇄ 13,333×7,5 pouces).
 """
@@ -349,7 +349,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
                    anchor=MSO_ANCHOR.TOP, color=theme.INK)
         yy += hgt
     if v.actions_auto:
-        S.text(x + 10, panels_y + ph - 20, wd - 20, 14, ["Actions suggérées automatiquement — à valider."],
+        S.text(x + 10, panels_y + ph - 20, wd - 20, 14, ["Actions suggérées automatiquement, à valider."],
                size=6.5, color=theme.MUTED, align=PP_ALIGN.LEFT)
 
     # E. pied de page

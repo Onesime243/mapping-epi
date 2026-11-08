@@ -19,7 +19,7 @@ class Col:
 
 
 EVENT_COLS = [
-    Col("date_debut", "Date début", "date", width=123, tip="JJ/MM/AAAA — vide si inconnue"),
+    Col("date_debut", "Date début", "date", width=123, tip="JJ/MM/AAAA ; vide si inconnue"),
     Col("date_fin", "Date fin", "date", width=123, tip="Pour une période (ex. 01–14/08)"),
     Col("heure", "Heure", width=91, tip="ex. 23h, 04h, 15–17h"),
     Col("heure_approx", "~", "bool", width=41, tip="Heure approximative (affiche ~23h)"),

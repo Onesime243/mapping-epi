@@ -70,8 +70,8 @@ CASE_SECTIONS = [
         ("lon", "Longitude", "GPS facultatif, ex. 24,3912", False, "float"),
     ]),
     ("CLINIQUE ET ISSUE", [
-        ("debut_symptomes", "Début symptômes", "J0 — JJ/MM/AAAA. Sert au calcul des fenêtres d'exposition", True, "date"),
-        ("debut_phase_humide", "Début phase humide", "Diarrhée / vomissements / saignements — vide = détecté dans la chronologie ou estimé J+4", False, "date"),
+        ("debut_symptomes", "Début symptômes", "J0 : JJ/MM/AAAA. Sert au calcul des fenêtres d'exposition", True, "date"),
+        ("debut_phase_humide", "Début phase humide", "Diarrhée / vomissements / saignements ; vide = détecté dans la chronologie ou estimé J+4", False, "date"),
         ("contact_connu", "Contact connu ?", "Contact connu / Contact connu suivi / Non contact / Inconnu", True, "contact"),
         ("symptomes", "Symptômes (séparés par ;)", "ex. Fièvre; Céphalées; Méléna", False, "text"),
         ("symptomes_autres", "Autres symptômes", "", False, "text"),
@@ -92,7 +92,7 @@ CASE_SECTIONS = [
 TABLES = [
     ("Chronologie", "CHRONOLOGIE DU PARCOURS",
      "Une ligne = une étape, dans l'ordre d'affichage. Date inconnue : laisser vide. Risque vide = calcul automatique.",
-     [("date_debut", "Date début", 13, "date", "JJ/MM/AAAA — vide si inconnue"),
+     [("date_debut", "Date début", 13, "date", "JJ/MM/AAAA ; vide si inconnue"),
       ("date_fin", "Date fin", 13, "date", "Pour une période (ex. 01→14/08)"),
       ("heure", "Heure", 10, "text", "ex. 23h, 04h, 15–17h"),
       ("heure_approx", "Heure approx.", 9, "bool", "oui = affiché « ~23h »"),
@@ -124,7 +124,7 @@ TABLES = [
       ("suivis", "Suivis", 9, "int?", "Nombre suivi"),
       ("risque", "Risque", 12, "contact_risk", "Haut / Très haut"),
       ("lieu", "Lieu de contact", 22, "text", "Doit correspondre à un lieu de la feuille Lieux"),
-      ("dernier_contact", "Dernier contact", 14, "date", "JJ/MM/AAAA — fin du suivi = +21 j")]),
+      ("dernier_contact", "Dernier contact", 14, "date", "JJ/MM/AAAA ; fin du suivi = +21 j")]),
     ("PCI", "PCI / DÉCONTAMINATION", "Documenter date, équipe et produit pour chaque site.",
      [("site", "Site", 28, "text", ""), ("statut", "Statut", 14, "ipc", "Décontaminé / Partiel / Non"),
       ("date", "Date", 13, "date", "JJ/MM/AAAA"), ("equipe", "Équipe", 22, "text", ""),
@@ -234,7 +234,7 @@ def build_workbook(case: Optional[Case] = None, preview_png: Optional[Path] = No
 
     # ---- Cas ---------------------------------------------------------------------------
     ws = wb.create_sheet("Cas", 1)
-    _style_title(ws, "FICHE DU CAS — MAPPING DU PARCOURS ÉPIDÉMIOLOGIQUE",
+    _style_title(ws, "FICHE DU CAS : MAPPING DU PARCOURS ÉPIDÉMIOLOGIQUE",
                  "Remplir la colonne « Valeur ». Cases jaunes = indispensables. Inconnu : laisser vide (affiché « ? »).", 3)
     for i, h in enumerate(["Champ", "Valeur", "Aide"], start=1):
         c = ws.cell(row=HEADER_ROW, column=i, value=h)
@@ -378,7 +378,7 @@ def _readme(ws):
     ws.column_dimensions["B"].width = 34
     ws.column_dimensions["C"].width = 90
     ws.merge_cells("B1:C1")
-    ws["B1"] = "MAPPING ÉPI — Modèle Excel de saisie du parcours d'un cas"
+    ws["B1"] = "MAPPING ÉPI : modèle Excel de saisie du parcours d'un cas"
     ws["B1"].font = Font(bold=True, size=16, color=WHITE)
     for col in "ABC":
         ws[f"{col}1"].fill = PatternFill("solid", fgColor=NAVY)
@@ -428,7 +428,7 @@ def _readme(ws):
         ws.cell(row=r, column=3, value=desc)
         r += 1
     r += 1
-    ws.cell(row=r, column=2, value=f"Modèle généré le {datetime.now():%d/%m/%Y} — Mapping Épi").font = \
+    ws.cell(row=r, column=2, value=f"Modèle généré le {datetime.now():%d/%m/%Y} par Mapping Épi").font = \
         Font(italic=True, size=9, color=MUTED)
     from config import credits
     for line in (credits.INSTITUTION, credits.EQUIPE, "Pour tout contact : " + ", ".join(credits.CONTACTS)):

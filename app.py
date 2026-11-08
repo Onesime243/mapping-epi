@@ -1,4 +1,4 @@
-"""Mapping Épi — point d'entrée.
+"""Mapping Épi : point d'entrée.
 
 Lancement :  python app.py
 """

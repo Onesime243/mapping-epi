@@ -79,7 +79,7 @@ class MainWindow(QMainWindow):
         self.settings = QSettings("MappingEpi", "MappingEpi")
         self.exporter = Exporter(self)
         self.exporter.busy.connect(self._busy)
-        self.setWindowTitle("Mapping Épi — parcours épidémiologique des cas")
+        self.setWindowTitle("Mapping Épi : parcours épidémiologique des cas")
         self.resize(1500, 900)
 
         # --- liste des cas -------------------------------------------------
@@ -335,7 +335,7 @@ class MainWindow(QMainWindow):
         out = []
         for name, t in [("Chronologie", self.timeline), ("Lieux", self.places), ("Contacts", self.contacts),
                         ("PCI", self.ipc), ("Laboratoire", self.labs), ("Actions", self.actions_tab)]:
-            out += [f"{name} — {e}" for e in t.editor.errors]
+            out += [f"{name} : {e}" for e in t.editor.errors]
         return out
 
     def mark_dirty(self):
@@ -407,7 +407,7 @@ class MainWindow(QMainWindow):
         lay = QVBoxLayout(dlg)
         lst = QListWidget()
         for vid, ts, auteur, com in self.store.versions(self.case.id):
-            it = QListWidgetItem(f"{ts.replace('T', ' ')} — {auteur}" + (f" — {com}" if com else ""))
+            it = QListWidgetItem(f"{ts.replace('T', ' ')} · {auteur}" + (f" · {com}" if com else ""))
             it.setData(Qt.UserRole, vid)
             lst.addItem(it)
         lay.addWidget(lst)

@@ -173,7 +173,7 @@ def render_svg(case: Case) -> str:
         col = theme.risk_color(risk)
         icon = PLACE_ICON.get(p.type if p else "", "pin")
         nodes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{col}" stroke="#fff" stroke-width="3.5" filter="url(#sh)">'
-                     f'<title>{K.esc(o)} — {K.esc(risk)}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
+                     f'<title>{K.esc(o)} : {K.esc(risk)}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
         lines = K.wrap_px(o, 168, 12, 800, 2)
         dx, dy = x - mx_c, y - my_c
         if abs(dy) >= abs(dx) * 0.6:

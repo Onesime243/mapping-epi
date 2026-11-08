@@ -112,7 +112,7 @@ CADDY
     br="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"
     GIT_LFS_SKIP_SMUDGE=1 git -C "$dir" fetch -q --depth 1 origin "$br" && git -C "$dir" reset -q --hard "origin/$br"
     chmod -R a+rX "$dir"
-    [ -t 1 ] && echo "Site $nom à jour : $(git -C "$dir" log -1 --format='%cd — %s' --date=format:'%d/%m/%Y %H:%M')" ;;
+    [ -t 1 ] && echo "Site $nom à jour : $(git -C "$dir" log -1 --format='%cd · %s' --date=format:'%d/%m/%Y %H:%M')" ;;
   sites)
     for f in /etc/caddy/sites/*.caddy; do
       [ -e "$f" ] || { echo "Aucun autre site hébergé."; break; }
@@ -223,7 +223,7 @@ CADDY
     echo "Outil $nom retiré (fichiers conservés dans $OUTILS_DIR/.retire-$nom-…)." ;;
   *)
     cat <<'TXT'
-Mapping Épi — commandes :
+Mapping Épi : commandes
   creer-admin            créer un compte administrateur
   creer-utilisateur      créer un compte agent (ZS / AS)
   utilisateurs           lister les comptes

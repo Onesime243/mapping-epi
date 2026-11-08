@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Mes cas — Mapping Épi{% endblock %}
+{% block title %}Mes cas · Mapping Épi{% endblock %}
 {% block content %}
 <div class="row" style="justify-content:space-between; margin-bottom:12px">
   <h1 style="margin:0">{{ "Tous les cas" if me.is_admin else "Mes cas" }}</h1>
@@ -24,7 +24,7 @@
     <button class="btn">Filtrer</button>
     {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">Effacer</a>{% endif %}
   </form>
-  <p class="hint">{{ items|length }} fiche(s) affichée(s) sur {{ total }}{% if me.is_admin %} — en tant qu'administrateur, vous voyez et pouvez ouvrir les mappings de <b>tous les comptes</b>{% endif %}.</p>
+  <p class="hint">{{ items|length }} fiche(s) affichée(s) sur {{ total }}{% if me.is_admin %}. En tant qu'administrateur, vous voyez et pouvez ouvrir les mappings de <b>tous les comptes</b>{% endif %}.</p>
   {% if items %}
   <div style="overflow-x:auto"><table class="list">
     <tr><th>ID / fiche</th><th>Province</th><th>ZS</th><th>AS</th><th>J0</th>{% if me.is_admin %}<th>Compte</th>{% endif %}<th>Modifiée le</th><th></th></tr>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Mapping Épi — installation sur un serveur Ubuntu 24.04 (Hetzner Cloud CX23)
+#  Mapping Épi : installation sur un serveur Ubuntu 24.04 (Hetzner Cloud CX23)
 #
 #  Une seule commande, en root, sur le serveur tout neuf :
 #    curl -fsSL https://raw.githubusercontent.com/Onesime243/mapping-epi/main/deploy/install.sh | bash

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Utilisateurs — Mapping Épi{% endblock %}
+{% block title %}Utilisateurs · Mapping Épi{% endblock %}
 {% block content %}
 <h1>Utilisateurs</h1>
 {% if err %}<div class="alert err">{{ err }}</div>{% endif %}
 {% if new_pwd %}
-<div class="alert ok"><b>Compte « {{ new_pwd[0] }} »</b> — mot de passe : <code style="font-size:16px">{{ new_pwd[1] }}</code><br>
+<div class="alert ok"><b>Compte « {{ new_pwd[0] }} »</b> : mot de passe <code style="font-size:16px">{{ new_pwd[1] }}</code><br>
 Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
 {% endif %}
 <div class="card">
@@ -27,7 +27,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
       <td><b>{{ u.username }}</b></td><td>{{ u.nom }}</td><td><span class="pill">{{ u.role }}</span></td><td>{{ u.zs }}</td>
       <td>{{ counts.get(u.username, 0) }}</td>
       <td>{% if u.actif %}actif{% else %}<span style="color:var(--danger)">désactivé</span>{% endif %}</td>
-      <td class="muted">{{ (u.derniere_connexion or "—").replace("T", " ") }}</td>
+      <td class="muted">{{ (u.derniere_connexion or "jamais").replace("T", " ") }}</td>
       <td class="row" style="justify-content:flex-end">
         {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer"), ("role", "Rendre agent" if u.is_admin else "Rendre admin")] %}
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}">

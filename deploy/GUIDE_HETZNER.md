@@ -9,7 +9,7 @@ Durée : 20 à 30 minutes, une seule fois.
 
 ---
 
-## Étape 1 — Créer le serveur (sur le site Hetzner)
+## Étape 1 : Créer le serveur (sur le site Hetzner)
 
 1. Créez un compte sur **console.hetzner.cloud** (carte bancaire ou PayPal ; une vérification
    d'identité peut être demandée).
@@ -24,7 +24,7 @@ Durée : 20 à 30 minutes, une seule fois.
    - Nom : `mapping-epi` → **Créer et acheter**.
 3. Notez l'**adresse IPv4** du serveur (ex. `91.98.12.34`).
 
-## Étape 2 — Installer l'application (une commande)
+## Étape 2 : Installer l'application (une commande)
 
 Sur votre Mac, ouvrez **Terminal** :
 
@@ -49,7 +49,7 @@ Mapping Épi est en ligne :  https://mapping-epi.91-98-12-34.sslip.io
 du serveur, puis lancez :
 `DOMAINE=mapping.mondomaine.org EMAIL=vous@exemple.org bash /opt/mapping-epi/deploy/install.sh`
 
-## Étape 3 — Créer votre compte administrateur
+## Étape 3 : Créer votre compte administrateur
 
 ```bash
 mapping-epi creer-admin
@@ -58,7 +58,7 @@ mapping-epi creer-admin
 Répondez aux questions (identifiant, nom, mot de passe). C'est fait : ouvrez l'adresse https dans votre
 navigateur et connectez-vous.
 
-## Étape 4 — Créer les comptes des ZS / AS
+## Étape 4 : Créer les comptes des ZS / AS
 
 Dans le site, menu **Utilisateurs** → *Nouveau compte* :
 - identifiant (ex. `zs.tumba`, `as.nzala`), nom, zone de santé, rôle **Agent** ;

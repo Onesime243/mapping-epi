@@ -3,7 +3,7 @@
 <div class="auth" style="margin-top:3vh">
   <h1>Mon compte</h1>
   <form class="card stack" method="post">
-    <p class="muted">{{ me.nom }} — identifiant <b>{{ me.username }}</b> ({{ me.role }})</p>
+    <p class="muted">{{ me.nom }} · identifiant <b>{{ me.username }}</b> ({{ me.role }})</p>
     {% if msg %}<div class="alert ok">{{ msg }}</div>{% endif %}
     {% if err %}<div class="alert err">{{ err }}</div>{% endif %}
     <input type="hidden" name="csrf" value="{{ csrf }}">

@@ -12,7 +12,7 @@ BORDER = "#DCE2EA"
 TEXT = "#1B2430"
 MUTED = "#6B7785"
 
-# Couleurs modérées (esprit des cartes épidémiologiques) — teinte « appuyée » pour les traits, icônes et textes
+# Couleurs modérées (esprit des cartes épidémiologiques) : teinte « appuyée » pour les traits, icônes et textes
 BLUE = "#4A7699"     # Inconnu / À investiguer / En cours
 GREEN = "#4F8F58"    # Modéré / Contrôlé / Décontaminé
 ORANGE = "#C77B3A"   # Élevé / Haut / Partiel

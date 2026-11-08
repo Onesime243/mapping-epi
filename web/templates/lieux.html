@@ -1,25 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Lieux fréquentés — Mapping Épi{% endblock %}
+{% block title %}Lieux fréquentés · Mapping Épi{% endblock %}
 {% block content %}
-<h1>Lieux les plus fréquentés — {{ "par aire de santé" if niveau == "as" else "par zone de santé" }}</h1>
+<h1>Lieux les plus fréquentés {{ "par aire de santé" if niveau == "as" else "par zone de santé" }}</h1>
 <p class="hint">Réservé aux administrateurs. Pour tous les cas {{ "d'une même aire de santé" if niveau == "as" else "d'une même zone de santé" }},
   quel que soit le compte qui les a saisis : les lieux d'exposition fréquentés par plusieurs cas (chronologie et lieux des fiches).
   Les écritures d'un même lieu sont regroupées (majuscules, accents, précisions entre parenthèses).</p>
 <div class="card">
   <form class="filters" method="get" id="sel">
     <select name="province" onchange="this.form.zs.value=''; {% if niveau == 'as' %}this.form['as'].value='';{% endif %} this.form.submit()">
-      <option value="">— province —</option>
+      <option value="">Choisir la province…</option>
       {% for p in tree|sort %}<option{% if f.province == p %} selected{% endif %}>{{ p }}</option>{% endfor %}
     </select>
     <select name="zs" onchange="{% if niveau == 'as' %}this.form['as'].value='';{% endif %} this.form.submit()">
-      <option value="">— zone de santé —</option>
+      <option value="">Choisir la zone de santé…</option>
       {% for p, zones in tree|dictsort %}{% if not f.province or f.province == p %}
         {% for z in zones|sort %}<option{% if f.zs == z %} selected{% endif %}>{{ z }}</option>{% endfor %}
       {% endif %}{% endfor %}
     </select>
     {% if niveau == "as" %}
     <select name="as" onchange="this.form.submit()">
-      <option value="">— aire de santé —</option>
+      <option value="">Choisir l'aire de santé…</option>
       {% for p, zones in tree|dictsort %}{% if not f.province or f.province == p %}{% for z, aires in zones|dictsort %}{% if f.zs == z %}
         {% for a in aires %}<option{% if f['as'] == a %} selected{% endif %}>{{ a }}</option>{% endfor %}
       {% endif %}{% endfor %}{% endif %}{% endfor %}
@@ -38,7 +38,7 @@
 {% if ready %}
 <div class="card" style="margin-top:14px">
   <div class="row" style="justify-content:space-between">
-    <h2 style="margin:0">{{ place }} — {{ ncas }} cas, {{ rows|length }} lieu(x) fréquenté(s) par ≥ {{ min_cas }} cas</h2>
+    <h2 style="margin:0">{{ place }} : {{ ncas }} cas, {{ rows|length }} lieu(x) fréquenté(s) par ≥ {{ min_cas }} cas</h2>
     <div class="row">
       <a class="btn small" target="_blank" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='classement') }}?{{ qs }}">Ouvrir le classement</a>
       <a class="btn small" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='classement.svg') }}?{{ qs }}">⬇ Classement (SVG)</a>

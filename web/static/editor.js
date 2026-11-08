@@ -1,4 +1,4 @@
-/* Mapping Épi — éditeur web (sans dépendance externe). */
+/* Mapping Épi : éditeur web (sans dépendance externe). */
 (function () {
   'use strict';
   const ID = window.CASE_ID;
@@ -62,7 +62,7 @@
     sel.innerHTML = '';
     const vals = list.slice();
     if (value && !vals.includes(value)) vals.unshift(value);
-    vals.forEach(v => sel.appendChild(el('option', {value: v, text: v === '' ? (emptyLabel || '—') : v})));
+    vals.forEach(v => sel.appendChild(el('option', {value: v, text: v === '' ? (emptyLabel || 'Choisir…') : v})));
     sel.value = value || '';
   }
   function datalist(id, items) {
@@ -121,14 +121,14 @@
     const fillZs = () => {
       const pk = findKey(PYR, prov.value);
       const zones = pk ? Object.keys(PYR[pk]) : [];
-      options(zs, [''].concat(zones), C.zs || '', '— zone de santé —');
+      options(zs, [''].concat(zones), C.zs || '', 'Choisir la zone de santé…');
       fillAs();
     };
     const fillAs = () => {
       const pk = findKey(PYR, prov.value), zk = pk ? findKey(PYR[pk], zs.value) : null;
       as.setAttribute('list', datalist('dl-as', zk ? PYR[pk][zk] : []));
     };
-    options(prov, [''].concat(Object.keys(PYR)), C.province || '', '— province —');
+    options(prov, [''].concat(Object.keys(PYR)), C.province || '', 'Choisir la province…');
     prov.addEventListener('change', () => { C.province = prov.value; C.zs = ''; C.aire_sante = ''; as.value = ''; fillZs(); changed(); });
     zs.addEventListener('change', () => { C.zs = zs.value; C.aire_sante = ''; as.value = ''; fillAs(); changed(); });
     as.value = C.aire_sante || '';
@@ -279,7 +279,7 @@
         op('✕', 'Supprimer', () => { C[table].splice(i, 1); renderTable(table); changed(); })]));
       body.appendChild(tr);
     });
-    if (!C[table].length) body.appendChild(el('tr', {}, [el('td', {colspan: cols.length + 1, class: 'muted', text: 'Aucune ligne — cliquez sur « Ajouter ».', style: 'padding:14px'})]));
+    if (!C[table].length) body.appendChild(el('tr', {}, [el('td', {colspan: cols.length + 1, class: 'muted', text: 'Aucune ligne. Cliquez sur « Ajouter ».', style: 'padding:14px'})]));
     t.appendChild(body);
     updateComputed();
   }
@@ -307,14 +307,14 @@
     p.appendChild(el('div', {class: 'row'}, [el('b', {text: 'Complétude : ' + CTRL.score + ' %'})]));
     p.appendChild(el('div', {class: 'bar', style: 'margin:6px 0 14px'}, [el('i', {style: 'width:' + CTRL.score + '%'})]));
     const ul = el('ul');
-    ul.appendChild(el('li', {}, [el('b', {text: 'Risque global : '}), el('span', {text: CTRL.risk, style: 'color:' + CTRL.risk_color + ';font-weight:800'}), ' — ' + CTRL.risk_why]));
+    ul.appendChild(el('li', {}, [el('b', {text: 'Risque global : '}), el('span', {text: CTRL.risk, style: 'color:' + CTRL.risk_color + ';font-weight:800'}), ' : ' + CTRL.risk_why]));
     ul.appendChild(el('li', {}, [el('b', {text: "Fenêtre d'exposition : "}), CTRL.exposure ? fmt(CTRL.exposure[0]) + ' → ' + fmt(CTRL.exposure[1]) + ' (J-' + CTRL.incubation[1] + ' → J-' + CTRL.incubation[0] + ')' : 'renseigner le début des symptômes (onglet Clinique).']));
     if (CTRL.contagious) ul.appendChild(el('li', {}, [el('b', {text: 'Période contagieuse : '}), fmt(CTRL.contagious[0]) + ' → ' + fmt(CTRL.contagious[1])]));
     ul.appendChild(el('li', {}, [el('b', {text: 'Contacts : '}), CTRL.contacts.phrase + (CTRL.contacts.pct !== null ? ' Suivi : ' + CTRL.contacts.suivis + '/' + CTRL.contacts.total + ' (' + Math.round(CTRL.contacts.pct) + ' %).' : '')]));
     if (CTRL.lab_delay !== null) ul.appendChild(el('li', {}, [el('b', {text: 'Délai laboratoire : '}), CTRL.lab_delay + ' h (seuil ' + CTRL.lab_threshold + ' h)']));
     p.appendChild(ul);
     p.appendChild(el('h2', {text: 'Contrôles de cohérence'}));
-    if (CTRL.issues.length) p.appendChild(el('ul', {class: 'issues'}, CTRL.issues.map(i => el('li', {}, [el('span', {class: 'lvl-' + i.level, text: i.level.toUpperCase()}), ' — ' + i.msg]))));
+    if (CTRL.issues.length) p.appendChild(el('ul', {class: 'issues'}, CTRL.issues.map(i => el('li', {}, [el('span', {class: 'lvl-' + i.level, text: i.level.toUpperCase()}), ' : ' + i.msg]))));
     else p.appendChild(el('p', {style: 'color:var(--ok)', text: 'Aucune incohérence détectée.'}));
     p.appendChild(el('h2', {text: 'Informations critiques manquantes'}));
     if (CTRL.missing.length) p.appendChild(el('ul', {}, CTRL.missing.map(m => el('li', {text: m}))));
