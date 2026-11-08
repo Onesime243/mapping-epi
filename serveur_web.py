@@ -47,9 +47,11 @@ def main() -> int:
     print("  (Ctrl+C pour arrêter)\n", flush=True)
     try:
         from waitress import serve
-        serve(app, host=host, port=args.port, threads=8, trusted_proxy="127.0.0.1" if args.public else None,
-              trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"} if args.public else None,
-              clear_untrusted_proxy_headers=True)
+        opts = {"host": host, "port": args.port, "threads": 8}
+        if args.public:          # derrière Caddy (serveur) : faire confiance aux en-têtes du relais local seulement
+            opts.update(trusted_proxy="127.0.0.1", clear_untrusted_proxy_headers=True,
+                        trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"})
+        serve(app, **opts)
     except ImportError:
         app.run(host=host, port=args.port, threaded=True, debug=False)
     return 0
