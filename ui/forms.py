@@ -90,7 +90,11 @@ class IdentityTab(QWidget):
 
         f.addRow(_hint("Champs marqués * : indispensables au mapping. Une information inconnue reste inconnue : "
                        "ne rien inventer, elle s'affichera « ? »."))
-        f.addRow("Rang du cas * (1er, 2e…)", self.rang)
+        self.code_cas = QLineEdit()
+        self.code_cas.setPlaceholderText("ex. RDC-HUE-WAM-26-001 (lettres et chiffres)")
+        self.code_cas.textChanged.connect(self.changed)
+        f.addRow("ID du cas *", self.code_cas)
+        f.addRow("Rang du cas (1er, 2e…)", self.rang)
         f.addRow("Maladie *", self.maladie)
         f.addRow("Statut", self.statut)
         f.addRow("Sexe *", self.sexe)
@@ -142,6 +146,7 @@ class IdentityTab(QWidget):
 
     def load(self, c: Case):
         self.rang.setValue(c.rang or 0)
+        self.code_cas.setText(c.code_cas)
         self.maladie.setCurrentText(c.maladie)
         self.statut.setCurrentText(c.statut)
         self.sexe.setCurrentText(c.sexe)
@@ -164,6 +169,7 @@ class IdentityTab(QWidget):
 
     def save(self, c: Case):
         c.rang = self.rang.value() or None
+        c.code_cas = self.code_cas.text().strip()
         c.maladie = self.maladie.currentText().strip() or "Autre"
         c.statut = self.statut.currentText()
         c.sexe = self.sexe.currentText()
@@ -202,15 +208,30 @@ class ClinicTab(QWidget):
         lay.addWidget(_hint("J0 = date rapportée par l'équipe. Elle sert à estimer le point d'infection (J-21 → J-2 pour la MVE), "
                             "puis l'incubation, la phase sèche et la phase humide. Phase humide vide : détectée dans la "
                             "chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."))
-        box = QGroupBox("Symptômes")
-        g = QGridLayout(box)
         self.checks: Dict[str, QCheckBox] = {}
-        for i, s in enumerate(theme.SYMPTOMS):
-            cb = QCheckBox(s + (" 🩸" if s in theme.HEMORRHAGIC else ""))
-            cb.toggled.connect(self.changed)
-            self.checks[s] = cb
-            g.addWidget(cb, i // 3, i % 3)
-        lay.addWidget(box)
+        for gname, items in theme.SYMPTOM_GROUPS.items():
+            box = QGroupBox(gname)
+            g = QGridLayout(box)
+            for i, s in enumerate(items):
+                cb = QCheckBox(s + (" 🩸" if s in theme.HEMORRHAGIC else ""))
+                cb.toggled.connect(self.changed)
+                self.checks[s] = cb
+                g.addWidget(cb, i // 3, i % 3)
+            lay.addWidget(box)
+        # symptômes ajoutés par l'utilisateur (absents des listes)
+        self.custom_box = QGroupBox("Symptômes ajoutés")
+        self.custom_grid = QGridLayout(self.custom_box)
+        add_row = QHBoxLayout()
+        self.new_symptom = QLineEdit()
+        self.new_symptom.setPlaceholderText("Symptôme absent de la liste (ex. douleur thoracique)")
+        btn = QPushButton("+ Ajouter le symptôme")
+        btn.clicked.connect(self._add_custom)
+        self.new_symptom.returnPressed.connect(self._add_custom)
+        add_row.addWidget(self.new_symptom, 1)
+        add_row.addWidget(btn)
+        self.custom_grid.addLayout(add_row, 0, 0, 1, 3)
+        self.custom_n = 0
+        lay.addWidget(self.custom_box)
         self.autres = QLineEdit()
         self.autres.setPlaceholderText("Autres symptômes (texte libre)")
         self.autres.textChanged.connect(self.changed)
@@ -221,7 +242,28 @@ class ClinicTab(QWidget):
         self.humide.dateChanged.connect(self.changed)
         self.contact.currentTextChanged.connect(self.changed)
 
+    def _custom_check(self, name: str, checked: bool = True):
+        if name in self.checks:
+            self.checks[name].setChecked(True)
+            return
+        cb = QCheckBox(name)
+        cb.setChecked(checked)
+        cb.toggled.connect(self.changed)
+        self.checks[name] = cb
+        self.custom_grid.addWidget(cb, 1 + self.custom_n // 3, self.custom_n % 3)
+        self.custom_n += 1
+
+    def _add_custom(self):
+        name = self.new_symptom.text().strip()
+        if name:
+            self._custom_check(name[:1].upper() + name[1:])
+            self.new_symptom.clear()
+            self.changed.emit()
+
     def load(self, c: Case):
+        for s in c.symptomes:
+            if s not in self.checks:
+                self._custom_check(s)
         self.debut.set_value(c.debut_symptomes)
         self.deces.set_value(c.date_deces)
         self.humide.set_value(c.debut_phase_humide)

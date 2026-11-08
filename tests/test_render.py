@@ -15,7 +15,7 @@ from render.pptx_exporter import export_mapping_pptx
 def test_mapping_html_structure(demo):
     html = H.render_mapping_html(demo)
     for s in ["CHRONOLOGIE", "Lieux &amp; expositions", "Contacts à identifier / suivre", "PCI / décontamination",
-              "Actions immédiates", "3e CAS CONFIRMÉ MVE | ZS TUMBA", "Minimum documenté : 41 contacts"]:
+              "Actions</span>", "3e CAS CONFIRMÉ MVE | ZS TUMBA", "Minimum documenté : 41 contacts"]:
         assert s.lower() in html.lower(), s
     assert len(re.findall(r'class="card[ "]', html)) == 12
     assert "Incubation" in html and "Phase humide" in html

@@ -11,7 +11,7 @@ import uuid
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 def _id() -> str:
@@ -94,6 +94,7 @@ class Action(BaseModel):
 
 class Case(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    code_cas: str = ""                      # identifiant alphanumérique (ex. N° EPID : RDC-HUE-WAM-26-001)
     rang: Optional[int] = None
     maladie: str = "MVE"
     sexe: str = "Inconnu"
@@ -122,6 +123,18 @@ class Case(BaseModel):
     risque_global: str = ""         # vide = calculé automatiquement
 
     events: List[Event] = Field(default_factory=list)
+
+    @field_validator("symptomes")
+    @classmethod
+    def _symptomes(cls, v):
+        from config.theme import SYMPTOM_ALIASES
+        out: List[str] = []
+        for s in v or []:
+            s = SYMPTOM_ALIASES.get(str(s).strip(), str(s).strip())
+            if s and s not in out:
+                out.append(s)
+        return out
+
     places: List[Place] = Field(default_factory=list)
     contacts: List[ContactGroup] = Field(default_factory=list)
     ipc: List[IPCSite] = Field(default_factory=list)
@@ -136,7 +149,7 @@ class Case(BaseModel):
 
     # ------------------------------------------------------------------
     def titre_court(self) -> str:
-        rang = f"Cas {self.rang}" if self.rang else "Cas"
+        rang = self.code_cas.strip() or (f"Cas {self.rang}" if self.rang else "Cas")
         return f"{rang} – {self.maladie} – ZS {self.zs or '?'} ({self.aire_sante or '?'})"
 
     def sorted_events(self) -> List[Event]:

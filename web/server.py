@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import re
 import secrets
 import time
 from datetime import date, timedelta
@@ -128,6 +129,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     def visible_cases():
         return app.store.all_cases(None if g.user.is_admin else g.user.username)
+
+    def zone_cases(c: Case):
+        """Cas de la même zone de santé que la fiche ouverte (tableau multi-cas)."""
+        from core.lieux import cle
+        allc = visible_cases()
+        same = [x for x in allc if c.zs and cle(x.zs) == cle(c.zs)]
+        return same or [c]
 
     # -------------------------------------------------------------- comptes
     @app.route("/installation", methods=["GET", "POST"])
@@ -249,14 +257,90 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.route("/cas")
     @login_required
     def cases():
-        rows = app.store.list_full(None if g.user.is_admin else g.user.username)
-        q = request.args.get("q", "").strip().lower()
+        rows = app.store.rows_full(None if g.user.is_admin else g.user.username)
+        f = {k: request.args.get(k, "").strip() for k in ("q", "agent", "province", "zs", "as")}
+        q = f["q"].lower()
+        opts = {"agent": set(), "province": set(), "zs": set(), "as": set()}
         items = []
-        for cid, titre, updated, owner in rows:
-            if q and q not in (titre or "").lower() and q not in (owner or "").lower():
+        for cid, updated, owner, c in rows:
+            opts["agent"].add(owner or "bureau")
+            opts["province"].add(c.province or "?")
+            if not f["province"] or (c.province or "?") == f["province"]:
+                opts["zs"].add(c.zs or "?")
+                if not f["zs"] or (c.zs or "?") == f["zs"]:
+                    opts["as"].add(c.aire_sante or "?")
+            if f["agent"] and (owner or "bureau") != f["agent"]:
                 continue
-            items.append({"id": cid, "titre": titre, "updated": (updated or "")[:16].replace("T", " "), "owner": owner})
-        return render_template("cases.html", items=items, q=q)
+            if f["province"] and (c.province or "?") != f["province"]:
+                continue
+            if f["zs"] and (c.zs or "?") != f["zs"]:
+                continue
+            if f["as"] and (c.aire_sante or "?") != f["as"]:
+                continue
+            blob = " ".join([c.titre_court(), c.code_cas, owner or "", c.zs, c.aire_sante, c.province, c.maladie]).lower()
+            if q and q not in blob:
+                continue
+            items.append({"id": cid, "titre": c.titre_court(), "code": c.code_cas, "updated": (updated or "")[:16].replace("T", " "),
+                          "owner": owner, "sub": f"{c.maladie} – {c.statut} – ZS {c.zs or '?'} ({c.aire_sante or '?'})", "province": c.province, "zs": c.zs, "as": c.aire_sante,
+                          "j0": c.debut_symptomes.strftime("%d/%m/%Y") if c.debut_symptomes else "?", "statut": c.statut})
+        opts = {k: sorted(v, key=str.lower) for k, v in opts.items()}
+        return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows))
+
+    # ------------------------------------------------- analyse (administrateurs) : lieux les plus fréquentés
+    def _selection(niveau: str):
+        rows = app.store.rows_full(None)
+        f = {k: request.args.get(k, "").strip() for k in ("province", "zs", "as")}
+        tree: dict = {}
+        for _cid, _u, _o, c in rows:
+            tree.setdefault(c.province or "?", {}).setdefault(c.zs or "?", set()).add(c.aire_sante or "?")
+        sel = [(cid, c) for cid, _u, _o, c in rows
+               if (not f["province"] or (c.province or "?") == f["province"])
+               and (not f["zs"] or (c.zs or "?") == f["zs"])
+               and (niveau != "as" or not f["as"] or (c.aire_sante or "?") == f["as"])]
+        ready = bool(f["zs"]) and (niveau != "as" or bool(f["as"]))
+        place = (f"AS {f['as'].upper()} (ZS {f['zs'].upper()})" if niveau == "as" else f"ZS {f['zs'].upper()}") if ready else ""
+        return f, tree, sel, ready, place
+
+    @app.route("/analyse/lieux/<niveau>")
+    @admin_required
+    def frequent_places(niveau):
+        from core.lieux import case_label, frequentes
+        if niveau not in ("zs", "as"):
+            abort(404)
+        f, tree, sel, ready, place = _selection(niveau)
+        min_cas = max(1, min(10, request.args.get("min", 2, type=int)))
+        lieux = frequentes([c for _, c in sel], min_cas=min_cas) if ready else []
+        ids = {id(c): cid for cid, c in sel}
+        rows = [{"nom": L.nom, "n": L.n_cas, "visites": L.visites, "risque": L.risque,
+                 "fill": theme.soft(theme.risk_color(L.risque)), "ink": theme.ink_on(theme.soft(theme.risk_color(L.risque))),
+                 "periode": (f"{L.debut:%d/%m/%Y}" + (f" → {L.fin:%d/%m/%Y}" if L.fin and L.fin != L.debut else "")) if L.debut else "?",
+                 "aires": ", ".join(f"{a} ({n})" for a, n in L.aires.most_common()),
+                 "cas": [{"id": ids.get(id(c)), "label": case_label(c)} for c in L.cas],
+                 "types": ", ".join(t for t, _ in L.types.most_common(3))} for L in lieux]
+        nmax = max((r["n"] for r in rows), default=1)
+        qs = request.query_string.decode()
+        return render_template("lieux.html", niveau=niveau, f=f, tree={k: {z: sorted(a) for z, a in v.items()} for k, v in tree.items()},
+                               ready=ready, place=place, rows=rows, nmax=nmax, ncas=len(sel), min_cas=min_cas, qs=qs)
+
+    @app.route("/analyse/lieux/<niveau>/<vue>")
+    @admin_required
+    def frequent_places_visual(niveau, vue):
+        from render import frequentes
+        f, tree, sel, ready, place = _selection(niveau)
+        if niveau not in ("zs", "as") or vue not in ("classement", "reseau", "classement.svg", "reseau.svg") or not ready:
+            abort(404)
+        cases_ = [c for _, c in sel]
+        min_cas = max(1, min(10, request.args.get("min", 2, type=int)))
+        if vue.startswith("classement"):
+            svg = frequentes.render_svg(cases_, f"LIEUX LES PLUS FRÉQUENTÉS | {place}", min_cas)
+        else:
+            svg = dashboard.render_svg(cases_, titre=f"CAS RELIÉS PAR LES LIEUX FRÉQUENTÉS | {place}")
+        if vue.endswith(".svg"):
+            name = re.sub(r"[^A-Za-z0-9]+", "_", f"Lieux_{place}").strip("_") + ".svg"
+            return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name, mimetype="image/svg+xml")
+        resp = Response(H.render_svg_page(svg, "Lieux fréquentés", assets="/assets/"), mimetype="text/html")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
     @app.route("/cas/nouveau", methods=["POST"])
     @login_required
@@ -329,7 +413,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     "contacts": cols(schema.CONTACT_COLS), "ipc": cols(schema.IPC_COLS), "labs": cols(schema.LAB_COLS),
                     "actions": cols(schema.ACTION_COLS)},
             choices={"diseases": theme.DISEASES, "sexes": theme.SEXES, "status": theme.CASE_STATUS,
-                     "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS,
+                     "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS, "symptom_groups": [[k, v] for k, v in theme.SYMPTOM_GROUPS.items()],
                      "hemorrhagic": sorted(theme.HEMORRHAGIC)},
             annee_min=theme.ANNEE_MIN,
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})
@@ -435,7 +519,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if key == "gantt":
             return H.render_svg_page(gantt.render_svg(c), "Frise", assets="/assets/")
         if key == "dashboard":
-            return H.render_svg_page(dashboard.render_svg(visible_cases(), c.zs), "Multi-cas", assets="/assets/")
+            return H.render_svg_page(dashboard.render_svg(zone_cases(c), c.zs), "Multi-cas", assets="/assets/")
         abort(404)
 
     @app.route("/cas/<cid>/apercu/<key>")
@@ -469,7 +553,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             if key == "mapping":
                 svg = H.html_to_svg_wrapper(H.render_mapping_html(c))
             elif key == "dashboard":
-                svg = dashboard.render_svg(visible_cases(), c.zs)
+                svg = dashboard.render_svg(zone_cases(c), c.zs)
             else:
                 svg = {"network": network, "route": map_view, "gantt": gantt}[key].render_svg(c)
             return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name,
@@ -479,7 +563,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             export_mapping_pptx(c, out)
             return _send_and_delete(out, name)
         if fmt in ("png", "png4k", "pdf", "pdfa4", "rapport-pdf", "rapport-pptx"):
-            others = [x.model_dump(mode="json") for x in visible_cases()] if key == "dashboard" else []
+            others = [x.model_dump(mode="json") for x in zone_cases(c)] if key == "dashboard" else []
             out = data_dir() / "exports" / f"{secrets.token_hex(6)}{Path(name).suffix}"
             ok, msg = render_client.render(c.model_dump(mode="json"), key, fmt, out, others)
             if not ok:

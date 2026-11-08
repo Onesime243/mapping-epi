@@ -90,15 +90,23 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
         add("infection", "? (début des symptômes manquant)", f"J-{inc[1]} → J-{inc[0]}")
         add("incubation", "?", f"{inc[0]}–{inc[1]} j{typ}")
     fin = ph.deces
+
+    def signes(groupe: set, defaut: str) -> str:
+        vus = [x for x in case.symptomes if x in groupe]
+        if not vus:
+            return f"signes habituels : {defaut}"
+        return "signes rapportés : " + ", ".join(x[0].lower() + x[1:] if not x[:2].isupper() else x for x in vus)
+    dry = signes(theme.SYMPTOMES_SECS, theme.SIGNES_SECS)
+    wet = signes(theme.SYMPTOMES_HUMIDES, theme.SIGNES_HUMIDES)
     if ph.deux_phases:
         if j0:
             sec_end = (ph.humide - timedelta(days=1)) if ph.humide and ph.humide > j0 else None
-            add("seche", f"J0 {_dm(j0)} (rapporté)" + (f" → {_dm(sec_end)}" if sec_end else ""), theme.SIGNES_SECS)
+            add("seche", f"J0 {_dm(j0)} (rapporté)" + (f" → {_dm(sec_end)}" if sec_end else ""), dry)
             rel = rules.relative_day(ph.humide, j0)
-            add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", theme.SIGNES_HUMIDES)
+            add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", wet)
         else:
-            add("seche", "J0 ?", theme.SIGNES_SECS)
-            add("humide", "?", theme.SIGNES_HUMIDES)
+            add("seche", "J0 ?", dry)
+            add("humide", "?", wet)
     else:
         add("symptomes", f"J0 {_dm(j0)} (rapporté)" if j0 else "J0 ?", "période contagieuse")
     if fin:
@@ -254,8 +262,12 @@ def build_mapping_view(case: Case) -> MappingView:
 
     actions_auto = False
     if case.actions:
-        actions = [{"t": a.texte, "color": theme.ACTION_PRIORITY.get(a.priorite, theme.BLUE),
-                    "done": a.statut == "Fait"} for a in case.actions]
+        prio = {k: i for i, k in enumerate(theme.ACTION_PRIORITY_CHOICES)}
+        actions = [{"t": a.texte + (" (en cours)" if a.statut == "En cours" else ""),
+                    "color": theme.ACTION_PRIORITY.get(a.priorite, theme.BLUE), "done": a.statut == "Fait",
+                    "k": (a.statut == "Fait", prio.get(a.priorite, 9), i)}
+                   for i, a in enumerate(case.actions) if a.texte.strip()]
+        actions.sort(key=lambda d: d["k"])
     else:
         actions_auto = True
         actions = [{"t": s.texte, "color": theme.ACTION_PRIORITY.get(s.priorite, theme.BLUE), "done": False}
@@ -272,7 +284,8 @@ def build_mapping_view(case: Case) -> MappingView:
     meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
             f"Mapping Épi v{APP_VERSION}")
     return MappingView(
-        title=title, subtitle="Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
+        title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
+        + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
         ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=case.note_pied,
         meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)

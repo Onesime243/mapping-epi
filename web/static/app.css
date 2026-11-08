@@ -92,6 +92,8 @@ table.edit td.ops { white-space: nowrap; }
 .ops button { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; width: 32px; height: 32px; cursor: pointer; }
 .ops button:hover { border-color: var(--accent); }
 .symptoms { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 14px; }
+.symgroup { font-size: 14px; margin: 14px 0 6px; color: var(--accent); }
+.row input { flex: 1 1 260px; width: auto; }
 .symptoms label { display: flex; gap: 9px; align-items: center; font-weight: 500; }
 .preview { position: sticky; top: 74px; }
 .preview .vtabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -123,3 +125,26 @@ table.edit td.ops { white-space: nowrap; }
   .topbar nav { margin-left: 0; width: 100%; }
   h1 { font-size: 20px; }
 }
+
+/* ---------- menu déroulant (barre du haut) ---------- */
+.menu { position: relative; }
+.menu-list { display: none; position: absolute; right: 0; top: 100%; min-width: 210px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 6px; z-index: 40; }
+.menu:hover .menu-list, .menu:focus-within .menu-list { display: block; }
+.topbar nav .menu-list a { display: block; color: var(--text); padding: 9px 12px; }
+.topbar nav .menu-list a:hover { background: var(--hover); }
+
+/* ---------- filtres ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.filters input { flex: 2 1 240px; width: auto; }
+.filters select { flex: 1 1 160px; width: auto; }
+
+/* ---------- lieux fréquentés ---------- */
+.freq td { vertical-align: top; }
+.freq .bar2 { height: 24px; border-radius: 6px; display: flex; align-items: center; padding: 0 9px; font-weight: 800; font-size: 13px; white-space: nowrap; min-width: 54px; }
+.freq .nm { font-weight: 800; }
+.chips2 { display: flex; flex-wrap: wrap; gap: 5px; }
+.chips2 a { font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+.chips2 a:hover { filter: brightness(.95); }
+.vframe { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.vframe iframe { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; border: 0; transform-origin: 0 0; }

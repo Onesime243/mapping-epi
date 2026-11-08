@@ -89,8 +89,8 @@ SIGNES_HUMIDES = "diarrhée, nausées / vomissements, saignements, hoquet, rouge
 # mots qui signalent l'entrée en phase humide dans la description d'une étape
 MOTS_HUMIDES = ("diarrh", "selles liquides", "vomiss", "nausée", "saign", "hémorrag", "hemorrag", "hoquet",
                 "rougeur oculaire", "yeux rouges", "conjonctiv", "méléna", "hématémèse", "gingivorr", "épistaxis")
-SYMPTOMES_HUMIDES = {"Vomissements", "Diarrhée", "Hoquet", "Conjonctivite", "Méléna", "Hématémèse", "Gingivorragie",
-                     "Épistaxis", "Saignements aux points d'injection"}
+SYMPTOMES_HUMIDES = {"Vomissements", "Nausées", "Diarrhée", "Hoquet", "Rougeur oculaire", "Saignements", "Méléna",
+                     "Hématémèse", "Gingivorragie", "Épistaxis", "Saignements aux points d'injection"}
 
 ISSUE_CHOICES = ["En traitement", "Vivant", "Guéri", "Décès", "Inconnu"]
 ISSUE_COLORS = {"Décès": RED, "Guéri": GREEN, "Vivant": GREEN, "En traitement": ORANGE, "Inconnu": BLUE}
@@ -129,10 +129,21 @@ DISEASES = ["MVE", "Marburg", "Mpox", "Choléra", "Rougeole", "Autre"]
 SEXES = ["M", "F", "Inconnu"]
 CASE_STATUS = ["Confirmé", "Probable", "Suspect"]
 
-SYMPTOMS = ["Fièvre", "Céphalées", "Courbatures", "Douleurs abdominales", "Vomissements", "Diarrhée",
-            "Asthénie", "Anorexie", "Hoquet", "Conjonctivite", "Éruption cutanée", "Toux",
-            "Méléna", "Hématémèse", "Gingivorragie", "Épistaxis", "Saignements aux points d'injection"]
-HEMORRHAGIC = {"Méléna", "Hématémèse", "Gingivorragie", "Épistaxis", "Saignements aux points d'injection"}
+# Symptômes groupés selon les phases de la maladie (schéma « phase sèche / phase humide »)
+SYMPTOM_GROUPS = {
+    "Phase sèche": ["Fièvre", "Fatigue / asthénie", "Céphalées (maux de tête)", "Douleurs articulaires",
+                    "Douleurs musculaires", "Courbatures", "Mal au dos", "Mal de gorge"],
+    "Phase humide": ["Diarrhée", "Nausées", "Vomissements", "Saignements", "Hoquet", "Rougeur oculaire"],
+    "Signes hémorragiques": ["Méléna", "Hématémèse", "Gingivorragie", "Épistaxis", "Saignements aux points d'injection"],
+    "Autres signes": ["Anorexie", "Douleurs abdominales", "Toux", "Éruption cutanée"],
+}
+SYMPTOMS = [s for g in SYMPTOM_GROUPS.values() for s in g]
+HEMORRHAGIC = set(SYMPTOM_GROUPS["Signes hémorragiques"]) | {"Saignements"}
+SYMPTOMES_SECS = set(SYMPTOM_GROUPS["Phase sèche"])
+# anciens libellés → libellés actuels (fiches enregistrées avant cette version)
+SYMPTOM_ALIASES = {"Asthénie": "Fatigue / asthénie", "Céphalées": "Céphalées (maux de tête)",
+                   "Conjonctivite": "Rougeur oculaire", "Myalgies": "Douleurs musculaires",
+                   "Arthralgies": "Douleurs articulaires", "Polyarthralgie": "Douleurs articulaires"}
 
 
 def risk_color(level: str) -> str:

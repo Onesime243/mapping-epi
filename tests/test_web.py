@@ -97,3 +97,51 @@ def test_public_mode_blocks_web_setup(tmp_path, monkeypatch):
     r = c.get("/installation")
     assert r.status_code == 503 and "creer-admin" in r.get_data(as_text=True)
     assert c.get("/sante").get_json()["ok"] is True
+
+
+def test_admin_voit_tout_et_lieux_frequentes(app):
+    from core.models import Case, Event
+    st = app.store
+    us = Users(st)
+    us.create("chef", "Secret123", role="admin")
+    us.create("agent.a", "Secret123")
+    us.create("agent.b", "Secret123")
+    for i, (owner, as_) in enumerate([("agent.a", "Bolebole"), ("agent.b", "Bolebole"), ("agent.b", "Abanagomu")]):
+        c = Case(code_cas=f"HUE-WAM-{i + 1:03d}", province="Haut-Uele", zs="Wamba", aire_sante=as_,
+                 events=[Event(lieu="Carrière minière Makasi (AS Bolebole)", type="Exposition"),
+                         Event(lieu="Clinique Wamba" if i else "clinique wamba", type="Soins / consultation")])
+        st.save(c, owner=owner)
+    c = app.test_client()
+    _login(c, "agent.a", "Secret123")
+    html = c.get("/cas").get_data(as_text=True)
+    assert "HUE-WAM-001" in html and "HUE-WAM-002" not in html          # un agent ne voit que ses fiches
+    assert c.get("/analyse/lieux/zs").status_code == 403
+    c.get("/deconnexion")
+    _login(c, "chef", "Secret123")
+    html = c.get("/cas?agent=agent.b").get_data(as_text=True)
+    assert "HUE-WAM-002" in html and "HUE-WAM-003" in html and "HUE-WAM-001" not in html
+    html = c.get("/analyse/lieux/zs?province=Haut-Uele&zs=Wamba").get_data(as_text=True)
+    assert "Carrière minière Makasi" in html and "3 cas" in html and "Clinique Wamba" in html
+    html = c.get("/analyse/lieux/as?province=Haut-Uele&zs=Wamba&as=Bolebole").get_data(as_text=True)
+    assert "2 cas" in html
+    assert c.get("/analyse/lieux/zs/classement?province=Haut-Uele&zs=Wamba").status_code == 200
+    r = c.get("/analyse/lieux/as/reseau.svg?province=Haut-Uele&zs=Wamba&as=Bolebole")
+    assert r.status_code == 200 and b"<svg" in r.data
+
+
+def test_import_ignore_lignes_residuelles(tmp_path):
+    from openpyxl import load_workbook
+
+    from core import storage
+    from core.models import Case, Event
+    p = tmp_path / "c.xlsx"
+    storage.export_excel(Case(events=[Event(lieu="A", titre="Étape A")]), p)
+    wb = load_workbook(p)
+    ws = wb["Chronologie"]
+    hdr = [x.value for x in ws[3]]
+    for r in range(6, 12):                       # restes : seulement un risque, un type ou « oui »
+        ws.cell(row=r, column=hdr.index("Risque (vide = auto)") + 1, value="Élevé")
+        ws.cell(row=r, column=hdr.index("Type") + 1, value="Autre")
+        ws.cell(row=r, column=hdr.index("Sans PCI") + 1, value="oui")
+    wb.save(p)
+    assert len(storage.import_excel(p).events) == 1

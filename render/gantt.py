@@ -9,6 +9,7 @@ from typing import List, Optional
 from config import theme
 from core import rules
 from core.models import Case
+from core.lieux import case_label
 from render import svgkit as K
 from render.html_renderer import date_label, render_svg_page
 
@@ -43,7 +44,7 @@ def render_svg(case: Case) -> str:
     if w.contagiosite:
         dates += list(w.contagiosite)
     out = [K.svg_open(), K.header(
-        f"FRISE TEMPORELLE – CAS {case.rang or ''} {case.maladie} | ZS {(case.zs or '?').upper()}",
+        f"FRISE TEMPORELLE – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
         f"Jours relatifs au début des symptômes (J0) • incubation {p['incubation_min']}–{p['incubation_max']} j • "
         f"suivi des contacts {p['suivi_contacts']} j")]
     out.append(K.card(16, 66, 1248, 616))
@@ -65,12 +66,26 @@ def render_svg(case: Case) -> str:
         a, b = w.exposition
         out.append(f'<rect x="{X(a):.1f}" y="{top - 22}" width="{(X(b) - X(a) + px):.1f}" height="{bottom - top + 22}" fill="url(#hatch)"/>')
         out.append(f'<text x="{X(a) + 6:.1f}" y="{top - 9}" font-size="9" font-weight="800" fill="{theme.BLUE}">'
-                   f'FENÊTRE D\'EXPOSITION</text>')
+                   f'POINT D\'INFECTION (EXPOSITION ESTIMÉE)</text>')
     if w.contagiosite:
         a, b = w.contagiosite
-        out.append(f'<rect x="{X(a):.1f}" y="{top - 22}" width="{(X(b) - X(a) + px):.1f}" height="{bottom - top + 22}" '
-                   f'fill="{theme.RED}" fill-opacity=".08"/>')
-        out.append(f'<text x="{X(a) + 6:.1f}" y="{top - 9}" font-size="9" font-weight="800" fill="{theme.RED}">PÉRIODE CONTAGIEUSE</text>')
+        ph = rules.phases(case)
+        segs = []
+        if ph.deux_phases and ph.humide and ph.humide > a:
+            segs.append((a, min(b, ph.humide - timedelta(days=1)), "PHASE SÈCHE", theme.YELLOW))
+            if ph.humide <= b:
+                segs.append((ph.humide, b, "PHASE HUMIDE", theme.ORANGE))
+        elif ph.deux_phases:
+            segs.append((a, b, "PHASE HUMIDE", theme.ORANGE))
+        else:
+            segs.append((a, b, "PÉRIODE CONTAGIEUSE", theme.RED))
+        for sa, sb, lab_, col_ in segs:
+            out.append(f'<rect x="{X(sa):.1f}" y="{top - 22}" width="{(X(sb) - X(sa) + px):.1f}" height="{bottom - top + 22}" '
+                       f'fill="{theme.soft(col_)}" fill-opacity=".35"/>')
+            wbox = X(sb) - X(sa) + px - 8
+            if wbox > 30:
+                out.append(f'<text x="{X(sa) + 6:.1f}" y="{top - 9}" font-size="9" font-weight="800" fill="{col_}">'
+                           f'{K.esc(K.ellipsize(lab_, wbox, 9, 800))}</text>')
     # graduations
     step = 1 if ndays <= 25 else (2 if ndays <= 50 else (7 if ndays <= 150 else 14))
     d = d0
@@ -111,8 +126,11 @@ def render_svg(case: Case) -> str:
     for label, sub, a, b, col, kind, unc in rows:
         if kind == "follow":
             y += 8
-        out.append(f'<text x="{lx}" y="{y + rh * .45:.1f}" font-size="{min(11, rh * .38):.1f}" font-weight="800" fill="{theme.TEXT}">{K.esc(label[:42])}</text>')
-        out.append(f'<text x="{lx}" y="{y + rh * .45 + min(10, rh * .32):.1f}" font-size="{min(9, rh * .3):.1f}" fill="{theme.MUTED}">{K.esc(sub[:58])}</text>')
+        f1, f2 = min(11, rh * .38), min(9, rh * .3)
+        out.append(f'<text x="{lx}" y="{y + rh * .45:.1f}" font-size="{f1:.1f}" font-weight="800" fill="{theme.INK}">'
+                   f'{K.esc(K.ellipsize(label, x0 - lx - 10, f1, 800))}</text>')
+        out.append(f'<text x="{lx}" y="{y + rh * .45 + min(10, rh * .32):.1f}" font-size="{f2:.1f}" fill="#3A4654">'
+                   f'{K.esc(K.ellipsize(sub, x0 - lx - 10, f2, 400))}</text>')
         bx, bw = X(a), max((b - a).days + 1, 1) * px
         h = rh * .58
         style = f'fill="{col}"'
@@ -124,7 +142,7 @@ def render_svg(case: Case) -> str:
                    f'<title>{K.esc(label)} : {a:%d/%m} → {b:%d/%m}</title></rect>')
         y += rh
     out.append(K.footer("Barres pointillées = dates incertaines. Les bandes indiquent la fenêtre d'exposition probable "
-                        "et la période contagieuse calculées à partir de J0 (paramètres dans config/diseases.yaml)."))
+                        "et les phases sèche / humide calculées à partir de J0 (paramètres dans config/diseases.yaml)."))
     out.append("</svg>")
     return "".join(out)
 

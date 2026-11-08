@@ -52,7 +52,8 @@ RISK_FILLS = {
 # --- Feuille Cas : (clé, libellé lu par l'import, aide, obligatoire, type) -----------------
 CASE_SECTIONS = [
     ("IDENTIFICATION DU CAS", [
-        ("rang", "Rang du cas", "Numéro d'ordre du cas confirmé dans la ZS (1, 2, 3…)", True, "int"),
+        ("code_cas", "ID du cas", "Identifiant alphanumérique, ex. N° EPID RDC-HUE-WAM-26-001", True, "text"),
+        ("rang", "Rang du cas", "Numéro d'ordre du cas confirmé dans la ZS (1, 2, 3…)", False, "int"),
         ("maladie", "Maladie", "Liste : MVE, Marburg, Mpox, Choléra, Rougeole, Autre", True, "maladie"),
         ("statut", "Statut", "Confirmé / Probable / Suspect", False, "statut"),
         ("sexe", "Sexe", "M / F / Inconnu", True, "sexe"),

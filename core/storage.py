@@ -111,6 +111,21 @@ class Store:
             args = (owner,)
         return self.db.execute(q + " ORDER BY updated DESC", args).fetchall()
 
+    def rows_full(self, owner: Optional[str] = None):
+        """(id, modifiée le, compte propriétaire, fiche) — toutes les fiches si owner est None."""
+        q = "SELECT id, updated, owner, data FROM cases"
+        args: tuple = ()
+        if owner is not None:
+            q += " WHERE owner=?"
+            args = (owner,)
+        out = []
+        for cid, upd, own, data in self.db.execute(q + " ORDER BY updated DESC", args).fetchall():
+            try:
+                out.append((cid, upd, own, Case.model_validate_json(data)))
+            except Exception:
+                continue
+        return out
+
     def all_cases(self, owner: Optional[str] = None) -> List[Case]:
         if owner is None:
             rows = self.db.execute("SELECT data FROM cases")
@@ -183,7 +198,7 @@ def diff_cases(old: Case, new: Case) -> List[str]:
 # Excel
 # ---------------------------------------------------------------------------
 _CASE_FIELDS = [
-    ("rang", "Rang du cas"), ("maladie", "Maladie"), ("sexe", "Sexe"), ("age", "Âge"),
+    ("code_cas", "ID du cas"), ("rang", "Rang du cas"), ("maladie", "Maladie"), ("sexe", "Sexe"), ("age", "Âge"),
     ("age_unite", "Unité âge"), ("profession", "Profession"), ("province", "Province"),
     ("zs", "Zone de santé"), ("aire_sante", "Aire de santé"), ("village", "Village / quartier"),
     ("lat", "Latitude"), ("lon", "Longitude"), ("statut", "Statut"),
@@ -219,7 +234,15 @@ SHEETS = {
         ("texte", "Action"), ("priorite", "Priorité"), ("responsable", "Responsable"),
         ("echeance", "Échéance"), ("statut", "Statut")]),
 }
-# colonnes pré-remplies par défaut (listes) qui ne suffisent pas à faire une ligne
+# colonnes qui font exister une ligne (les autres seules — risque, type, statut, oui/non — ne suffisent pas)
+ESSENTIEL = {
+    "Chronologie": ("date_debut", "date_fin", "lieu", "lieu_arrivee", "titre", "description"),
+    "Lieux": ("nom",),
+    "Contacts": ("categorie", "lien", "nombre"),
+    "PCI": ("site",),
+    "Laboratoire": ("laboratoire", "prelevement", "envoi", "reception", "resultat_le", "resultat"),
+    "Actions": ("texte",),
+}
 DEFAULTED = {"Chronologie": ("type", "risque"), "Lieux": ("type", "risque"), "Contacts": ("risque",), "PCI": ("statut",),
              "Actions": ("priorite", "statut")}
 _LIST_ATTR = {"Chronologie": "events", "Lieux": "places", "Contacts": "contacts", "PCI": "ipc",
@@ -348,8 +371,13 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
         header = [str(h or "").strip() for h in rows[hrow]]
         idx = {key: header.index(label) for key, label in cols if label in header}
         items = []
+        essentials = [k for k in ESSENTIEL[sheet] if k in idx]
         for n, r in enumerate(rows[hrow + 1:], start=hrow + 2):
             if not r or all(v in (None, "") for v in r):
+                continue
+            # une ligne n'est une étape / un lieu / … que si une colonne essentielle est remplie :
+            # un risque, un type ou un « oui » laissé seul (reste d'un ancien cas, liste déroulante) est ignoré
+            if not any(str(r[idx[k]] if idx[k] < len(r) and r[idx[k]] is not None else "").strip() for k in essentials):
                 continue
             kw = {}
             for key, i in idx.items():
@@ -358,10 +386,6 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
                 except ValueError as exc:
                     errors.append(f"{sheet} ligne {n} : {exc}")
             kw = {k: v for k, v in kw.items() if v is not None or _field_type(model, k)[1]}
-            first_key = cols[0][0]
-            if not str(kw.get(first_key) or "").strip() and not any(
-                    v not in (None, "", False) for k, v in kw.items() if k != first_key and k not in DEFAULTED.get(sheet, ())):
-                continue                       # ligne sans contenu utile
             items.append(model(**kw))
         setattr(data, _LIST_ATTR[sheet], items)
     if errors:

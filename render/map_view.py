@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from config import theme
 from core import rules
 from core.models import Case, Event
+from core.lieux import case_label, cle
 from render import svgkit as K
 from render.html_renderer import date_label, render_svg_page
 from render.icons import icon_group
@@ -32,7 +33,7 @@ class Leg:
 
 
 def _norm(s: str) -> str:
-    return " ".join((s or "").lower().split())
+    return cle(s) or " ".join((s or "").lower().split())
 
 
 def build_legs(case: Case) -> Tuple[List[str], List[Leg]]:
@@ -112,7 +113,7 @@ def render_svg(case: Case) -> str:
     pos, kmpx = _positions(case, order, box)
     mode = "géographique (GPS)" if kmpx else "schématique (sans GPS)"
     out = [K.svg_open(), K.header(
-        f"CARTE DU PARCOURS – CAS {case.rang or ''} {case.maladie} | ZS {(case.zs or '?').upper()}",
+        f"CARTE DU PARCOURS – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
         f"Déplacements du cas dans l'ordre chronologique • vue {mode} • fonctionne hors ligne")]
     out.append('<style>.halo text{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}</style>')
     out.append(K.card(16, 66, 848, 616))
@@ -126,7 +127,7 @@ def render_svg(case: Case) -> str:
 
     places = {_norm(p.nom): p for p in case.places}
     pair_count: Dict[Tuple[str, str], int] = {}
-    arrows, badges = [], []
+    arrows, badges, badge_xy = [], [], []
     for leg in legs:
         a, b = _canon(leg.src, order), _canon(leg.dst, order)
         if a not in pos or b not in pos:
@@ -150,14 +151,19 @@ def render_svg(case: Case) -> str:
                       f'stroke-width="3" stroke-linecap="round"{dash} marker-end="url(#arr-{mk})">'
                       f'<title>{leg.n}. {K.esc(date_label(leg.ev))} {K.esc(a)} → {K.esc(b)}</title></path>')
         bx, by = 0.25 * sx + 0.5 * mx + 0.25 * ex, 0.25 * sy + 0.5 * my + 0.25 * ey
+        badge_xy.append((bx, by))
         badges.append(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="11" fill="#fff" stroke="{col}" stroke-width="2.2"/>'
                       f'<text x="{bx:.1f}" y="{by + 4:.1f}" text-anchor="middle" font-size="11" font-weight="800" '
                       f'fill="{col}">{leg.n}</text>')
-    nodes = []
-    first_visit = {}
-    for leg in legs:
-        first_visit.setdefault(_canon(leg.src, order), leg.ev)
-        first_visit.setdefault(_canon(leg.dst, order), leg.ev)
+    nodes, labels = [], []
+    placer = K.LabelPlacer((24, 72, 856, 676))
+    for bx_, by_ in badge_xy:
+        placer.circle(bx_, by_, 12)
+    for o in order:
+        if o in pos:
+            placer.circle(pos[o][0], pos[o][1], 31)
+    mx_c = sum(p[0] for p in pos.values()) / max(1, len(pos))
+    my_c = sum(p[1] for p in pos.values()) / max(1, len(pos))
     for o in order:
         if o not in pos:
             continue
@@ -166,36 +172,54 @@ def render_svg(case: Case) -> str:
         risk = rules.suggest_place_risk(p, case) if p else _place_risk_from_events(o, case)
         col = theme.risk_color(risk)
         icon = PLACE_ICON.get(p.type if p else "", "pin")
-        nodes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{col}" stroke="#fff" stroke-width="3.5" filter="url(#sh)"/>'
-                     + icon_group(icon, x, y, 26, "#fff", 2))
-        lines = K.wrap(o, 20, 2)
-        nodes.append('<g class="halo">' + K.multiline(x, y + 48, lines, 12, 800, theme.TEXT)
-                     + K.multiline(x, y + 48 + 15 * len(lines), [risk], 9.5, 700, col) + '</g>')
-    out += arrows + nodes + badges
+        nodes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{col}" stroke="#fff" stroke-width="3.5" filter="url(#sh)">'
+                     f'<title>{K.esc(o)} — {K.esc(risk)}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
+        lines = K.wrap_px(o, 168, 12, 800, 2)
+        dx, dy = x - mx_c, y - my_c
+        if abs(dy) >= abs(dx) * 0.6:
+            prefer = ["below", "below-right", "below-left"] if dy > 0 else ["above", "above-right", "above-left"]
+        else:
+            prefer = ["right", "below-right", "above-right"] if dx > 0 else ["left", "below-left", "above-left"]
+        labels.append(placer.place(x, y, 31, [(ln, 12, 800, theme.INK) for ln in lines] + [(risk, 9.5, 700, col)],
+                                   prefer=prefer))
+    out += arrows + nodes + badges + ['<g class="halo">'] + labels + ['</g>']
 
     # Liste des étapes
     x0 = 876
     out.append(K.card(x0, 66, 388, 616))
     out.append(K.pill(x0 + 12, 78, "Étapes du parcours"))
     y = 116
-    max_rows = 13
-    for leg in legs[:max_rows]:
+    tw = 388 - 42 - 14            # largeur utile du texte dans le panneau
+    shown = 0
+    for leg in legs:
         risk = rules.event_risk(leg.ev, case)
         col = theme.RED if leg.corps else theme.risk_color(risk)
         a, b = _canon(leg.src, order), _canon(leg.dst, order)
-        out.append(f'<circle cx="{x0 + 24}" cy="{y + 5}" r="10" fill="{col}"/>'
-                   f'<text x="{x0 + 24}" y="{y + 9}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">{leg.n}</text>')
-        out.append(f'<text x="{x0 + 42}" y="{y + 2}" font-size="10" font-weight="800" fill="{col}">{K.esc(date_label(leg.ev))}'
-                   f'<tspan fill="{theme.TEXT}"> {K.esc(a)} → {K.esc(b)}</tspan></text>')
+        dl = date_label(leg.ev)
+        route = f"{a} → {b}"
+        dw = K.text_width(dl + " ", 10, 800)
+        first, rest = K.split_first(route, tw - dw, 10, 700)
+        line2 = K.ellipsize(rest, tw, 10, 700) if rest else ""
         detail = leg.ev.titre or leg.ev.type
         if leg.ev.transport:
             detail += f" • {leg.ev.transport}"
         if leg.corps:
             detail += " • transport du corps"
-        out.append(f'<text x="{x0 + 42}" y="{y + 16}" font-size="9.5" fill="{theme.MUTED}">{K.esc(detail[:62])}</text>')
-        y += 40
-    if len(legs) > max_rows:
-        out.append(f'<text x="{x0 + 42}" y="{y}" font-size="9.5" fill="{theme.MUTED}">… {len(legs) - max_rows} autre(s) étape(s)</text>')
+        need = 30 + (13 if line2 else 0)
+        if y + need > 612:
+            break
+        out.append(f'<circle cx="{x0 + 24}" cy="{y + 5}" r="10" fill="{col}"/>'
+                   f'<text x="{x0 + 24}" y="{y + 9}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">{leg.n}</text>')
+        out.append(f'<text x="{x0 + 42}" y="{y + 2}" font-size="10" font-weight="800" fill="{col}">{K.esc(dl)}'
+                   f'<tspan fill="{theme.INK}" font-weight="700"> {K.esc(first)}</tspan></text>')
+        if line2:
+            y += 13
+            out.append(f'<text x="{x0 + 42}" y="{y + 2}" font-size="10" font-weight="700" fill="{theme.INK}">{K.esc(line2)}</text>')
+        out.append(f'<text x="{x0 + 42}" y="{y + 16}" font-size="9.5" fill="#3A4654">{K.esc(K.ellipsize(detail, tw, 9.5))}</text>')
+        y += 30 + 8
+        shown += 1
+    if len(legs) > shown:
+        out.append(f'<text x="{x0 + 42}" y="{y}" font-size="9.5" fill="{theme.MUTED}">… {len(legs) - shown} autre(s) étape(s)</text>')
     if not legs:
         out.append(f'<text x="{x0 + 20}" y="{y}" font-size="11" fill="{theme.MUTED}">Aucun déplacement documenté.</text>')
     ly = 632

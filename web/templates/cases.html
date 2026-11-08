@@ -9,24 +9,38 @@
   </div>
 </div>
 <div class="card">
-  <form class="row" method="get" style="margin-bottom:10px">
-    <input name="q" value="{{ q }}" placeholder="Rechercher (ZS, AS, maladie{% if me.is_admin %}, agent{% endif %}…)" style="flex:1; min-width:220px">
-    <button class="btn">Rechercher</button>
+  <form class="filters" method="get">
+    <input name="q" value="{{ q }}" placeholder="Rechercher (ID, ZS, AS, maladie{% if me.is_admin %}, agent{% endif %}…)">
+    {% if me.is_admin %}
+    <select name="agent" onchange="this.form.submit()"><option value="">Tous les comptes</option>
+      {% for o in opts.agent %}<option{% if f.agent == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+    {% endif %}
+    <select name="province" onchange="this.form.zs.value=''; this.form['as'].value=''; this.form.submit()"><option value="">Toutes les provinces</option>
+      {% for o in opts.province %}<option{% if f.province == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+    <select name="zs" onchange="this.form['as'].value=''; this.form.submit()"><option value="">Toutes les ZS</option>
+      {% for o in opts.zs %}<option{% if f.zs == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+    <select name="as" onchange="this.form.submit()"><option value="">Toutes les AS</option>
+      {% for o in opts['as'] %}<option{% if f['as'] == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+    <button class="btn">Filtrer</button>
+    {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">Effacer</a>{% endif %}
   </form>
+  <p class="hint">{{ items|length }} fiche(s) affichée(s) sur {{ total }}{% if me.is_admin %} — en tant qu'administrateur, vous voyez et pouvez ouvrir les mappings de <b>tous les comptes</b>{% endif %}.</p>
   {% if items %}
   <div style="overflow-x:auto"><table class="list">
-    <tr><th>Fiche</th>{% if me.is_admin %}<th>Agent</th>{% endif %}<th>Modifiée le</th><th></th></tr>
+    <tr><th>ID / fiche</th><th>Province</th><th>ZS</th><th>AS</th><th>J0</th>{% if me.is_admin %}<th>Compte</th>{% endif %}<th>Modifiée le</th><th></th></tr>
     {% for it in items %}
     <tr>
-      <td><a href="{{ url_for('editor', cid=it.id) }}"><b>{{ it.titre }}</b></a></td>
+      <td><a href="{{ url_for('editor', cid=it.id) }}"><b>{{ it.code or it.titre }}</b></a><div class="muted" style="font-size:12.5px">{{ it.sub }}</div></td>
+      <td style="white-space:nowrap">{{ it.province or "?" }}</td><td>{{ it.zs or "?" }}</td><td>{{ it['as'] or "?" }}</td><td class="muted">{{ it.j0 }}</td>
       {% if me.is_admin %}<td>{{ it.owner or "bureau" }}</td>{% endif %}
       <td class="muted">{{ it.updated }}</td>
-      <td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}">Ouvrir</a></td>
+      <td style="text-align:right; white-space:nowrap"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}">Ouvrir</a>
+        <a class="btn small" href="{{ url_for('preview', cid=it.id, key='mapping') }}" target="_blank" title="Voir le mapping">Mapping</a></td>
     </tr>
     {% endfor %}
   </table></div>
   {% else %}
-  <p class="muted">Aucune fiche pour l'instant. Cliquez sur « Nouveau cas » pour commencer, ou « Exemple fictif » pour voir un cas complet.</p>
+  <p class="muted">Aucune fiche{% if total %} pour ces filtres{% endif %}. Cliquez sur « Nouveau cas » pour commencer, ou « Exemple fictif » pour voir un cas complet.</p>
   {% endif %}
 </div>
 <div class="card" style="margin-top:14px">

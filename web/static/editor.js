@@ -43,7 +43,7 @@
   window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   function updateTitle() {
-    const rang = C.rang ? 'Cas ' + C.rang : 'Cas';
+    const rang = (C.code_cas || '').trim() || (C.rang ? 'Cas ' + C.rang : 'Cas');
     $('#caseTitle').textContent = rang + ' – ' + C.maladie + ' – ZS ' + (C.zs || '?') + ' (' + (C.aire_sante || '?') + ')';
   }
 
@@ -96,7 +96,8 @@
     const inp = (key, type, extra) => { const i = el('input', Object.assign({type: type || 'text', value: C[key] ?? ''}, extra || {})); bindInput(i, key, type === 'number' ? 'int' : type === 'date' ? 'date' : 'text'); return i; };
     const sel = (key, list, emptyLabel) => { const s = el('select'); options(s, list, C[key] ?? '', emptyLabel); bindInput(s, key, 'select'); return s; };
 
-    g.appendChild(field('Rang du cas * (1er, 2e…)', inp('rang', 'number', {min: 1})));
+    g.appendChild(field('ID du cas * (alphanumérique)', inp('code_cas', 'text', {placeholder: 'ex. RDC-HUE-WAM-26-001', maxlength: 40})));
+    g.appendChild(field('Rang du cas (1er, 2e…)', inp('rang', 'number', {min: 1})));
     const mal = el('input', {value: C.maladie || '', list: datalist('dl-mal', S.choices.diseases)}); bindInput(mal, 'maladie');
     g.appendChild(field('Maladie *', mal));
     g.appendChild(field('Statut', sel('statut', S.choices.status)));
@@ -154,15 +155,42 @@
     p.appendChild(g);
     p.appendChild(el('p', {class: 'hint', text: "J0 (date rapportée par l'équipe) sert à estimer le point d'infection (J-21 → J-2), puis l'incubation, la phase sèche et la phase humide. La phase humide est détectée dans la chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."}));
     p.appendChild(el('h2', {text: 'Symptômes'}));
-    const box = el('div', {class: 'symptoms'});
-    S.choices.symptoms.forEach(s => {
-      const cb = el('input', {type: 'checkbox'}); cb.checked = C.symptomes.includes(s);
-      cb.addEventListener('change', () => {
-        C.symptomes = cb.checked ? C.symptomes.concat([s]) : C.symptomes.filter(x => x !== s); changed();
+    const toggle = (s, on) => {
+      C.symptomes = on ? C.symptomes.filter(x => x !== s).concat([s]) : C.symptomes.filter(x => x !== s); changed();
+    };
+    const groups = S.choices.symptom_groups || [['Symptômes', S.choices.symptoms]];
+    const known = [].concat(...groups.map(g => g[1]));
+    const custom = C.symptomes.filter(s => !known.includes(s));
+    groups.forEach(([gname, items]) => {
+      p.appendChild(el('h3', {class: 'symgroup', text: gname}));
+      const box = el('div', {class: 'symptoms'});
+      items.forEach(s => {
+        const cb = el('input', {type: 'checkbox'}); cb.checked = C.symptomes.includes(s);
+        cb.addEventListener('change', () => toggle(s, cb.checked));
+        box.appendChild(el('label', {}, [cb, s + (S.choices.hemorrhagic.includes(s) ? ' 🩸' : '')]));
       });
-      box.appendChild(el('label', {}, [cb, s + (S.choices.hemorrhagic.includes(s) ? ' 🩸' : '')]));
+      p.appendChild(box);
     });
-    p.appendChild(box);
+    p.appendChild(el('h3', {class: 'symgroup', text: 'Symptômes ajoutés'}));
+    const cbox = el('div', {class: 'symptoms'});
+    const addCustom = (s, checked) => {
+      const cb = el('input', {type: 'checkbox'}); cb.checked = checked;
+      cb.addEventListener('change', () => toggle(s, cb.checked));
+      cbox.appendChild(el('label', {}, [cb, s]));
+    };
+    custom.forEach(s => addCustom(s, true));
+    p.appendChild(cbox);
+    const nw = el('input', {placeholder: 'Symptôme absent de la liste (ex. douleur thoracique)'});
+    const add = el('button', {type: 'button', class: 'btn small', text: '+ Ajouter le symptôme'});
+    const doAdd = () => {
+      let s = nw.value.trim(); if (!s) return;
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+      if (!C.symptomes.includes(s)) { C.symptomes = C.symptomes.concat([s]); if (!known.includes(s)) addCustom(s, true); changed(); }
+      nw.value = '';
+    };
+    add.addEventListener('click', doAdd);
+    nw.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+    p.appendChild(el('div', {class: 'row', style: 'margin-top:8px'}, [nw, add]));
     const other = el('input', {value: C.symptomes_autres || '', placeholder: 'Autres symptômes (texte libre)', style: 'margin-top:12px'});
     bindInput(other, 'symptomes_autres');
     p.appendChild(other);

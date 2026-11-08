@@ -259,7 +259,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     for wd in widths[:-1]:
         xs.append(xs[-1] + wd + 10)
     for x, wd, title in zip(xs, widths, ["Lieux & expositions", "Contacts à identifier / suivre",
-                                          "PCI / décontamination", "Actions immédiates"]):
+                                          "PCI / décontamination", "Actions"]):
         S.rect(x, panels_y, wd, ph, "#FFFFFF", theme.BORDER, radius=8, name=title)
         S.pill(x + 11, panels_y + 9, title)
     inner_top = panels_y + 38
@@ -304,16 +304,51 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
         S.badge(x + wd - 8 - wd * .4, yy + rh * .16, wd * .4, rh * .68, s["status"], s["color"], max(6, pt * .8))
     S.text(x + 8, inner_top + n * rh + 4, wd - 16, 34, [v.ipc_phrase], size=max(6.5, pt * .85), color=theme.MUTED, align=PP_ALIGN.LEFT)
 
-    # Actions
+    # Actions : à réaliser immédiatement, puis déjà réalisées
     x, wd = xs[3], widths[3]
-    n = max(1, len(v.actions))
-    rh = min(28, (inner_h - (16 if v.actions_auto else 0)) / n)
-    pt = fit_pt([(a["t"], 1) for a in v.actions], wd - 34, inner_h - (16 if v.actions_auto else 0), 10, 6, 1.6)
-    for i, a in enumerate(v.actions):
-        yy = inner_top + i * rh
-        S.oval(x + 16, yy + rh / 2, 4.5, a["color"], a["color"], 0.5)
-        S.text(x + 26, yy, wd - 32, rh, [a["t"]], size=pt, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE,
-               color=theme.MUTED if a["done"] else theme.TEXT)
+    todo = [a for a in v.actions if not a["done"]]
+    done = [a for a in v.actions if a["done"]]
+    items = []
+    if todo and done:
+        items.append(("h", "À RÉALISER IMMÉDIATEMENT", theme.RED))
+    items += [("t", a["t"], a["color"]) for a in todo]
+    if done:
+        items.append(("h", "DÉJÀ RÉALISÉES", theme.GREEN))
+        items += [("d", a["t"], theme.GREEN) for a in done]
+    avail = inner_h - (16 if v.actions_auto else 0)
+
+    def layout(pt):
+        lh = pt / 0.75 * 1.22
+        hs = []
+        for kind, t, _ in items:
+            if kind == "h":
+                hs.append(pt * .78 / 0.75 * 1.6)
+            else:
+                nl = max(1, math.ceil(K_W * len(t) * pt / 0.75 / (wd - 36)))
+                hs.append(nl * lh + 3)
+        return hs, lh
+
+    K_W = 0.5
+    pt = 10.0
+    while pt > 5.5:
+        hs, line_h = layout(pt)
+        if sum(hs) <= avail:
+            break
+        pt -= 0.25
+    hs, line_h = layout(pt)
+    yy = inner_top
+    for (kind, t, col), hgt in zip(items, hs):
+        if kind == "h":
+            S.text(x + 10, yy, wd - 20, hgt, [t], size=pt * .78, bold=True, color=col, align=PP_ALIGN.LEFT,
+                   anchor=MSO_ANCHOR.MIDDLE)
+        else:
+            if kind == "t":
+                S.oval(x + 16, yy + line_h / 2 + 1, 4.5, col, col, 0.5)
+            else:
+                S.badge(x + 11, yy + line_h / 2 - 4, 10, 10, "✓", theme.GREEN, max(5, pt * .6))
+            S.text(x + 26, yy, wd - 32, hgt, [t], size=pt, bold=kind == "t", align=PP_ALIGN.LEFT,
+                   anchor=MSO_ANCHOR.TOP, color=theme.INK)
+        yy += hgt
     if v.actions_auto:
         S.text(x + 10, panels_y + ph - 20, wd - 20, 14, ["Actions suggérées automatiquement — à valider."],
                size=6.5, color=theme.MUTED, align=PP_ALIGN.LEFT)

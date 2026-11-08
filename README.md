@@ -114,6 +114,11 @@ saisie : elle est mémorisée et proposée ensuite (`donnees/pyramide_perso.csv`
 - **Phases de la maladie** (MVE / Marburg) datées pour chaque cas : point d'infection estimé (J-21 → J-2),
   incubation, phase sèche (dès J0, date **rapportée** par l'équipe, jamais recalculée) et phase humide
   (détectée dans la chronologie : diarrhée, vomissements, saignements… ; sinon estimée à J+4).
+- **ID du cas alphanumérique** (ex. N° EPID) affiché sur tous les visuels.
+- Symptômes **groupés par phase** (sèche, humide, hémorragiques, autres) + ajout de symptômes absents de la liste.
+- Actions séparées : **à réaliser immédiatement** / **déjà réalisées**.
+- **Administrateurs** : tous les cas de tous les comptes (filtres compte / province / ZS / AS) et menu
+  **Lieux fréquentés** (par zone ou par aire de santé) : classement des lieux fréquentés par plusieurs cas.
 - Statut **Contact connu / Contact connu suivi / Non contact** affiché sur le mapping.
 - Fenêtres automatiques depuis J0 (exposition J-21 → J-2, contagiosité jusqu'à l'inhumation pour la MVE ;
   paramètres dans `config/diseases.yaml`), jours relatifs sur chaque étape.
