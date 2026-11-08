@@ -80,6 +80,7 @@ CASE_SECTIONS = [
     ("INVESTIGATION", [
         ("investigateur", "Investigateur", "Nom / équipe", True, "text"),
         ("date_investigation", "Date investigation", "JJ/MM/AAAA", False, "date"),
+        ("note_pied", "Observations (bas de page)", "Cas source, vaccination, défis… ; vide = texte standard", False, "text"),
     ]),
 ]
 

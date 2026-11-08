@@ -191,6 +191,7 @@ _CASE_FIELDS = [
     ("date_investigation", "Date investigation"), ("debut_symptomes", "Début symptômes"),
     ("symptomes", "Symptômes (séparés par ;)"), ("symptomes_autres", "Autres symptômes"),
     ("date_deces", "Date décès"), ("risque_global", "Risque global (vide = auto)"),
+    ("note_pied", "Observations (bas de page)"),
 ]
 
 SHEETS = {
@@ -218,7 +219,8 @@ SHEETS = {
         ("echeance", "Échéance"), ("statut", "Statut")]),
 }
 # colonnes pré-remplies par défaut (listes) qui ne suffisent pas à faire une ligne
-DEFAULTED = {"Chronologie": ("type",), "Contacts": ("risque",), "PCI": ("statut",), "Actions": ("priorite", "statut")}
+DEFAULTED = {"Chronologie": ("type", "risque"), "Lieux": ("type", "risque"), "Contacts": ("risque",), "PCI": ("statut",),
+             "Actions": ("priorite", "statut")}
 _LIST_ATTR = {"Chronologie": "events", "Lieux": "places", "Contacts": "contacts", "PCI": "ipc",
               "Laboratoire": "labs", "Actions": "actions"}
 _CHOICES = {
@@ -321,7 +323,10 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
                 continue
             key, v = labels[row[0]], row[1]
             try:
-                if key == "symptomes":
+                if key == "note_pied":
+                    if str(v or "").strip():
+                        data.note_pied = str(v).strip()
+                elif key == "symptomes":
                     setattr(data, key, [s.strip() for s in str(v or "").split(";") if s.strip()])
                 else:
                     setattr(data, key, _from_cell(Case, key, v))
