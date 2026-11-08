@@ -260,33 +260,32 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     inner_top = panels_y + 38
     inner_h = ph - 46
 
-    # Lieux
+    # Lieux : « 1. Lieu : population exposée »
     x, wd = xs[0], widths[0]
-    n = max(1, len(v.places))
-    rh = min(34, inner_h / n)
-    pt = max(6, min(9.5, rh / 3.4))
-    for i, p in enumerate(v.places):
-        yy = inner_top + i * rh
-        S.text(x + 8, yy, wd * .4, rh, [f'{p["n"]}. {p["name"]}'], size=pt, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-        S.text(x + 8 + wd * .4, yy, wd * .32, rh, [p["popu"]], size=pt * .85, color="#2E3A48", align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-        S.badge(x + wd - 8 - wd * .26, yy + rh * .18, wd * .26, rh * .64, p["risk"], p["color"], max(6, pt * .82))
+    lines = [[(f'{p["n"]}. {p["name"]}', {"bold": True}), (f' : {p["popu"]}', {})] for p in v.places]
+    flat = [(f'{p["n"]}. {p["name"]} : {p["popu"]}', 1) for p in v.places]
+    pt = fit_pt(flat, wd - 16, inner_h, 11, 6, 1.45) if flat else 9
+    if lines:
+        S.text(x + 8, inner_top, wd - 16, inner_h, lines, size=pt, color=theme.INK, align=PP_ALIGN.LEFT, line_spacing=1.15)
 
-    # Contacts
+    # Contacts : « Catégorie : nombre » sur deux colonnes
     x, wd = xs[1], widths[1]
-    n_rows = max(1, math.ceil(len(v.contacts) / 2))
-    rh = min(34, (inner_h - 34) / n_rows)
-    pt = min(9.5, rh / 3.4)
     colw = (wd - 26) / 2
-    for i, c in enumerate(v.contacts):
-        col, r = i % 2, i // 2
-        cx, yy = x + 8 + col * (colw + 10), inner_top + r * rh
-        S.text(cx, yy, colw * .5, rh, [c["name"]], size=pt, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-        num = [(c["n"], {"bold": True, "color": theme.RED if c["unknown"] else theme.NAVY, "size": pt * (1.1 if c["unknown"] else 1)})]
-        if c["suffix"] and not c["unknown"]:
-            num.append((" " + c["suffix"], {"color": theme.MUTED, "size": pt * .8}))
-        S.text(cx + colw * .5, yy, colw * .23, rh, [num], size=pt, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
-        S.badge(cx + colw * .74, yy + rh * .18, colw * .26, rh * .64, c["risk"], c["color"], max(6, pt * .82))
-    S.text(x + 8, inner_top + n_rows * rh + 4, wd - 16, 30, [v.contact_phrase], size=max(6.5, pt * .9), color=theme.RED, bold=True)
+    half = math.ceil(len(v.contacts) / 2)
+    cols = [v.contacts[:half], v.contacts[half:]]
+    flat = [(f'{c["name"]} : {c["n"]} {c["suffix"]}', 1) for c in v.contacts]
+    pt = min(fit_pt(flat[:half], colw, inner_h - 36, 11, 6, 1.45), fit_pt(flat[half:] or [("x", 1)], colw, inner_h - 36, 11, 6, 1.45)) if flat else 9
+    for k, col in enumerate(cols):
+        paras = []
+        for c in col:
+            num = [(c["n"], {"bold": True, "color": theme.RED if c["unknown"] else theme.INK})]
+            if c["suffix"] and not c["unknown"]:
+                num.append((" " + c["suffix"], {"color": theme.MUTED, "size": pt * .85}))
+            paras.append([(c["name"] + " : ", {})] + num)
+        if paras:
+            S.text(x + 8 + k * (colw + 10), inner_top, colw, inner_h - 36, paras, size=pt, color=theme.INK,
+                   align=PP_ALIGN.LEFT, line_spacing=1.15)
+    S.text(x + 8, panels_y + ph - 40, wd - 16, 32, [v.contact_phrase], size=max(6.5, min(8.5, pt * .9)), color=theme.RED, bold=True)
 
     # PCI
     x, wd = xs[2], widths[2]

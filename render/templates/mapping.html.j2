@@ -73,16 +73,14 @@
 .pbody { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 10.5px; }
 .rows { display: flex; flex-direction: column; gap: .48em; }
 .prow { display: grid; align-items: center; gap: .6em; }
-.pl { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr) auto; }
-.pl .tag { min-width: 6.4em; }
+.pl { line-height: 1.3; color: {{ t.INK }}; }
 .pl .nm { font-weight: 800; }
-.pl .pp { color: #2E3A48; font-weight: 500; font-size: .9em; line-height: 1.2; }
+.pl .pp { font-weight: 500; }
 .tag { font-weight: 800; border-radius: .4em; text-align: center; padding: .38em .3em; font-size: .9em; line-height: 1.1; }
 .ct { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.2em; row-gap: .5em; }
-.ct .prow { grid-template-columns: minmax(0,1fr) auto auto; }
-.ct .tag { min-width: 4.8em; }
-.ct .nm { font-weight: 700; line-height: 1.2; }
-.ct .num { font-weight: 800; color: {{ t.NAVY }}; text-align: right; white-space: nowrap; }
+.ct .cl { line-height: 1.3; color: {{ t.INK }}; }
+.ct .nm { font-weight: 600; }
+.ct .num { font-weight: 800; color: {{ t.INK }}; white-space: nowrap; }
 .ct .num.q { color: {{ t.RED }}; font-size: 1.1em; }
 .ct .num small { font-weight: 500; color: {{ t.MUTED }}; font-size: .82em; }
 .phrase { color: {{ t.RED }}; font-weight: 700; font-size: .92em; margin-top: .75em; line-height: 1.3; text-align: center; }
@@ -178,7 +176,7 @@
         <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
           <div class="rows">
           {% for p in v.places %}
-            <div class="prow pl"><span class="nm">{{ p.n }}. {{ p.name }}</span><span class="pp">{{ p.popu }}</span><span class="tag" style="background: {{ p.color|soft }}; color: {{ p.color|soft|ink }};">{{ p.risk }}</span></div>
+            <div class="pl"><span class="nm">{{ p.n }}. {{ p.name }}</span> : <span class="pp">{{ p.popu }}</span></div>
           {% else %}
             <div class="note">Aucun lieu renseigné.</div>
           {% endfor %}
@@ -191,7 +189,7 @@
         <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
           <div class="ct">
           {% for c in v.contacts %}
-            <div class="prow"><span class="nm">{{ c.name }}</span><span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span><span class="tag" style="background: {{ c.color|soft }}; color: {{ c.color|soft|ink }};">{{ c.risk }}</span></div>
+            <div class="cl"><span class="nm">{{ c.name }}</span> : <span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span></div>
           {% else %}
             <div class="note">Aucune catégorie de contacts renseignée.</div>
           {% endfor %}
