@@ -111,6 +111,10 @@ saisie : elle est mémorisée et proposée ensuite (`donnees/pyramide_perso.csv`
 - Formulaire en 8 onglets ; aperçu en direct ; sauvegarde automatique ; versions (Ctrl/Cmd + S).
 - Calendriers à partir de **2026**, ouverts sur le mois en cours ; clic droit pour effacer une date.
 - Thèmes **clair**, **sombre** ou **comme le système** (bureau et web).
+- **Phases de la maladie** (MVE / Marburg) datées pour chaque cas : point d'infection estimé (J-21 → J-2),
+  incubation, phase sèche (dès J0, date **rapportée** par l'équipe, jamais recalculée) et phase humide
+  (détectée dans la chronologie : diarrhée, vomissements, saignements… ; sinon estimée à J+4).
+- Statut **Contact connu / Contact connu suivi / Non contact** affiché sur le mapping.
 - Fenêtres automatiques depuis J0 (exposition J-21 → J-2, contagiosité jusqu'à l'inhumation pour la MVE ;
   paramètres dans `config/diseases.yaml`), jours relatifs sur chaque étape.
 - Risque suggéré par règles explicites (règle visible en info-bulle), risque global, contrôles de cohérence,

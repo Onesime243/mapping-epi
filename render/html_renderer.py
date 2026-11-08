@@ -7,7 +7,7 @@ est exactement ce qui est exporté.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -25,6 +25,8 @@ PAGE_W, PAGE_H = 1280, 720
 
 _env = Environment(loader=FileSystemLoader(str(ROOT / "render" / "templates")),
                    autoescape=select_autoescape(["html", "j2"]), trim_blocks=True, lstrip_blocks=True)
+_env.filters["soft"] = theme.soft
+_env.filters["ink"] = theme.ink_on
 
 
 def assets_uri() -> str:
@@ -61,6 +63,48 @@ def place_label(ev: Event) -> str:
 
 def fmt_date(d) -> str:
     return d.strftime("%d/%m/%Y") if d else "?"
+
+
+def _dm(d) -> str:
+    return d.strftime("%d/%m") if d else "?"
+
+
+def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
+    """Les phases de la maladie, datées pour ce cas (bandeau sous « Chronologie du parcours »)."""
+    P = theme.PHASES
+    out: List[dict] = []
+
+    def add(key, dates, detail):
+        c = P[key]["color"]
+        out.append({"key": key, "label": P[key]["label"], "contag": P[key]["contag"], "dates": dates,
+                    "detail": detail, "color": c, "fill": theme.soft(c)})
+
+    j0, inc = ph.j0, ph.incubation
+    typ = f" (souvent {ph.incubation_typique[0]}–{ph.incubation_typique[1]} j)" if ph.incubation_typique else ""
+    if ph.exposition:
+        add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (estimé)",
+            f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]}")
+        add("incubation", f"jusqu'au {_dm(j0 - timedelta(days=1))}",
+            f"{inc[0]}–{inc[1]} j{typ} • aucun symptôme, pas de transmission")
+    else:
+        add("infection", "? (début des symptômes manquant)", f"J-{inc[1]} → J-{inc[0]}")
+        add("incubation", "?", f"{inc[0]}–{inc[1]} j{typ}")
+    fin = ph.deces
+    if ph.deux_phases:
+        if j0:
+            sec_end = (ph.humide - timedelta(days=1)) if ph.humide and ph.humide > j0 else None
+            add("seche", f"J0 {_dm(j0)} (rapporté)" + (f" → {_dm(sec_end)}" if sec_end else ""), theme.SIGNES_SECS)
+            rel = rules.relative_day(ph.humide, j0)
+            add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", theme.SIGNES_HUMIDES)
+        else:
+            add("seche", "J0 ?", theme.SIGNES_SECS)
+            add("humide", "?", theme.SIGNES_HUMIDES)
+    else:
+        add("symptomes", f"J0 {_dm(j0)} (rapporté)" if j0 else "J0 ?", "période contagieuse")
+    if fin:
+        add("deces", f"{_dm(fin)}" + (f" ({rules.relative_day(fin, j0)})" if j0 else ""),
+            "charge virale maximale : corps très contagieux")
+    return out
 
 
 def event_chips(ev: Event) -> list:
@@ -124,11 +168,14 @@ class MappingView:
     actions_auto: bool
     footer: str
     meta: str
+    phase_strip: List[dict] = field(default_factory=list)
+    contact: Optional[dict] = None
     theme: dict = field(default_factory=dict)
 
 
 def build_mapping_view(case: Case) -> MappingView:
     w = rules.windows(case)
+    ph = rules.phases(case)
     params = rules.disease_params(case.maladie)
     grisk, grisk_why = rules.global_risk(case)
 
@@ -141,7 +188,7 @@ def build_mapping_view(case: Case) -> MappingView:
             date=date_label(ev), place=place_label(ev), title=ev.titre or ev.type,
             desc=ev.description, risk=risk, risk_color=theme.risk_color(risk), type_color=et["color"],
             icon=icon_svg(et["icon"], 13, "#fff", 2.2), rel=rules.relative_day(ev.date_debut, w.j0),
-            phase=rules.event_phase(ev, w), uncertain=ev.date_incertaine or not ev.date_debut,
+            phase=rules.event_stage(ev, ph), uncertain=ev.date_incertaine or not ev.date_debut,
             reason=("Saisi" if ev.risque else "Suggéré") + f" — {why}", auto=not ev.risque,
             chips=event_chips(ev)))
 
@@ -150,18 +197,24 @@ def build_mapping_view(case: Case) -> MappingView:
     rows = [cards[i:i + per_row] for i in range(0, n, per_row)] if n else [[]]
 
     bands: List[List[Band]] = []
-    exp_lbl = f"Fenêtre d'exposition (J-{params['incubation_max']} → J-{params['incubation_min']})"
-    con_lbl = "Période contagieuse"
+
+    def band_label(stage: str, span: int) -> str:
+        d = theme.PHASES[stage]
+        if span == 1 and len(rows[0]) > 5:
+            return d["label"]
+        if stage == "infection":
+            return f"{d['label']} · exposition J-{params['incubation_max']} → J-{params['incubation_min']}"
+        return f"{d['label']} · {d['contag']}"
     for row in rows:
         rb: List[Band] = []
         i = 0
         while i < len(row):
-            ph = row[i].phase
+            st = row[i].phase
             j = i
-            while j + 1 < len(row) and row[j + 1].phase == ph:
+            while j + 1 < len(row) and row[j + 1].phase == st:
                 j += 1
-            if ph:
-                rb.append(Band(i + 1, j - i + 1, ph, exp_lbl if ph == "exposition" else con_lbl))
+            if st:
+                rb.append(Band(i + 1, j - i + 1, st, band_label(st, j - i + 1)))
             i = j + 1
         bands.append(rb)
 
@@ -170,7 +223,9 @@ def build_mapping_view(case: Case) -> MappingView:
         {"k": "Âge", "v": f"{case.age} {case.age_unite}" if case.age is not None else "?"},
         {"k": "AS", "v": case.aire_sante or "?"},
         {"k": "ZS", "v": case.zs or "?"},
-        {"k": "Début symptômes (J0)", "v": fmt_date(case.debut_symptomes)},
+        {"k": "Exposition estimée", "v": f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])}" if ph.exposition else "?",
+         "tip": "Calculée depuis le début des symptômes rapporté (J-21 → J-2 pour la MVE)"},
+        {"k": "Début symptômes (J0)", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
         {"k": case.statut if case.statut != "Confirmé" else "Confirmation", "v": fmt_date(case.date_confirmation)},
         {"k": "Issue", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
         {"k": "Risque", "v": grisk.upper(), "color": theme.risk_color(grisk), "tip": grisk_why},
@@ -209,6 +264,10 @@ def build_mapping_view(case: Case) -> MappingView:
     statut = {"Confirmé": "CONFIRMÉ", "Probable": "PROBABLE", "Suspect": "SUSPECT"}.get(case.statut, case.statut.upper())
     rang = f"DU {ordinal(case.rang)} CAS" if case.rang else "DU CAS"
     title = f"MAPPING COMPLET – PARCOURS ÉPIDÉMIOLOGIQUE {rang} {statut} {case.maladie.upper()} | ZS {(case.zs or '?').upper()}"
+    contact = None
+    if case.contact_connu and case.contact_connu != "Inconnu":
+        cc = theme.CONTACT_STATUS_COLORS.get(case.contact_connu, theme.BLUE)
+        contact = {"t": case.contact_connu.replace(" suivi", " · suivi").upper(), "fill": theme.soft(cc), "ink": theme.ink_on(theme.soft(cc))}
     score, _ = rules.completeness(case)
     meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
             f"Mapping Épi v{APP_VERSION}")
@@ -216,7 +275,7 @@ def build_mapping_view(case: Case) -> MappingView:
         title=title, subtitle="Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
         ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=case.note_pied,
-        meta=meta)
+        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
 
 
 # ---------------------------------------------------------------------------

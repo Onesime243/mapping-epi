@@ -192,11 +192,16 @@ class ClinicTab(QWidget):
         f = QFormLayout()
         self.debut = DateField()
         self.deces = DateField()
-        f.addRow("Début des symptômes (J0) *", self.debut)
+        self.humide = DateField()
+        self.contact = _combo(theme.CONTACT_STATUS_CHOICES)
+        f.addRow("Début des symptômes (J0, rapporté) *", self.debut)
+        f.addRow("Début phase humide", self.humide)
+        f.addRow("Contact connu ?", self.contact)
         f.addRow("Date de décès", self.deces)
         lay.addLayout(f)
-        lay.addWidget(_hint("J0 sert à calculer automatiquement la fenêtre d'exposition (J-21 → J-2 pour la MVE), "
-                            "la période contagieuse et les jours relatifs affichés sur chaque étape."))
+        lay.addWidget(_hint("J0 = date rapportée par l'équipe. Elle sert à estimer le point d'infection (J-21 → J-2 pour la MVE), "
+                            "puis l'incubation, la phase sèche et la phase humide. Phase humide vide : détectée dans la "
+                            "chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."))
         box = QGroupBox("Symptômes")
         g = QGridLayout(box)
         self.checks: Dict[str, QCheckBox] = {}
@@ -213,10 +218,14 @@ class ClinicTab(QWidget):
         lay.addStretch(1)
         self.debut.dateChanged.connect(self.changed)
         self.deces.dateChanged.connect(self.changed)
+        self.humide.dateChanged.connect(self.changed)
+        self.contact.currentTextChanged.connect(self.changed)
 
     def load(self, c: Case):
         self.debut.set_value(c.debut_symptomes)
         self.deces.set_value(c.date_deces)
+        self.humide.set_value(c.debut_phase_humide)
+        self.contact.setCurrentText(c.contact_connu or "Inconnu")
         for s, cb in self.checks.items():
             cb.setChecked(s in c.symptomes)
         self.autres.setText(c.symptomes_autres)
@@ -224,6 +233,8 @@ class ClinicTab(QWidget):
     def save(self, c: Case):
         c.debut_symptomes = self.debut.value()
         c.date_deces = self.deces.value()
+        c.debut_phase_humide = self.humide.value()
+        c.contact_connu = self.contact.currentText()
         c.symptomes = [s for s, cb in self.checks.items() if cb.isChecked()]
         c.symptomes_autres = self.autres.text().strip()
 

@@ -49,7 +49,18 @@ body {
       if (g) { groups[g] = Math.min(groups[g] || 999, fs); }
     });
     Object.keys(groups).forEach(function (g) {
-      document.querySelectorAll('[data-group="' + g + '"]').forEach(function (el) { el.style.fontSize = groups[g] + 'px'; });
+      var els = document.querySelectorAll('[data-group="' + g + '"]');
+      for (var pass = 0; pass < 4; pass++) {          // la taille commune peut encore faire déborder un élément
+        var fs = groups[g], again = false;
+        els.forEach(function (el) { el.style.fontSize = fs + 'px'; });
+        els.forEach(function (el) {
+          var min = parseFloat(el.getAttribute('data-fit')) || 6, f = fs;
+          while (overflowing(el) && f > min) { f -= 0.25; el.style.fontSize = f + 'px'; }
+          if (f < groups[g]) { groups[g] = f; again = true; }
+        });
+        if (!again) break;
+      }
+      els.forEach(function (el) { el.style.fontSize = groups[g] + 'px'; });
     });
     document.querySelectorAll('[data-fit]').forEach(function (el) {
       if (overflowing(el)) { el.classList.add('overflow'); }

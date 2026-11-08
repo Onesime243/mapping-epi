@@ -191,7 +191,8 @@ _CASE_FIELDS = [
     ("date_investigation", "Date investigation"), ("debut_symptomes", "Début symptômes"),
     ("symptomes", "Symptômes (séparés par ;)"), ("symptomes_autres", "Autres symptômes"),
     ("date_deces", "Date décès"), ("risque_global", "Risque global (vide = auto)"),
-    ("note_pied", "Observations (bas de page)"),
+    ("note_pied", "Observations (bas de page)"), ("debut_phase_humide", "Début phase humide"),
+    ("contact_connu", "Contact connu ?"),
 ]
 
 SHEETS = {

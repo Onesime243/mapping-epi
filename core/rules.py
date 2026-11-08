@@ -82,6 +82,66 @@ def event_phase(ev: Event, w: Windows) -> str:
     return ""
 
 
+# ---------------------------------------------------------------------------
+# Phases de la maladie : point d'infection → incubation → phase sèche → phase humide (→ décès)
+# ---------------------------------------------------------------------------
+@dataclass
+class Phases:
+    j0: Optional[date] = None                       # début des symptômes rapporté
+    exposition: Optional[Tuple[date, date]] = None  # point d'infection estimé (J-max → J-min)
+    incubation: Optional[Tuple[int, int]] = None     # (min, max) jours
+    incubation_typique: Optional[Tuple[int, int]] = None
+    humide: Optional[date] = None                   # entrée en phase humide
+    humide_source: str = ""                          # « saisie », « rapportée » (chronologie / symptômes) ou « estimée »
+    deces: Optional[date] = None
+    deux_phases: bool = False                        # MVE / Marburg : phases sèche et humide
+
+
+def _wet_text(ev: Event) -> bool:
+    t = f"{ev.titre} {ev.description}".lower()
+    return ev.liquides or any(m in t for m in theme.MOTS_HUMIDES)
+
+
+def phases(case: Case) -> Phases:
+    p = disease_params(case.maladie)
+    ph = Phases(j0=case.debut_symptomes, incubation=(p["incubation_min"], p["incubation_max"]),
+                deux_phases=bool(p.get("phase_humide_j")))
+    if p.get("incubation_typique"):
+        ph.incubation_typique = tuple(p["incubation_typique"])
+    ph.deces = case.date_deces or next((e.date_debut for e in case.sorted_events() if e.type == "Décès" and e.date_debut), None)
+    j0 = case.debut_symptomes
+    if not j0:
+        return ph
+    ph.exposition = (j0 - timedelta(days=p["incubation_max"]), j0 - timedelta(days=p["incubation_min"]))
+    if not ph.deux_phases:
+        return ph
+    if case.debut_phase_humide:
+        ph.humide, ph.humide_source = case.debut_phase_humide, "saisie"
+    else:
+        wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut >= j0 and _wet_text(e)]
+        if wet:
+            ph.humide, ph.humide_source = wet[0], "rapportée"
+        else:
+            ph.humide, ph.humide_source = j0 + timedelta(days=int(p["phase_humide_j"])), "estimée"
+    if ph.deces and ph.humide > ph.deces:
+        ph.humide, ph.humide_source = ph.deces, "estimée"
+    return ph
+
+
+def event_stage(ev: Event, ph: Phases) -> str:
+    """Phase de la maladie au début de l'étape : infection, incubation, seche, humide, deces, symptomes ou ''."""
+    if not ev.date_debut or not ph.j0:
+        return ""
+    d = ev.date_debut
+    if d < ph.j0:
+        return "infection" if ev.type == "Exposition" else "incubation"
+    if ev.type in {"Décès", "Funérailles", "Enterrement"} or (ph.deces and d >= ph.deces):
+        return "deces"
+    if not ph.deux_phases:
+        return "symptomes"
+    return "humide" if ph.humide and d >= ph.humide else "seche"
+
+
 def relative_day(d: Optional[date], j0: Optional[date]) -> str:
     if not d or not j0:
         return ""

@@ -144,12 +144,15 @@
   function renderClinic() {
     const p = $('#p-clinique'); p.innerHTML = '';
     const g = el('div', {class: 'grid'});
-    ['debut_symptomes', 'date_deces'].forEach((k, i) => {
+    [['debut_symptomes', 'Début des symptômes (J0, rapporté) *'], ['debut_phase_humide', 'Début phase humide (vide = auto)'],
+     ['date_deces', 'Date de décès']].forEach(([k, lbl]) => {
       const inp = el('input', {type: 'date', min: minDate(), value: C[k] || ''}); bindInput(inp, k, 'date');
-      g.appendChild(field(i ? 'Date de décès' : 'Début des symptômes (J0) *', inp));
+      g.appendChild(field(lbl, inp));
     });
+    const cc = el('select'); options(cc, S.choices.contact_status, C.contact_connu || 'Inconnu'); bindInput(cc, 'contact_connu', 'select');
+    g.appendChild(field('Contact connu ?', cc));
     p.appendChild(g);
-    p.appendChild(el('p', {class: 'hint', text: "J0 sert à calculer la fenêtre d'exposition, la période contagieuse et les jours relatifs (J-17, J+9…)."}));
+    p.appendChild(el('p', {class: 'hint', text: "J0 (date rapportée par l'équipe) sert à estimer le point d'infection (J-21 → J-2), puis l'incubation, la phase sèche et la phase humide. La phase humide est détectée dans la chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."}));
     p.appendChild(el('h2', {text: 'Symptômes'}));
     const box = el('div', {class: 'symptoms'});
     S.choices.symptoms.forEach(s => {

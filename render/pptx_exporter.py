@@ -93,9 +93,11 @@ class Slide:
                 f.color.rgb = _rgb(st.get("color", color))
         return shape
 
-    def badge(self, x, y, w, h, text, fill, size=8.5, name=""):
-        sh = self.rect(x, y, w, h, fill, radius=4, name=name)
-        self.text(0, 0, 0, 0, [text], size=size, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    def badge(self, x, y, w, h, text, fill, size=8.5, name="", soft=True):
+        """Badge à fond doux (teinte modérée du thème) et texte lisible."""
+        f = theme.soft(fill) if soft else fill
+        sh = self.rect(x, y, w, h, f, radius=4, name=name)
+        self.text(0, 0, 0, 0, [text], size=size, color=theme.ink_on(f), bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         return sh
 
     def line(self, x1, y1, x2, y2, color, width=1.5):
@@ -110,7 +112,7 @@ class Slide:
 
     def pill(self, x, y, text):
         w = 18 + len(text) * 6.3
-        self.badge(x, y, w, 20, text.upper(), theme.NAVY, 7.5)
+        self.badge(x, y, w, 20, text.upper(), theme.NAVY, 7.5, soft=False)
         return w
 
 
@@ -174,14 +176,33 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     panels_y = foot_y - 8 - ph
     tl_top = 119
     S.pill(16, tl_top, "Chronologie du parcours")
-    # légende
-    S.rect(820, tl_top + 6, 16, 8, _lighten(theme.BLUE, .6))
-    S.text(840, tl_top + 2, 150, 16, ["Fenêtre d'exposition probable"], size=7, color=theme.MUTED, align=PP_ALIGN.LEFT)
-    S.rect(990, tl_top + 6, 16, 8, _lighten(theme.RED, .75))
-    S.text(1010, tl_top + 2, 110, 16, ["Période contagieuse"], size=7, color=theme.MUTED, align=PP_ALIGN.LEFT)
-    S.text(1110, tl_top + 2, 154, 16, ["J±n : jours depuis J0"], size=7, color=theme.MUTED, align=PP_ALIGN.RIGHT)
+    # statut de contact (Contact connu / Non contact) et légende
+    if v.contact:
+        cw_ = 30 + len(v.contact["t"]) * 7
+        sh = S.rect(W / 2 - cw_ / 2, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
+        S.text(0, 0, 0, 0, [v.contact["t"]], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    S.text(930, tl_top + 2, 334, 16, ["J±n : jours depuis J0 (début des symptômes rapporté)"], size=7, color=theme.MUTED,
+           align=PP_ALIGN.RIGHT)
 
-    rows_top = tl_top + 26
+    # phases de la maladie (chevrons)
+    ph_top, ph_h = tl_top + 26, 46
+    npz = max(1, len(v.phase_strip))
+    pw = (ww - 3 * (npz - 1)) / npz
+    for k, p in enumerate(v.phase_strip):
+        px_ = x0 + k * (pw + 3)
+        shp = MSO_SHAPE.PENTAGON if k == 0 else MSO_SHAPE.CHEVRON
+        sh = S.rect(px_, ph_top, pw, ph_h, p["fill"], shape=shp, name=f"Phase {p['label']}")
+        try:
+            sh.adjustments[0] = 0.22
+        except (IndexError, ValueError):
+            pass
+        ink = theme.ink_on(p["fill"])
+        S.text(px_ + (10 if k == 0 else 16), ph_top + 2, pw - 30, ph_h - 4,
+               [[(f"{k + 1}. {p['label'].upper()}", {"bold": True}), (f" · {p['contag']}", {})],
+                [(p["dates"], {"bold": True})], [(p["detail"], {"size": 6.5})]],
+               size=7.5, color=ink, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, line_spacing=0.95)
+
+    rows_top = ph_top + ph_h + 6
     rows_h = panels_y - 8 - rows_top
     gap_rows = 6 if two else 0
     row_h = (rows_h - gap_rows * (len(v.rows) - 1)) / max(1, len(v.rows))
@@ -196,8 +217,8 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
         for b in v.bands[ri]:
             bx = x0 + (b.col - 1) * (cwid + gap)
             bw = b.span * cwid + (b.span - 1) * gap
-            col = _lighten(theme.BLUE, .78) if b.phase == "exposition" else _lighten(theme.RED, .85)
-            tcol = theme.BLUE if b.phase == "exposition" else theme.RED
+            col = theme.soft(theme.PHASES.get(b.phase, {"color": theme.BLUE})["color"])
+            tcol = theme.ink_on(col)
             sh = S.rect(bx, band_y, bw, 15, col, radius=4)
             S.text(0, 0, 0, 0, [b.label.upper()], size=6.5, color=tcol, bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         if row:
@@ -223,7 +244,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
                        anchor=MSO_ANCHOR.MIDDLE, shape=rb)
             paras = [[(c.title, {"bold": True, "size": body_pt * 1.02})]]
             if c.desc:
-                paras.append([(c.desc, {"color": theme.MUTED, "size": body_pt * .86})])
+                paras.append([(c.desc, {"color": theme.INK, "size": body_pt * .86})])
             if c.chips:
                 paras.append([(" • ".join(ch["t"] for ch in c.chips), {"color": theme.NAVY, "size": body_pt * .74, "bold": True})])
             S.text(cx + 3, dy + 14, cwid - 6, body_h, paras, size=body_pt, line_spacing=1.0)
@@ -252,7 +273,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     for i, p in enumerate(v.places):
         yy = inner_top + i * rh
         S.text(x + 8, yy, wd * .4, rh, [f'{p["n"]}. {p["name"]}'], size=pt, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-        S.text(x + 8 + wd * .4, yy, wd * .32, rh, [p["popu"]], size=pt * .85, color=theme.MUTED, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
+        S.text(x + 8 + wd * .4, yy, wd * .32, rh, [p["popu"]], size=pt * .85, color="#2E3A48", align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
         S.badge(x + wd - 8 - wd * .26, yy + rh * .18, wd * .26, rh * .64, p["risk"], p["color"], max(6, pt * .82))
 
     # Contacts

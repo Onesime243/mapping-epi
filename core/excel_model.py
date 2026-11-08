@@ -70,6 +70,8 @@ CASE_SECTIONS = [
     ]),
     ("CLINIQUE ET ISSUE", [
         ("debut_symptomes", "Début symptômes", "J0 — JJ/MM/AAAA. Sert au calcul des fenêtres d'exposition", True, "date"),
+        ("debut_phase_humide", "Début phase humide", "Diarrhée / vomissements / saignements — vide = détecté dans la chronologie ou estimé J+4", False, "date"),
+        ("contact_connu", "Contact connu ?", "Contact connu / Contact connu suivi / Non contact / Inconnu", True, "contact"),
         ("symptomes", "Symptômes (séparés par ;)", "ex. Fièvre; Céphalées; Méléna", False, "text"),
         ("symptomes_autres", "Autres symptômes", "", False, "text"),
         ("date_confirmation", "Date confirmation", "JJ/MM/AAAA", True, "date"),
@@ -141,7 +143,7 @@ LIST_ATTR = {"Chronologie": "events", "Lieux": "places", "Contacts": "contacts",
 
 LISTS = {
     "maladie": theme.DISEASES, "statut": theme.CASE_STATUS, "sexe": theme.SEXES, "unite": ["ans", "mois"],
-    "issue": theme.ISSUE_CHOICES, "risque": theme.RISK_CHOICES, "event_type": theme.EVENT_TYPE_CHOICES,
+    "issue": theme.ISSUE_CHOICES, "contact": theme.CONTACT_STATUS_CHOICES, "risque": theme.RISK_CHOICES, "event_type": theme.EVENT_TYPE_CHOICES,
     "transport": [t for t in theme.TRANSPORTS if t], "place_type": theme.PLACE_TYPES,
     "contact_risk": theme.CONTACT_RISK_CHOICES, "ipc": theme.IPC_CHOICES,
     "sample": ["Swab", "Sang total", "Plasma", "Urine", "Autre"],

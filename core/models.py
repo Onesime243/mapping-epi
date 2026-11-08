@@ -112,7 +112,9 @@ class Case(BaseModel):
     investigateur: str = ""
     date_investigation: Optional[date] = None
 
-    debut_symptomes: Optional[date] = None
+    debut_symptomes: Optional[date] = None   # date RAPPORTÉE par l'équipe (J0), jamais recalculée
+    debut_phase_humide: Optional[date] = None   # vide = détectée dans la chronologie ou estimée (J0 + 4)
+    contact_connu: str = "Inconnu"           # Contact connu / Contact connu suivi / Non contact / Inconnu
     symptomes: List[str] = Field(default_factory=list)
     symptomes_autres: str = ""
     date_deces: Optional[date] = None

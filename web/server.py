@@ -329,7 +329,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     "contacts": cols(schema.CONTACT_COLS), "ipc": cols(schema.IPC_COLS), "labs": cols(schema.LAB_COLS),
                     "actions": cols(schema.ACTION_COLS)},
             choices={"diseases": theme.DISEASES, "sexes": theme.SEXES, "status": theme.CASE_STATUS,
-                     "issues": theme.ISSUE_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS,
+                     "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS,
                      "hemorrhagic": sorted(theme.HEMORRHAGIC)},
             annee_min=theme.ANNEE_MIN,
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})

@@ -79,3 +79,25 @@ def test_completeness(demo):
     score, missing = rules.completeness(demo)
     assert 80 <= score <= 100
     assert any("non dénombrée" in m for m in missing)
+
+
+def test_phases_humide_detectee_et_dds_conservee(demo):
+    from datetime import timedelta
+    from core import rules
+    j0 = demo.debut_symptomes
+    ph = rules.phases(demo)
+    assert ph.j0 == j0                                   # la date rapportée n'est jamais recalculée
+    assert ph.exposition == (j0 - timedelta(days=21), j0 - timedelta(days=2))
+    assert ph.humide and ph.humide >= j0
+    stages = [rules.event_stage(e, ph) for e in demo.sorted_events() if e.date_debut]
+    assert set(stages) <= {"infection", "incubation", "seche", "humide", "deces"}
+    demo.debut_phase_humide = j0 + timedelta(days=1)
+    assert rules.phases(demo).humide_source == "saisie"
+
+
+def test_contact_connu_excel(demo, tmp_path):
+    from core import storage
+    demo.contact_connu = "Non contact"
+    p = tmp_path / "c.xlsx"
+    storage.export_excel(demo, p)
+    assert storage.import_excel(p).contact_connu == "Non contact"

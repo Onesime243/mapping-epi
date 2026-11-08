@@ -2,11 +2,15 @@
 # incubation_min / incubation_max : jours avant le début des symptômes (fenêtre d'exposition probable = J-max à J-min)
 # suivi_contacts : durée du suivi des contacts (jours après le dernier contact)
 # contagiosite : "jusqu_inhumation" (le corps reste contagieux) ou un nombre de jours après J0
+# incubation_typique : durée habituelle (affichée) ; phase_humide_j : jour habituel d'entrée en phase humide
+# (MVE / Marburg : phases sèche puis humide ; autres maladies : une seule phase symptomatique)
 # labo_delai_alerte_h : délai prélèvement -> résultat au-delà duquel une action est suggérée
 MVE:
   nom: "Maladie à virus Ebola"
   incubation_min: 2
   incubation_max: 21
+  incubation_typique: [4, 17]
+  phase_humide_j: 4        # début habituel de la phase humide (J+4) si aucun signe humide n'est daté
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true
@@ -15,6 +19,8 @@ Marburg:
   nom: "Maladie à virus Marburg"
   incubation_min: 2
   incubation_max: 21
+  incubation_typique: [5, 10]
+  phase_humide_j: 4
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true

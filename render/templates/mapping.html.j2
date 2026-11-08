@@ -21,16 +21,21 @@
 .m-tl-head { display: flex; align-items: center; justify-content: space-between; }
 .legend { display: flex; gap: 12px; font-size: 9px; color: {{ t.MUTED }}; align-items: center; }
 .legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.lg-exp { background: repeating-linear-gradient(135deg, rgba(46,106,142,.35) 0 3px, rgba(46,106,142,.12) 3px 6px); }
-.lg-con { background: rgba(192,57,43,.28); }
+.cbadge { font-size: 10px; font-weight: 800; letter-spacing: .7px; padding: 5px 16px; border-radius: 6px; text-transform: uppercase; }
+.phases { display: grid; height: 46px; flex: none; gap: 3px; }
+.ph { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 16px 0 18px; min-width: 0;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%, 11px 50%); font-size: 9px; line-height: 1.22; color: {{ t.INK }}; }
+.ph:first-child { clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%); padding-left: 9px; border-radius: 5px 0 0 5px; }
+.ph .l1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph .l1 b { font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.ph .l2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; }
+.ph .l3 { font-weight: 500; font-size: .92em; line-height: 1.18; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .m-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: {{ 6 if two else 0 }}px; }
 .m-row { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .bands, .cards { display: grid; column-gap: 6px; }
 .bands { height: 15px; margin-bottom: 3px; }
 .band { border-radius: 4px; font-size: 8.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
   display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 6px; }
-.band.exposition { background: repeating-linear-gradient(135deg, rgba(46,106,142,.22) 0 4px, rgba(46,106,142,.08) 4px 8px); color: {{ t.BLUE }}; }
-.band.contagieux { background: rgba(192,57,43,.13); color: {{ t.RED }}; }
 .cards { flex: 1 1 auto; min-height: 0; position: relative; }
 .line { position: absolute; left: 10px; right: 10px; height: 2px; background: #C9D2DD; z-index: 0;
   top: {{ 4 + (34 if two else 46) + 12 }}px; }
@@ -49,8 +54,8 @@
 .rel.j0 { background: {{ t.GREEN }}; color: #fff; }
 .cbody { flex: 1 1 auto; min-height: 0; overflow: hidden; text-align: center; padding: {{ 3 if two else 6 }}px 5px 2px; font-size: 11px; }
 .ctitle { font-weight: 800; font-size: 1.02em; line-height: 1.18; }
-.cdesc { color: {{ t.MUTED }}; font-size: .86em; line-height: 1.3; margin-top: 4px; }
-.badge { flex: none; margin: 4px 6px 6px; border-radius: 5px; color: #fff; font-weight: 800; text-align: center;
+.cdesc { color: {{ t.INK }}; font-weight: 500; font-size: .86em; line-height: 1.3; margin-top: 4px; }
+.badge { flex: none; margin: 4px 6px 6px; border-radius: 5px; font-weight: 800; text-align: center;
   font-size: {{ 9.5 if two else 10.5 }}px; padding: {{ 3 if two else 5 }}px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: .55em; }
 .chip { display: inline-flex; align-items: center; gap: .25em; font-size: .74em; font-weight: 600; color: {{ t.NAVY }};
@@ -69,8 +74,8 @@
 .pl { grid-template-columns: minmax(0,1.1fr) minmax(0,1fr) auto; }
 .pl .tag { min-width: 6.4em; }
 .pl .nm { font-weight: 800; }
-.pl .pp { color: {{ t.MUTED }}; font-size: .9em; line-height: 1.2; }
-.tag { color: #fff; font-weight: 800; border-radius: .4em; text-align: center; padding: .38em .3em; font-size: .9em; line-height: 1.1; }
+.pl .pp { color: #2E3A48; font-weight: 500; font-size: .9em; line-height: 1.2; }
+.tag { font-weight: 800; border-radius: .4em; text-align: center; padding: .38em .3em; font-size: .9em; line-height: 1.1; }
 .ct { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.2em; row-gap: .5em; }
 .ct .prow { grid-template-columns: minmax(0,1fr) auto auto; }
 .ct .tag { min-width: 4.8em; }
@@ -110,11 +115,17 @@
     <div class="m-tl">
       <div class="m-tl-head">
         <span class="pill">Chronologie du parcours</span>
-        <div class="legend">
-          <span><i class="lg-exp"></i>Fenêtre d'exposition probable</span>
-          <span><i class="lg-con"></i>Période contagieuse</span>
-          <span>J±n : jours depuis le début des symptômes</span>
+        {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}</span>{% endif %}
+        <div class="legend"><span>J±n : jours depuis J0 (début des symptômes rapporté par l'équipe)</span></div>
+      </div>
+      <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
+        {% for p in v.phase_strip %}
+        <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} — {{ p.detail }}">
+          <span class="l1"><b>{{ loop.index }}. {{ p.label }}</b> · {{ p.contag }}</span>
+          <span class="l2">{{ p.dates }}</span>
+          <span class="l3">{{ p.detail }}</span>
         </div>
+        {% endfor %}
       </div>
       <div class="m-rows">
       {% for row in v.rows %}
@@ -122,7 +133,7 @@
         <div class="m-row">
           <div class="bands" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
             {% for b in v.bands[loop.index0] %}
-            <div class="band {{ b.phase }}" style="grid-column: {{ b.col }} / span {{ b.span }};">{{ b.label }}</div>
+            {% set bc = t.PHASES[b.phase].color|soft %}<div class="band {{ b.phase }}" style="grid-column: {{ b.col }} / span {{ b.span }}; background: {{ bc }}; color: {{ bc|ink }};">{{ b.label }}</div>
             {% endfor %}
           </div>
           <div class="cards" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
@@ -138,12 +149,12 @@
                 <span class="dot" style="background: {{ c.type_color }};">{{ c.icon | safe }}</span>
                 {% if c.rel %}<span class="rel{% if c.rel == 'J0' %} j0{% endif %}">{{ c.rel }}</span>{% endif %}
               </div>
-              <div class="cbody" data-fit="6.5" data-max="{{ 12 if two else 14 }}" data-group="cbody">
+              <div class="cbody" data-fit="6" data-max="{{ 12 if two else 14 }}" data-group="cbody">
                 <div class="ctitle">{{ c.title }}</div>
                 {% if c.desc %}<div class="cdesc">{{ c.desc }}</div>{% endif %}
                 {% if c.chips %}<div class="chips">{% for ch in (c.chips[:1] if two else c.chips) %}<span class="chip{% if ch.warn %} warn{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}</div>{% endif %}
               </div>
-              <div class="badge" style="background: {{ c.risk_color }};">{{ c.risk }}</div>
+              <div class="badge" style="background: {{ c.risk_color|soft }}; color: {{ c.risk_color|soft|ink }};">{{ c.risk }}</div>
             </div>
             {% endfor %}
           </div>
@@ -158,7 +169,7 @@
         <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
           <div class="rows">
           {% for p in v.places %}
-            <div class="prow pl"><span class="nm">{{ p.n }}. {{ p.name }}</span><span class="pp">{{ p.popu }}</span><span class="tag" style="background: {{ p.color }};">{{ p.risk }}</span></div>
+            <div class="prow pl"><span class="nm">{{ p.n }}. {{ p.name }}</span><span class="pp">{{ p.popu }}</span><span class="tag" style="background: {{ p.color|soft }}; color: {{ p.color|soft|ink }};">{{ p.risk }}</span></div>
           {% else %}
             <div class="note">Aucun lieu renseigné.</div>
           {% endfor %}
@@ -171,7 +182,7 @@
         <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
           <div class="ct">
           {% for c in v.contacts %}
-            <div class="prow"><span class="nm">{{ c.name }}</span><span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span><span class="tag" style="background: {{ c.color }};">{{ c.risk }}</span></div>
+            <div class="prow"><span class="nm">{{ c.name }}</span><span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span><span class="tag" style="background: {{ c.color|soft }}; color: {{ c.color|soft|ink }};">{{ c.risk }}</span></div>
           {% else %}
             <div class="note">Aucune catégorie de contacts renseignée.</div>
           {% endfor %}
@@ -185,7 +196,7 @@
         <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
           <div class="rows">
           {% for x in v.ipc %}
-            <div class="prow"><span class="nm">{{ x.site }}</span><span class="tag" style="background: {{ x.color }};">{{ x.status }}</span></div>
+            <div class="prow"><span class="nm">{{ x.site }}</span><span class="tag" style="background: {{ x.color|soft }}; color: {{ x.color|soft|ink }};">{{ x.status }}</span></div>
           {% endfor %}
           </div>
           <div class="note">{{ v.ipc_phrase }}</div>
