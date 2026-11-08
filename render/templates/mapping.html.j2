@@ -21,10 +21,8 @@
 .m-tl-head { display: flex; align-items: center; justify-content: space-between; }
 .legend { display: flex; gap: 12px; font-size: 9px; color: {{ t.MUTED }}; align-items: center; }
 .legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.cbadge { flex: none; display: flex; align-items: center; font-size: 10.5px; font-weight: 800; letter-spacing: .7px; padding: 0 16px;
-  border-radius: 6px; text-transform: uppercase; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
-.m-sub2 { display: flex; gap: 10px; height: 38px; flex: none; align-items: stretch; }
-.phases { display: grid; flex: 0 1 560px; gap: 3px; min-width: 0; }
+.cbadge { font-size: 10px; font-weight: 800; letter-spacing: .7px; padding: 5px 16px; border-radius: 6px; text-transform: uppercase; }
+.phases { display: grid; height: 46px; flex: none; gap: 3px; }
 .ph { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 16px 0 18px; min-width: 0;
   clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%, 11px 50%); font-size: 9px; line-height: 1.22; color: {{ t.INK }}; }
 .ph:first-child { clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%); padding-left: 9px; border-radius: 5px 0 0 5px; }
@@ -46,7 +44,7 @@
 .card.uncertain .bar { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.65) 0 5px, transparent 5px 10px); }
 .bar { height: 4px; flex: none; }
 .chead { height: {{ 30 if two else 46 }}px; flex: none; padding: {{ 4 if two else 6 }}px 5px 0; text-align: center; overflow: hidden; font-size: 11px; }
-.cdate { font-size: 1em; font-weight: 800; white-space: nowrap; color: {{ t.INK }}; }
+.cdate { font-size: 1em; font-weight: 800; white-space: nowrap; }
 .cplace { font-size: .98em; font-weight: 700; margin-top: {{ 2 if two else 6 }}px; line-height: 1.15; }
 .cdot { height: 24px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
 .dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -60,13 +58,13 @@
 .badge { flex: none; margin: {{ "3px 6px 4px" if two else "4px 6px 6px" }}; border-radius: 5px; font-weight: 800; text-align: center;
   font-size: {{ 9 if two else 10.5 }}px; padding: {{ 2 if two else 5 }}px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: .55em; }
-.chip { display: inline-flex; align-items: center; gap: .25em; font-size: .74em; font-weight: 600; color: #374151;
-  background: #EEF0F3; border-radius: 1em; padding: .2em .55em; line-height: 1.2; }
+.chip { display: inline-flex; align-items: center; gap: .25em; font-size: .74em; font-weight: 600; color: {{ t.NAVY }};
+  background: #EDF1F6; border-radius: 1em; padding: .2em .55em; line-height: 1.2; }
 .chip svg { width: 1.05em; height: 1.05em; flex: none; }
 .chip.warn { background: #FBEAE8; color: {{ t.RED }}; }
 .auto-mark { opacity: .8; font-weight: 600; }
 
-.m-panels { flex: none; height: {{ 192 if two else 250 }}px; display: grid; grid-template-columns: 1fr 1.42fr .86fr .92fr; gap: 10px; }
+.m-panels { flex: none; height: {{ 196 if two else 258 }}px; display: grid; grid-template-columns: 1fr 1.42fr .86fr .92fr; gap: 10px; }
 .panel { background: #fff; border: 1px solid {{ t.BORDER }}; border-radius: 9px; padding: 9px 11px 9px; display: flex;
   flex-direction: column; min-width: 0; min-height: 0; box-shadow: 0 1px 3px rgba(20,40,70,.07); }
 .panel .pill { align-self: flex-start; margin-bottom: 8px; }
@@ -121,18 +119,17 @@
     <div class="m-tl">
       <div class="m-tl-head">
         <span class="pill">Chronologie du parcours</span>
+        {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}</span>{% endif %}
         <div class="legend"><span>J±n : jours depuis J0 (début des symptômes rapporté par l'équipe)</span></div>
       </div>
-      <div class="m-sub2">
-        <span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}</span>
-        <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
-          {% for p in v.phase_strip %}
-          <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} — {{ p.detail }}">
-            <span class="l1"><b>{{ p.label }}</b> · {{ p.contag }}</span>
-            <span class="l2">{{ p.dates }} <span style="font-weight:500">• {{ p.detail }}</span></span>
-          </div>
-          {% endfor %}
+      <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
+        {% for p in v.phase_strip %}
+        <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} — {{ p.detail }}">
+          <span class="l1"><b>{{ loop.index }}. {{ p.label }}</b> · {{ p.contag }}</span>
+          <span class="l2">{{ p.dates }}</span>
+          <span class="l3">{{ p.detail }}</span>
         </div>
+        {% endfor %}
       </div>
       <div class="m-rows">
       {% for row in v.rows %}
@@ -147,9 +144,9 @@
             <div class="line"></div>
             {% for c in row %}
             <div class="card{% if c.uncertain %} uncertain{% endif %}" title="{{ c.reason }}">
-              <div class="bar" style="background-color: #CBD3DC;"></div>
+              <div class="bar" style="background-color: {{ c.type_color }};"></div>
               <div class="chead" data-fit="7" data-max="{{ 10.5 if two else 12.5 }}" data-group="chead">
-                <div class="cdate">{{ c.date }}</div>
+                <div class="cdate" style="color: {{ c.type_color }};">{{ c.date }}</div>
                 <div class="cplace">{{ c.place }}</div>
               </div>
               <div class="cdot">
@@ -212,7 +209,7 @@
 
       <div class="panel">
         <span class="pill">Actions</span>
-        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
+        <div class="pbody" data-fit="5.5" data-max="13" data-group="actions">
           <div class="ac">
           {% set todo = v.actions|rejectattr('done')|list %}
           {% set done = v.actions|selectattr('done')|list %}
