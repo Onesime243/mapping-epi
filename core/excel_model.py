@@ -45,7 +45,7 @@ BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 RISK_FILLS = {
     "Très élevé": theme.RED, "Très haut": theme.RED, "Non": theme.RED, "Décès": theme.RED, "Urgent": theme.RED,
     "Élevé": theme.ORANGE, "Haut": theme.ORANGE, "Partiel": theme.ORANGE, "Important": theme.ORANGE,
-    "Modéré": theme.GREEN, "Faible": theme.GREEN, "Contrôlé": theme.GREEN, "Décontaminé": theme.GREEN,
+    "Modéré": theme.YELLOW, "Faible": theme.GREEN, "Contrôlé": theme.GREEN, "Décontaminé": theme.GREEN,
     "Inconnu": theme.BLUE, "À investiguer": theme.BLUE, "En cours": theme.BLUE, "Normal": theme.BLUE,
 }
 
@@ -420,7 +420,8 @@ def _readme(ws):
         r += 1
     for label, color, desc in [("Très élevé / Très haut / Non", theme.RED, "Contact avec le corps, funérailles, site non décontaminé"),
                                ("Élevé / Haut / Partiel", theme.ORANGE, "Soins, hospitalisation, rassemblement avec un cas symptomatique"),
-                               ("Modéré / Faible / Contrôlé", theme.GREEN, "Exposition limitée ou circuit encadré"),
+                               ("Modéré", theme.YELLOW, "Exposition limitée, contagiosité débutante"),
+                               ("Faible / Contrôlé / Décontaminé", theme.GREEN, "Circuit encadré ou site décontaminé"),
                                ("Inconnu / À investiguer / En cours", theme.BLUE, "Information à compléter")]:
         c = ws.cell(row=r, column=2, value=label)
         c.fill = PatternFill("solid", fgColor=color[1:])

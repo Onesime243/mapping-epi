@@ -28,7 +28,7 @@ def svg_open() -> str:
                 f'<marker id="arr-{k}" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" '
                 f'orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="{c}"/></marker>'
                 for k, c in {"navy": theme.NAVY, "red": theme.RED, "orange": theme.ORANGE, "blue": theme.BLUE,
-                             "green": theme.GREEN, "muted": theme.MUTED, "teal": theme.TEAL}.items())
+                             "green": theme.GREEN, "yellow": theme.YELLOW, "muted": theme.MUTED, "teal": theme.TEAL}.items())
             + '</defs>')
 
 
@@ -106,7 +106,7 @@ def legend_item(x, y, color, text, kind="rect", dashed=False) -> str:
 
 
 def risk_marker(level: str) -> str:
-    return {"Très élevé": "red", "Élevé": "orange", "Modéré": "green", "Contrôlé": "green"}.get(level, "blue")
+    return {"Très élevé": "red", "Élevé": "orange", "Modéré": "yellow", "Contrôlé": "green"}.get(level, "blue")
 
 
 # ---------------------------------------------------------------------------

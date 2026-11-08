@@ -18,6 +18,10 @@ def _id() -> str:
     return uuid.uuid4().hex[:10]
 
 
+
+NOTE_PIED_DEFAUT = "TASK FORCE PRÉSIDENTIELLE EBOLA 17 - Système de Gestion de l'Incident MVE 17"
+_ANCIENNE_NOTE = "À mettre à jour à chaque nouvelle information d'investigation."
+
 class Event(BaseModel):
     id: str = Field(default_factory=_id)
     date_debut: Optional[date] = None
@@ -124,6 +128,13 @@ class Case(BaseModel):
 
     events: List[Event] = Field(default_factory=list)
 
+    @field_validator("note_pied")
+    @classmethod
+    def _note_pied(cls, v):
+        # Les cas déjà enregistrés avec l'ancien texte standard reçoivent le nouveau.
+        v = (v or "").strip()
+        return NOTE_PIED_DEFAUT if (not v or v.startswith(_ANCIENNE_NOTE)) else v
+
     @field_validator("symptomes")
     @classmethod
     def _symptomes(cls, v):
@@ -142,8 +153,7 @@ class Case(BaseModel):
     actions: List[Action] = Field(default_factory=list)
     suggestions_rejetees: List[str] = Field(default_factory=list)
 
-    note_pied: str = ("À mettre à jour à chaque nouvelle information d'investigation. "
-                      "Les inconnues sont volontairement conservées pour éviter toute fausse complétude.")
+    note_pied: str = NOTE_PIED_DEFAUT
     modifie_le: Optional[datetime] = None
     modifie_par: str = ""
 

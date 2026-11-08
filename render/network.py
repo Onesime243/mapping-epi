@@ -203,7 +203,7 @@ def render_svg(case: Case) -> str:
     out.append(K.pill(x0 + 10, y + 4, "Légende"))
     y += 42
     for col, txt in [(theme.RED, "Très élevé / très haut"), (theme.ORANGE, "Élevé / haut"),
-                     (theme.GREEN, "Modéré / contrôlé"), (theme.BLUE, "Inconnu")]:
+                     (theme.YELLOW, "Modéré"), (theme.GREEN, "Contrôlé / faible"), (theme.BLUE, "Inconnu")]:
         out.append(K.legend_item(x0 + 12, y, col, K.ellipsize(txt, 100, 10), "circle"))
         y += 22
     out.append(K.legend_item(x0 + 12, y, theme.MUTED, "Nombre inconnu", "circle", dashed=True))

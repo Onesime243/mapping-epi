@@ -14,12 +14,12 @@ MUTED = "#6B7785"
 
 # Couleurs modérées (esprit des cartes épidémiologiques) : teinte « appuyée » pour les traits, icônes et textes
 BLUE = "#4A7699"     # Inconnu / À investiguer / En cours
-GREEN = "#4F8F58"    # Modéré / Contrôlé / Décontaminé
+GREEN = "#4F8F58"    # Contrôlé / Faible / Décontaminé
 ORANGE = "#C77B3A"   # Élevé / Haut / Partiel
 RED = "#B4554E"      # Très élevé / Très haut / Non / Décès
 PURPLE = "#7B629B"
 TEAL = "#3D8783"
-YELLOW = "#B8962E"
+YELLOW = "#B8962E"   # Modéré
 GREY = "#6B7785"
 
 # … et teinte « douce » pour les badges et étiquettes (fonds), comme la légende d'une carte
@@ -55,14 +55,14 @@ RISK_LEVELS = {
     "En cours":      {"color": BLUE,   "rank": 0, "pattern": "none"},
     "Contrôlé":      {"color": GREEN,  "rank": 0, "pattern": "none"},
     "Faible":        {"color": GREEN,  "rank": 1, "pattern": "none"},
-    "Modéré":        {"color": GREEN,  "rank": 2, "pattern": "none"},
+    "Modéré":        {"color": YELLOW,  "rank": 2, "pattern": "none"},
     "Élevé":         {"color": ORANGE, "rank": 3, "pattern": "stripes"},
     "Très élevé":    {"color": RED,    "rank": 4, "pattern": "cross"},
 }
 RISK_CHOICES = ["Inconnu", "À investiguer", "En cours", "Contrôlé", "Faible",
                 "Modéré", "Élevé", "Très élevé"]
 
-CONTACT_RISKS = {"Modéré": GREEN, "Haut": ORANGE, "Très haut": RED, "Inconnu": BLUE}
+CONTACT_RISKS = {"Modéré": YELLOW, "Haut": ORANGE, "Très haut": RED, "Inconnu": BLUE}
 CONTACT_RISK_CHOICES = ["Haut", "Très haut", "Modéré", "Inconnu"]
 
 IPC_STATUS = {"Décontaminé": GREEN, "Partiel": ORANGE, "Non": RED, "Inconnu": BLUE}
