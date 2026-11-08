@@ -172,41 +172,36 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
 
     # C. chronologie
     foot_y = H - 8 - 24
-    ph = 226 if two else 258
+    ph = 192 if two else 250
     panels_y = foot_y - 8 - ph
     tl_top = 119
     S.pill(16, tl_top, "Chronologie du parcours")
-    # statut de contact (Contact connu / Non contact) et légende
-    if v.contact:
-        cw_ = 30 + len(v.contact["t"]) * 7
-        sh = S.rect(W / 2 - cw_ / 2, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
-        S.text(0, 0, 0, 0, [v.contact["t"]], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    # légende, puis statut de contact (rouge fort) et point d'infection estimé
     S.text(930, tl_top + 2, 334, 16, ["J±n : jours depuis J0 (début des symptômes rapporté)"], size=7, color=theme.MUTED,
            align=PP_ALIGN.RIGHT)
-
-    # phases de la maladie (chevrons)
-    ph_top, ph_h = tl_top + 26, 46
-    npz = max(1, len(v.phase_strip))
-    pw = (ww - 3 * (npz - 1)) / npz
-    for k, p in enumerate(v.phase_strip):
-        px_ = x0 + k * (pw + 3)
-        shp = MSO_SHAPE.PENTAGON if k == 0 else MSO_SHAPE.CHEVRON
-        sh = S.rect(px_, ph_top, pw, ph_h, p["fill"], shape=shp, name=f"Phase {p['label']}")
+    ph_top, ph_h = tl_top + 26, 38
+    c = v.contact
+    cw_ = 34 + len(c["t"]) * 7.2
+    sh = S.rect(x0, ph_top, cw_, ph_h, c["fill"], radius=5, name="Statut contact")
+    S.text(0, 0, 0, 0, [c["t"].upper()], size=8.5, color=c["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    for p in v.phase_strip:
+        px_, pw = x0 + cw_ + 10, 560
+        sh = S.rect(px_, ph_top, pw, ph_h, p["fill"], shape=MSO_SHAPE.PENTAGON, name=f"Phase {p['label']}")
         try:
             sh.adjustments[0] = 0.22
         except (IndexError, ValueError):
             pass
         ink = theme.ink_on(p["fill"])
-        S.text(px_ + (10 if k == 0 else 16), ph_top + 2, pw - 30, ph_h - 4,
-               [[(f"{k + 1}. {p['label'].upper()}", {"bold": True}), (f" · {p['contag']}", {})],
-                [(p["dates"], {"bold": True})], [(p["detail"], {"size": 6.5})]],
+        S.text(px_ + 10, ph_top + 2, pw - 30, ph_h - 4,
+               [[(p["label"].upper(), {"bold": True}), (f" · {p['contag']}", {})],
+                [(p["dates"], {"bold": True}), (f" • {p['detail']}", {"size": 6.8})]],
                size=7.5, color=ink, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, line_spacing=0.95)
 
     rows_top = ph_top + ph_h + 6
     rows_h = panels_y - 8 - rows_top
     gap_rows = 6 if two else 0
     row_h = (rows_h - gap_rows * (len(v.rows) - 1)) / max(1, len(v.rows))
-    head_h = 34 if two else 46
+    head_h = 30 if two else 46
     for ri, row in enumerate(v.rows):
         ry = rows_top + ri * (row_h + gap_rows)
         n = max(1, len(row))
@@ -232,9 +227,9 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
         for i, c in enumerate(row):
             cx = x0 + i * (cwid + gap)
             S.rect(cx, card_y, cwid, card_h, "#FFFFFF", theme.BORDER, radius=7, name=f"Étape {c.title}")
-            S.rect(cx + 1, card_y + 0.5, cwid - 2, 4, c.type_color)
+            S.rect(cx + 1, card_y + 0.5, cwid - 2, 4, "#CBD3DC")
             S.text(cx + 2, card_y + 6, cwid - 4, head_h - 2,
-                   [[(c.date, {"color": c.type_color, "bold": True, "size": head_pt})],
+                   [[(c.date, {"color": theme.INK, "bold": True, "size": head_pt})],
                     [(c.place, {"bold": True, "size": head_pt * .98})]], size=head_pt)
             dy = card_y + 4 + head_h + 12
             S.oval(cx + cwid / 2, dy, 10, c.type_color, "#FFFFFF", 2.5)

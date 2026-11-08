@@ -83,7 +83,7 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
     typ = f" (souvent {ph.incubation_typique[0]}–{ph.incubation_typique[1]} j)" if ph.incubation_typique else ""
     if ph.exposition:
         add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (estimé)",
-            f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]}")
+            f"J-{inc[1]} → J-{inc[0]} avant le début des symptômes rapporté ({_dm(j0)}) : contact avec un malade ou un corps")
         add("incubation", f"jusqu'au {_dm(j0 - timedelta(days=1))}",
             f"{inc[0]}–{inc[1]} j{typ} • aucun symptôme, pas de transmission")
     else:
@@ -276,10 +276,11 @@ def build_mapping_view(case: Case) -> MappingView:
     statut = {"Confirmé": "CONFIRMÉ", "Probable": "PROBABLE", "Suspect": "SUSPECT"}.get(case.statut, case.statut.upper())
     rang = f"DU {ordinal(case.rang)} CAS" if case.rang else "DU CAS"
     title = f"MAPPING COMPLET – PARCOURS ÉPIDÉMIOLOGIQUE {rang} {statut} {case.maladie.upper()} | ZS {(case.zs or '?').upper()}"
-    contact = None
     if case.contact_connu and case.contact_connu != "Inconnu":
-        cc = theme.CONTACT_STATUS_COLORS.get(case.contact_connu, theme.BLUE)
-        contact = {"t": case.contact_connu.replace(" suivi", " · suivi").upper(), "fill": theme.soft(cc), "ink": theme.ink_on(theme.soft(cc))}
+        contact = {"t": case.contact_connu.replace(" suivi", " · suivi").upper(), "fill": theme.RED_STRONG, "ink": "#FFFFFF",
+                   "known": True}
+    else:
+        contact = {"t": "Contact connu ? à préciser", "fill": "#E5E7EB", "ink": "#374151", "known": False}
     score, _ = rules.completeness(case)
     meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
             f"Mapping Épi v{APP_VERSION}")
@@ -288,7 +289,7 @@ def build_mapping_view(case: Case) -> MappingView:
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
         ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=case.note_pied,
-        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
+        meta=meta, phase_strip=build_phase_strip(case, ph)[:1], contact=contact)
 
 
 # ---------------------------------------------------------------------------

@@ -118,7 +118,8 @@ def phases(case: Case) -> Phases:
     if case.debut_phase_humide:
         ph.humide, ph.humide_source = case.debut_phase_humide, "saisie"
     else:
-        wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut >= j0 and _wet_text(e)]
+        # la phase sèche dure au moins le jour du début : on cherche les signes humides après J0
+        wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut > j0 and _wet_text(e)]
         if wet:
             ph.humide, ph.humide_source = wet[0], "rapportée"
         else:
