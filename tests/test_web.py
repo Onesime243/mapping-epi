@@ -145,3 +145,13 @@ def test_import_ignore_lignes_residuelles(tmp_path):
         ws.cell(row=r, column=hdr.index("Sans PCI") + 1, value="oui")
     wb.save(p)
     assert len(storage.import_excel(p).events) == 1
+
+
+def test_tutoriel_public(app):
+    c = app.test_client()
+    assert c.get("/tutoriel").status_code in (301, 302, 308)
+    r = c.get("/tutoriel/")
+    assert r.status_code == 200 and "Parcours guidé Mapping Épi".encode() in r.data
+    assert c.get("/tutoriel/frames/w01.jpg").status_code == 200
+    assert c.get("/tutoriel/Exemple_Mapping_rempli_FICTIF.xlsx").status_code == 200
+    assert c.get("/tutoriel/../server.py").status_code == 404

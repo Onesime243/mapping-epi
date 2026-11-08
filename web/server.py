@@ -590,6 +590,21 @@ def create_app(store: storage.Store | None = None) -> Flask:
             pass
         return send_file(io.BytesIO(data), as_attachment=True, download_name=name)
 
+    # --------------------------------------------- tutoriel cliquable (public : cas fictif, aucune donnée réelle)
+    TUTO = Path(__file__).resolve().parent / "static" / "tutoriel"
+
+    @app.route("/tutoriel")
+    def tutorial_root():
+        return redirect("/tutoriel/")
+
+    @app.route("/tutoriel/")
+    @app.route("/tutoriel/<path:p>")
+    def tutorial(p="index.html"):
+        resp = send_from_directory(str(TUTO), p, max_age=3600)
+        if p == "index.html":
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     @app.route("/modele-excel")
     @login_required
     def excel_model():

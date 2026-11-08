@@ -32,6 +32,7 @@
       </div>
       <a href="{{ url_for('users_admin') }}">Utilisateurs</a>
       {% endif %}
+      <a href="/tutoriel/" target="_blank" rel="noopener">Tutoriel</a>
       <a href="{{ url_for('account') }}">Mon compte</a>
       <span class="who">{{ me.nom or me.username }}{% if me.is_admin %} · admin{% endif %}</span>
       <a href="{{ url_for('logout') }}">Déconnexion</a>
