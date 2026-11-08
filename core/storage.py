@@ -25,6 +25,40 @@ def current_user() -> str:
         return "inconnu"
 
 
+class _Rows(list):
+    """Résultat déjà lu d'une requête (sûr entre threads)."""
+
+    def fetchone(self):
+        return self[0] if self else None
+
+    def fetchall(self):
+        return list(self)
+
+
+class _SafeDB:
+    """Connexion SQLite partagée par les threads du serveur web : chaque requête est exécutée et lue
+    entièrement sous verrou (sinon deux requêtes simultanées peuvent se mélanger sur le même curseur)."""
+
+    def __init__(self, conn: sqlite3.Connection, lock):
+        self._c, self._lock = conn, lock
+
+    def execute(self, sql, args=()):
+        with self._lock:
+            return _Rows(self._c.execute(sql, args).fetchall())
+
+    def executescript(self, sql):
+        with self._lock:
+            self._c.executescript(sql)
+
+    def commit(self):
+        with self._lock:
+            self._c.commit()
+
+    def close(self):
+        with self._lock:
+            self._c.close()
+
+
 class Store:
     """Base locale partagée par l'application de bureau et le serveur web."""
 
@@ -36,7 +70,7 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.mirror_dir = (self.path.parent / "cas") if mirror_json else None
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.path), check_same_thread=False, timeout=15)
+        self.db = _SafeDB(sqlite3.connect(str(self.path), check_same_thread=False, timeout=15), self.lock)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(
             """
