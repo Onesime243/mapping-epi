@@ -354,7 +354,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
 
     # E. pied de page
     S.rect(x0, foot_y, ww, 24, "#E7EBF0", theme.BORDER, radius=5, name="Pied de page")
-    S.text(x0 + 10, foot_y + 2, ww * .64, 20, [v.footer], size=7, color=theme.MUTED, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
+    S.text(x0 + 10, foot_y + 2, ww * .64, 20, [v.org + (" · " + v.footer if v.footer else "")], size=7, color=theme.MUTED, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
     S.text(x0 + ww * .64, foot_y + 2, ww * .36 - 10, 20, [v.meta], size=6.5, color=theme.MUTED, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
 
 

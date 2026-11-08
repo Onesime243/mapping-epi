@@ -15,7 +15,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from config import theme
 from core import rules
-from core.models import Case, Event
+from core.models import Case, Event, NOTE_PIED_DEFAUT
 from render.icons import icon_svg
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +28,14 @@ _env = Environment(loader=FileSystemLoader(str(ROOT / "render" / "templates")),
 _env.filters["soft"] = theme.soft
 _env.filters["ink"] = theme.ink_on
 
+
+
+def _note_libre(note: str) -> str:
+    """Observations propres au cas, sans répéter la mention institutionnelle (toujours affichée)."""
+    n = (note or "").strip()
+    if not n or n == NOTE_PIED_DEFAUT:
+        return ""
+    return n.replace(NOTE_PIED_DEFAUT, "").strip(" .·-")
 
 def assets_uri() -> str:
     return ASSETS.resolve().as_uri() + "/"
@@ -176,6 +184,7 @@ class MappingView:
     actions_auto: bool
     footer: str
     meta: str
+    org: str = ""
     phase_strip: List[dict] = field(default_factory=list)
     contact: Optional[dict] = None
     theme: dict = field(default_factory=dict)
@@ -287,7 +296,7 @@ def build_mapping_view(case: Case) -> MappingView:
         title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
-        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=case.note_pied,
+        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT,
         meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
 
 
