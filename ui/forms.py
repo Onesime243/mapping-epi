@@ -97,6 +97,10 @@ class IdentityTab(QWidget):
         f.addRow("Rang du cas (1er, 2e…)", self.rang)
         f.addRow("Maladie *", self.maladie)
         f.addRow("Statut", self.statut)
+        self.contact = _combo(theme.CONTACT_STATUS_CHOICES)
+        self.contact.setToolTip("Le cas était-il déjà un contact connu (listé) avant d'être confirmé ?")
+        self.contact.currentTextChanged.connect(self.changed)
+        f.addRow("Contact connu ou non contact ? *", self.contact)
         f.addRow("Sexe *", self.sexe)
         f.addRow("Âge *", age_row)
         f.addRow("Profession", self.profession)
@@ -147,6 +151,7 @@ class IdentityTab(QWidget):
     def load(self, c: Case):
         self.rang.setValue(c.rang or 0)
         self.code_cas.setText(c.code_cas)
+        self.contact.setCurrentText(c.contact_connu or "Inconnu")
         self.maladie.setCurrentText(c.maladie)
         self.statut.setCurrentText(c.statut)
         self.sexe.setCurrentText(c.sexe)
@@ -170,6 +175,7 @@ class IdentityTab(QWidget):
     def save(self, c: Case):
         c.rang = self.rang.value() or None
         c.code_cas = self.code_cas.text().strip()
+        c.contact_connu = self.contact.currentText()
         c.maladie = self.maladie.currentText().strip() or "Autre"
         c.statut = self.statut.currentText()
         c.sexe = self.sexe.currentText()
@@ -199,10 +205,8 @@ class ClinicTab(QWidget):
         self.debut = DateField()
         self.deces = DateField()
         self.humide = DateField()
-        self.contact = _combo(theme.CONTACT_STATUS_CHOICES)
         f.addRow("Début des symptômes (J0, rapporté) *", self.debut)
         f.addRow("Début phase humide", self.humide)
-        f.addRow("Contact connu ?", self.contact)
         f.addRow("Date de décès", self.deces)
         lay.addLayout(f)
         lay.addWidget(_hint("J0 = date rapportée par l'équipe. Elle sert à estimer le point d'infection (J-21 → J-2 pour la MVE), "
@@ -240,7 +244,6 @@ class ClinicTab(QWidget):
         self.debut.dateChanged.connect(self.changed)
         self.deces.dateChanged.connect(self.changed)
         self.humide.dateChanged.connect(self.changed)
-        self.contact.currentTextChanged.connect(self.changed)
 
     def _custom_check(self, name: str, checked: bool = True):
         if name in self.checks:
@@ -267,7 +270,6 @@ class ClinicTab(QWidget):
         self.debut.set_value(c.debut_symptomes)
         self.deces.set_value(c.date_deces)
         self.humide.set_value(c.debut_phase_humide)
-        self.contact.setCurrentText(c.contact_connu or "Inconnu")
         for s, cb in self.checks.items():
             cb.setChecked(s in c.symptomes)
         self.autres.setText(c.symptomes_autres)
@@ -276,7 +278,6 @@ class ClinicTab(QWidget):
         c.debut_symptomes = self.debut.value()
         c.date_deces = self.deces.value()
         c.debut_phase_humide = self.humide.value()
-        c.contact_connu = self.contact.currentText()
         c.symptomes = [s for s, cb in self.checks.items() if cb.isChecked()]
         c.symptomes_autres = self.autres.text().strip()
 

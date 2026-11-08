@@ -101,6 +101,16 @@
     const mal = el('input', {value: C.maladie || '', list: datalist('dl-mal', S.choices.diseases)}); bindInput(mal, 'maladie');
     g.appendChild(field('Maladie *', mal));
     g.appendChild(field('Statut', sel('statut', S.choices.status)));
+    // Lien épidémiologique : le cas était-il déjà un contact connu (listé) ?
+    const cbox = el('div', {class: 'seg'});
+    (S.choices.contact_status || ['Inconnu', 'Contact connu', 'Contact connu suivi', 'Non contact']).forEach(v => {
+      const b = el('button', {type: 'button', class: 'seg-b' + (v === 'Inconnu' ? ' unk' : '') + ((C.contact_connu || 'Inconnu') === v ? ' on' : ''), text: v});
+      b.addEventListener('click', () => {
+        C.contact_connu = v; cbox.querySelectorAll('.seg-b').forEach(x => x.classList.toggle('on', x === b)); changed();
+      });
+      cbox.appendChild(b);
+    });
+    g.appendChild(field('Contact connu ou non contact ? *', cbox, true));
     g.appendChild(field('Sexe *', sel('sexe', S.choices.sexes)));
     g.appendChild(field('Âge *', inp('age', 'number', {min: 0, max: 120, placeholder: 'vide si inconnu'})));
     g.appendChild(field('Unité', sel('age_unite', ['ans', 'mois'])));
@@ -150,8 +160,6 @@
       const inp = el('input', {type: 'date', min: minDate(), value: C[k] || ''}); bindInput(inp, k, 'date');
       g.appendChild(field(lbl, inp));
     });
-    const cc = el('select'); options(cc, S.choices.contact_status, C.contact_connu || 'Inconnu'); bindInput(cc, 'contact_connu', 'select');
-    g.appendChild(field('Contact connu ?', cc));
     p.appendChild(g);
     p.appendChild(el('p', {class: 'hint', text: "J0 (date rapportée par l'équipe) sert à estimer le point d'infection (J-21 → J-2), puis l'incubation, la phase sèche et la phase humide. La phase humide est détectée dans la chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."}));
     p.appendChild(el('h2', {text: 'Symptômes'}));

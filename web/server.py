@@ -47,6 +47,15 @@ def _secret_key() -> bytes:
     return f.read_bytes()
 
 
+def _static_version() -> str:
+    """Change à chaque modification des fichiers JS / CSS : le navigateur recharge toujours la dernière version."""
+    st = Path(__file__).resolve().parent / "static"
+    try:
+        return f"{H.APP_VERSION}-{max(int(f.stat().st_mtime) for f in st.iterdir() if f.is_file())}"
+    except ValueError:
+        return H.APP_VERSION
+
+
 def create_app(store: storage.Store | None = None) -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     public = os.environ.get("MAPPING_EPI_PUBLIC") == "1"      # serveur sur internet, derrière Caddy (HTTPS)
@@ -107,7 +116,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     @app.context_processor
     def inject():
-        return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": H.APP_VERSION,
+        return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": _static_version(),
                 "credits": credits}
 
     @app.after_request

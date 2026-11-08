@@ -432,7 +432,7 @@ CRITICAL_FIELDS = [
     ("rang", "Rang du cas"), ("sexe", "Sexe"), ("age", "Âge"), ("zs", "Zone de santé"),
     ("aire_sante", "Aire de santé"), ("date_confirmation", "Date de confirmation"),
     ("debut_symptomes", "Date de début des symptômes"), ("issue", "Issue"),
-    ("investigateur", "Investigateur"),
+    ("investigateur", "Investigateur"), ("contact_connu", "Contact connu ou non contact"),
 ]
 
 

@@ -20,7 +20,7 @@ from render.icons import icon_svg
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
-APP_VERSION = "1.0"
+APP_VERSION = "1.1"
 PAGE_W, PAGE_H = 1280, 720
 
 _env = Environment(loader=FileSystemLoader(str(ROOT / "render" / "templates")),
