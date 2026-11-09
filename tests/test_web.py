@@ -155,3 +155,21 @@ def test_tutoriel_public(app):
     assert c.get("/tutoriel/frames/w01.jpg").status_code == 200
     assert c.get("/tutoriel/Exemple_Mapping_rempli_FICTIF.xlsx").status_code == 200
     assert c.get("/tutoriel/../server.py").status_code == 404
+
+
+def test_import_narratif_web(app, tmp_path):
+    import io
+
+    from tests.test_narratif import _docx_fictif
+    c = app.test_client()
+    tok = _csrf(c.get("/installation").get_data(as_text=True))
+    c.post("/installation", data={"csrf": tok, "nom": "Admin", "username": "admin", "password": "Secret123",
+                                  "password2": "Secret123"})
+    tok = _login(c, "admin", "Secret123")
+    p = tmp_path / "n.docx"
+    _docx_fictif(p)
+    r = c.post("/cas/importer", data={"csrf": tok, "fichier": (io.BytesIO(p.read_bytes()), "narratif.docx")},
+               content_type="multipart/form-data")
+    cid = r.headers["Location"].rsplit("/", 1)[1]
+    d = c.get(f"/api/cas/{cid}").get_json()
+    assert d["case"]["zs"] == "Tumba" and len(d["case"]["events"]) >= 3

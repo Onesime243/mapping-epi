@@ -32,6 +32,9 @@ case "${1:-aide}" in
     "$0" sauvegarde
     git -C "$APP_DIR" fetch -q origin main && git -C "$APP_DIR" reset -q --hard origin/main
     "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/deploy/requirements-serveur.txt"
+    # conversion des anciens narratifs PowerPoint (.ppt) : LibreOffice sans interface (une seule fois)
+    command -v soffice >/dev/null 2>&1 || { echo "Installation de LibreOffice (lecture des .ppt), quelques minutes…";
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends libreoffice-impress >/dev/null 2>&1 || true; }
     install -m 644 "$APP_DIR/deploy/mapping-epi.service" /etc/systemd/system/mapping-epi.service
     install -m 755 "$APP_DIR/deploy/mapping-epi" /usr/local/bin/mapping-epi
     install -d -m 755 /etc/caddy/sites /srv/sites

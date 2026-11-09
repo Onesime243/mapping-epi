@@ -22,7 +22,7 @@ from flask import (Flask, Response, abort, flash, g, jsonify, redirect, render_t
                    send_from_directory, session, url_for)
 
 from config import credits, theme
-from core import pyramide, rules, schema, storage
+from core import narratif, pyramide, rules, schema, storage
 from core.models import Action, Case, Event
 from core.paths import data_dir
 from core.users import Users, generate_password
@@ -378,7 +378,20 @@ def create_app(store: storage.Store | None = None) -> Flask:
             abort(400)
         try:
             raw = f.read()
-            if f.filename.lower().endswith(".xlsx"):
+            nom = f.filename.lower()
+            if nom.endswith(narratif.FORMATS):
+                tmp = data_dir() / "exports" / f"narratif_{secrets.token_hex(4)}{Path(nom).suffix}"
+                tmp.write_bytes(raw)
+                try:
+                    res = narratif.importer(tmp)
+                finally:
+                    tmp.unlink(missing_ok=True)
+                c = res.case
+                msg = "Narratif importé : " + ", ".join(res.trouves) + "."
+                if res.manquants:
+                    msg += " À compléter : " + ", ".join(res.manquants) + "."
+                flash(msg + " Vérifiez chaque onglet avant d'enregistrer le mapping.", "ok")
+            elif nom.endswith(".xlsx"):
                 tmp = data_dir() / "exports" / f"import_{secrets.token_hex(4)}.xlsx"
                 tmp.write_bytes(raw)
                 try:

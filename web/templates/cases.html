@@ -46,9 +46,10 @@
 <div class="card" style="margin-top:14px">
   <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <b>Importer une fiche</b> <span class="muted">(JSON ou Excel rempli à partir du
-      <a href="{{ url_for('excel_model') }}">modèle Excel vierge</a>)</span>
-    <input type="file" name="fichier" accept=".json,.xlsx" required style="max-width:340px">
+    <b>Importer une fiche</b> <span class="muted">(Excel rempli à partir du
+      <a href="{{ url_for('excel_model') }}">modèle Excel vierge</a>, ou ancien narratif Word / PowerPoint :
+      les champs sont remplis automatiquement, à vérifier)</span>
+    <input type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required style="max-width:340px">
     <button class="btn">Importer</button>
   </form>
 </div>

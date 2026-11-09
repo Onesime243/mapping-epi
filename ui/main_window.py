@@ -244,6 +244,7 @@ class MainWindow(QMainWindow):
         imp.setPopupMode(QToolButton.InstantPopup)
         m = QMenu(imp)
         _add(m, "Importer une fiche Excel…", self.import_excel)
+        _add(m, "Importer un narratif Word / PowerPoint…", self.import_narratif)
         _add(m, "Exporter la fiche en Excel…", self.export_excel)
         _add(m, "Enregistrer un modèle Excel vierge…", self.excel_template)
         imp.setMenu(m)
@@ -754,6 +755,26 @@ class MainWindow(QMainWindow):
         self.store.save(c, version=True, commentaire=f"Import {Path(path).name}")
         self.load_case(c)
         self.refresh_list()
+
+    def import_narratif(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Importer un narratif", "",
+                                              "Narratif (*.docx *.pptx *.ppt)")
+        if not path:
+            return
+        from core import narratif
+        try:
+            res = narratif.importer(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Import du narratif", f"Lecture impossible : {exc}")
+            return
+        c = res.case
+        self.store.save(c, version=True, commentaire=f"Import narratif {Path(path).name}")
+        self.load_case(c)
+        self.refresh_list()
+        msg = "Trouvé : " + ", ".join(res.trouves) + "."
+        if res.manquants:
+            msg += "\n\nÀ compléter : " + ", ".join(res.manquants) + "."
+        QMessageBox.information(self, "Narratif importé", msg + "\n\nVérifiez chaque onglet.")
 
     def export_excel(self):
         self.collect()
