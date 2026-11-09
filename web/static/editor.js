@@ -111,6 +111,17 @@
       cbox.appendChild(b);
     });
     g.appendChild(field('Contact connu ou non contact ? *', cbox, true));
+    // si le cas était un contact connu, l'ID du cas source est obligatoire
+    const src = inp('id_cas_source', 'text', {placeholder: 'À compléter : ID du cas dont il est le contact', maxlength: 40});
+    const srcField = field('ID du cas source (contact de…) *', src);
+    const majSrc = () => {
+      const req = ['Contact connu', 'Contact connu suivi'].includes(C.contact_connu || '');
+      srcField.style.display = req ? '' : 'none';
+      src.classList.toggle('req-missing', req && !src.value.trim());
+    };
+    src.addEventListener('input', majSrc);
+    cbox.addEventListener('click', majSrc);
+    g.appendChild(srcField); majSrc();
     g.appendChild(field('Sexe *', sel('sexe', S.choices.sexes)));
     g.appendChild(field('Âge *', inp('age', 'number', {min: 0, max: 120, placeholder: 'vide si inconnu'})));
     g.appendChild(field('Unité', sel('age_unite', ['ans', 'mois'])));
@@ -155,13 +166,13 @@
   function renderClinic() {
     const p = $('#p-clinique'); p.innerHTML = '';
     const g = el('div', {class: 'grid'});
-    [['debut_symptomes', 'Début des symptômes (J0, rapporté) *'], ['debut_phase_humide', 'Début phase humide (vide = auto)'],
+    [['debut_symptomes', 'Début des symptômes rapporté par l\'équipe *'], ['debut_phase_humide', 'Début phase humide (vide = auto)'],
      ['date_deces', 'Date de décès']].forEach(([k, lbl]) => {
       const inp = el('input', {type: 'date', min: minDate(), value: C[k] || ''}); bindInput(inp, k, 'date');
       g.appendChild(field(lbl, inp));
     });
     p.appendChild(g);
-    p.appendChild(el('p', {class: 'hint', text: "J0 (date rapportée par l'équipe) sert à estimer le point d'infection (J-21 → J-2), puis l'incubation, la phase sèche et la phase humide. La phase humide est détectée dans la chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."}));
+    p.appendChild(el('p', {class: 'hint', text: "Saisissez la date rapportée par l'équipe. La maladie ayant commencé 2 à 3 jours avant, l'outil retient J0 = date rapportée − 3 jours (MVE, Marburg). Ce J0 retenu sert à estimer le point d'infection (J-21 → J-2), l'incubation, la phase sèche et la phase humide (détectée dans la chronologie ou estimée à J+4)."}));
     p.appendChild(el('h2', {text: 'Symptômes'}));
     const toggle = (s, on) => {
       C.symptomes = on ? C.symptomes.filter(x => x !== s).concat([s]) : C.symptomes.filter(x => x !== s); changed();
@@ -231,7 +242,7 @@
         inp.addEventListener('change', () => set(inp.checked));
         return el('td', {class: 'chk'}, [inp]);
       case 'choice':
-        inp = el('select', {style: 'min-width:' + w}); options(inp, c.choices, v || '', 'Auto');
+        inp = el('select', {style: 'min-width:' + w}); options(inp, c.choices, v || '', c.key === 'risque' ? 'Auto' : 'Choisir…');
         inp.addEventListener('change', () => set(inp.value));
         break;
       case 'combo':
@@ -259,6 +270,11 @@
       default:
         inp = el('input', {value: v || '', style: 'min-width:' + w, list: c.complete ? 'dl-places' : null});
         inp.addEventListener('input', () => set(inp.value));
+        if (c.key === 'personnes') {   // obligatoire : rouge tant que vide
+          inp.placeholder = 'À compléter';
+          const mark = () => inp.classList.toggle('req-missing', !inp.value.trim());
+          inp.addEventListener('input', mark); mark();
+        }
         if (c.complete) inp.addEventListener('focus', () => datalist('dl-places', placeNames()));
     }
     if (c.tip) inp.title = c.tip;

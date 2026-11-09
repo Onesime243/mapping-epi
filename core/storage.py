@@ -241,8 +241,11 @@ _CASE_FIELDS = [
     ("symptomes", "Symptômes (séparés par ;)"), ("symptomes_autres", "Autres symptômes"),
     ("date_deces", "Date décès"), ("risque_global", "Risque global (vide = auto)"),
     ("note_pied", "Observations (bas de page)"), ("debut_phase_humide", "Début phase humide"),
-    ("contact_connu", "Contact connu ?"),
+    ("contact_connu", "Contact connu ?"), ("id_cas_source", "ID du cas source"),
 ]
+# anciens libellés de colonnes encore acceptés à l'import
+ALIAS = {"Type de structure": ("Type",), "Personnes exposées": ("Population exposée",),
+         "Nombre de personnes exposées": ("Nombre estimé",), "Nom laboratoire": ("Laboratoire",)}
 
 SHEETS = {
     "Chronologie": (Event, [
@@ -253,7 +256,7 @@ SHEETS = {
         ("contact_corps", "Contact corps"), ("liquides", "Liquides biologiques"), ("sans_pci", "Sans PCI"),
         ("securise", "Sécurisé"), ("risque", "Risque (vide = auto)")]),
     "Lieux": (Place, [
-        ("nom", "Lieu"), ("type", "Type"), ("population", "Population exposée"), ("nombre", "Nombre estimé"),
+        ("nom", "Lieu"), ("type", "Type de structure"), ("population", "Personnes exposées"), ("nombre", "Nombre de personnes exposées"),
         ("risque", "Risque"), ("lat", "Latitude"), ("lon", "Longitude")]),
     "Contacts": (ContactGroup, [
         ("categorie", "Catégorie"), ("lien", "Lien avec le cas"), ("nombre", "Nombre (? si inconnu)"),
@@ -262,7 +265,7 @@ SHEETS = {
     "PCI": (IPCSite, [
         ("site", "Site"), ("statut", "Statut"), ("date", "Date"), ("equipe", "Équipe"), ("produit", "Produit")]),
     "Laboratoire": (LabSample, [
-        ("type", "Échantillon"), ("laboratoire", "Laboratoire"), ("prelevement", "Prélèvement"),
+        ("type", "Échantillon"), ("laboratoire", "Nom laboratoire"), ("prelevement", "Prélèvement"),
         ("envoi", "Envoi"), ("reception", "Réception"), ("resultat_le", "Résultat le"), ("resultat", "Résultat")]),
     "Actions": (Action, [
         ("texte", "Action"), ("priorite", "Priorité"), ("responsable", "Responsable"),
@@ -403,7 +406,12 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
                 hrow = i
                 break
         header = [str(h or "").strip() for h in rows[hrow]]
-        idx = {key: header.index(label) for key, label in cols if label in header}
+        idx = {}
+        for key, label in cols:
+            for lab in (label,) + ALIAS.get(label, ()):
+                if lab in header:
+                    idx[key] = header.index(lab)
+                    break
         items = []
         essentials = [k for k in ESSENTIEL[sheet] if k in idx]
         for n, r in enumerate(rows[hrow + 1:], start=hrow + 2):

@@ -62,6 +62,8 @@
   background: #EDF1F6; border-radius: 1em; padding: .2em .55em; line-height: 1.2; }
 .chip svg { width: 1.05em; height: 1.05em; flex: none; }
 .chip.warn { background: #FBEAE8; color: {{ t.RED }}; }
+.chip.todo { background: #FFFFFF; color: {{ t.RED }}; box-shadow: inset 0 0 0 1px {{ t.RED }}; font-weight: 800; white-space: nowrap; font-size: .7em; }
+.todo { font-size: 10px; font-weight: 800; color: {{ t.RED }}; border: 1.5px solid {{ t.RED }}; border-radius: 6px; padding: 3px 10px; background: #fff; }
 .auto-mark { opacity: .8; font-weight: 600; }
 
 .m-panels { flex: none; height: {{ 196 if two else 258 }}px; display: grid; grid-template-columns: 1fr 1.42fr .86fr .92fr; gap: 10px; }
@@ -120,8 +122,8 @@
     <div class="m-tl">
       <div class="m-tl-head">
         <span class="pill">Chronologie du parcours</span>
-        {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}</span>{% endif %}
-        <div class="legend"><span>J±n : jours depuis J0 (début des symptômes rapporté par l'équipe)</span></div>
+        {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="todo">ID du cas source : à compléter</span>{% endif %}{% endif %}
+        <div class="legend"><span>J±n : jours depuis le J0 retenu{% if v.recul %} (date rapportée − {{ v.recul }} j){% endif %}</span></div>
       </div>
       <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
         {% for p in v.phase_strip %}
@@ -157,7 +159,7 @@
               <div class="cbody" data-fit="{{ 5.5 if two else 6 }}" data-max="{{ 12 if two else 14 }}" data-group="cbody">
                 <div class="ctitle">{{ c.title }}</div>
                 {% if c.desc %}<div class="cdesc">{{ c.desc }}</div>{% endif %}
-                {% if c.chips %}<div class="chips">{% for ch in (c.chips[:1] if two else c.chips) %}<span class="chip{% if ch.warn %} warn{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}</div>{% endif %}
+                {% if c.chips %}<div class="chips">{% for ch in (c.chips[:1] if two else c.chips) %}<span class="chip{% if ch.warn %} warn{% endif %}{% if ch.todo %} todo{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}</div>{% endif %}
               </div>
               <div class="badge" style="background: {{ c.risk_color|soft }}; color: {{ c.risk_color|soft|ink }};">{{ c.risk }}</div>
             </div>

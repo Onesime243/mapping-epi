@@ -47,7 +47,7 @@ class Place(BaseModel):
     id: str = Field(default_factory=_id)
     nom: str = ""
     type: str = "Autre"
-    population: str = ""            # population exposée
+    population: str = ""            # personnes exposées
     nombre: Optional[int] = None
     risque: str = ""
     lat: Optional[float] = None
@@ -120,6 +120,7 @@ class Case(BaseModel):
     debut_symptomes: Optional[date] = None   # date RAPPORTÉE par l'équipe (J0), jamais recalculée
     debut_phase_humide: Optional[date] = None   # vide = détectée dans la chronologie ou estimée (J0 + 4)
     contact_connu: str = "Inconnu"           # Contact connu / Contact connu suivi / Non contact / Inconnu
+    id_cas_source: str = ""                  # ID du cas dont il est le contact (obligatoire si contact connu)
     symptomes: List[str] = Field(default_factory=list)
     symptomes_autres: str = ""
     date_deces: Optional[date] = None

@@ -178,11 +178,16 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     S.pill(16, tl_top, "Chronologie du parcours")
     # statut de contact (Contact connu / Non contact) et légende
     if v.contact:
-        cw_ = 30 + len(v.contact["t"]) * 7
-        sh = S.rect(W / 2 - cw_ / 2, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
-        S.text(0, 0, 0, 0, [v.contact["t"]], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
-    S.text(930, tl_top + 2, 334, 16, ["J±n : jours depuis J0 (début des symptômes rapporté)"], size=7, color=theme.MUTED,
-           align=PP_ALIGN.RIGHT)
+        ct = v.contact["t"] + (" " + v.contact["src"] if v.contact.get("src") else "")
+        cw_ = 30 + len(ct) * 7
+        cx_ = W / 2 - cw_ / 2 - (90 if v.contact.get("todo") else 0)
+        sh = S.rect(cx_, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
+        S.text(0, 0, 0, 0, [ct], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        if v.contact.get("todo"):
+            S.text(cx_ + cw_ + 8, tl_top, 190, 22, ["ID du cas source : à compléter"], size=8, color=theme.RED, bold=True,
+                   anchor=MSO_ANCHOR.MIDDLE)
+    leg = "J±n : jours depuis le J0 retenu" + (f" (date rapportée − {v.recul} j)" if v.recul else "")
+    S.text(930, tl_top + 2, 334, 16, [leg], size=7, color=theme.MUTED, align=PP_ALIGN.RIGHT)
 
     # phases de la maladie (chevrons)
     ph_top, ph_h = tl_top + 26, 46
@@ -246,7 +251,9 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
             if c.desc:
                 paras.append([(c.desc, {"color": theme.INK, "size": body_pt * .86})])
             if c.chips:
-                paras.append([(" • ".join(ch["t"] for ch in c.chips), {"color": theme.NAVY, "size": body_pt * .74, "bold": True})])
+                paras.append([(ch["t"] + (" • " if i < len(c.chips) - 1 else ""),
+                               {"color": theme.RED if ch.get("todo") or ch.get("warn") else theme.NAVY,
+                                "size": body_pt * .74, "bold": True}) for i, ch in enumerate(c.chips)])
             S.text(cx + 3, dy + 14, cwid - 6, body_h, paras, size=body_pt, line_spacing=1.0)
             bh = 18 if two else 22
             S.badge(cx + 6, card_y + card_h - bh - 6, cwid - 12, bh, c.risk, c.risk_color, 7.5 if two else 8)

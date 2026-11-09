@@ -101,6 +101,12 @@ class IdentityTab(QWidget):
         self.contact.setToolTip("Le cas était-il déjà un contact connu (listé) avant d'être confirmé ?")
         self.contact.currentTextChanged.connect(self.changed)
         f.addRow("Contact connu ou non contact ? *", self.contact)
+        self.id_source = QLineEdit()
+        self.id_source.setPlaceholderText("À compléter si contact connu : ID du cas source")
+        self.id_source.textChanged.connect(self.changed)
+        self.id_source.textChanged.connect(self._maj_source)
+        self.contact.currentTextChanged.connect(self._maj_source)
+        f.addRow("ID du cas source (si contact) *", self.id_source)
         f.addRow("Sexe *", self.sexe)
         f.addRow("Âge *", age_row)
         f.addRow("Profession", self.profession)
@@ -148,10 +154,18 @@ class IdentityTab(QWidget):
         """Mémorise une aire de santé saisie qui n'existe pas encore dans la liste."""
         return self.pyr.remember(self.province.text(), self.zs.text(), self.aire_sante.text())
 
+    def _maj_source(self, *_):
+        req = self.contact.currentText() in theme.CONTACT_AVEC_SOURCE
+        self.id_source.setEnabled(req)
+        manque = req and not self.id_source.text().strip()
+        self.id_source.setStyleSheet("border: 1.5px solid #B4554E; background: #FBEAE8;" if manque else "")
+
     def load(self, c: Case):
         self.rang.setValue(c.rang or 0)
         self.code_cas.setText(c.code_cas)
         self.contact.setCurrentText(c.contact_connu or "Inconnu")
+        self.id_source.setText(c.id_cas_source)
+        self._maj_source()
         self.maladie.setCurrentText(c.maladie)
         self.statut.setCurrentText(c.statut)
         self.sexe.setCurrentText(c.sexe)
@@ -176,6 +190,7 @@ class IdentityTab(QWidget):
         c.rang = self.rang.value() or None
         c.code_cas = self.code_cas.text().strip()
         c.contact_connu = self.contact.currentText()
+        c.id_cas_source = self.id_source.text().strip()
         c.maladie = self.maladie.currentText().strip() or "Autre"
         c.statut = self.statut.currentText()
         c.sexe = self.sexe.currentText()

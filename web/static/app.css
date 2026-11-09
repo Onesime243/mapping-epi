@@ -156,3 +156,6 @@ table.edit td.ops { white-space: nowrap; }
 .seg-b:hover { border-color: var(--accent); }
 .seg-b.on { background: #B4554E; border-color: #B4554E; color: #fff; }
 .seg-b.on.unk { background: #6B7785; border-color: #6B7785; }
+/* information obligatoire manquante */
+input.req-missing { border: 1.5px solid #B4554E; background: #FBEAE8; }
+input.req-missing::placeholder { color: #B4554E; font-weight: 700; opacity: 1; }

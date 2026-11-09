@@ -62,8 +62,8 @@ RISK_LEVELS = {
 RISK_CHOICES = ["Inconnu", "À investiguer", "En cours", "Contrôlé", "Faible",
                 "Modéré", "Élevé", "Très élevé"]
 
-CONTACT_RISKS = {"Modéré": YELLOW, "Haut": ORANGE, "Très haut": RED, "Inconnu": BLUE}
-CONTACT_RISK_CHOICES = ["Haut", "Très haut", "Modéré", "Inconnu"]
+CONTACT_RISKS = {"Faible": GREEN, "Modéré": YELLOW, "Haut": ORANGE, "Très haut": RED, "Inconnu": BLUE}
+CONTACT_RISK_CHOICES = ["Très haut", "Haut", "Modéré", "Faible", "Inconnu"]
 
 IPC_STATUS = {"Décontaminé": GREEN, "Partiel": ORANGE, "Non": RED, "Inconnu": BLUE}
 IPC_CHOICES = ["Non", "Partiel", "Décontaminé", "Inconnu"]
@@ -118,6 +118,11 @@ EVENT_TYPES = {
     "Autre":                    {"color": MUTED,  "icon": "dot"},
 }
 EVENT_TYPE_CHOICES = list(EVENT_TYPES.keys())
+# étapes sans personnes exposées autour du cas (pas de « Personnes présentes : à compléter »)
+SANS_PERSONNES = {"Investigation", "Laboratoire", "Riposte"}
+
+LAB_RESULTS = ["Positif", "Négatif", "En attente"]
+CONTACT_AVEC_SOURCE = {"Contact connu", "Contact connu suivi"}
 
 PLACE_TYPES = ["Ménage", "Village / quartier", "Centre de santé", "Hôpital", "Église / lieu de culte",
                "Marché", "École", "Funérailles", "Enterrement", "Transport", "Laboratoire", "Bureau ZS", "Autre"]

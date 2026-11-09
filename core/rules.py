@@ -32,6 +32,18 @@ def disease_params(name: str) -> dict:
     return d.get(name) or d["Autre"]
 
 
+def recul_j0(case: Case) -> int:
+    """Jours entre le début réel de la maladie et la date rapportée par l'équipe (MVE / Marburg : 3)."""
+    return int(disease_params(case.maladie).get("recul_j0", 0) or 0)
+
+
+def j0_retenu(case: Case) -> Optional[date]:
+    """J0 utilisé pour les calculs : date rapportée moins le recul (la maladie a commencé 2 à 3 jours avant)."""
+    if not case.debut_symptomes:
+        return None
+    return case.debut_symptomes - timedelta(days=recul_j0(case))
+
+
 # ---------------------------------------------------------------------------
 # Fenêtres épidémiologiques
 # ---------------------------------------------------------------------------
@@ -51,10 +63,10 @@ def burial_date(case: Case) -> Optional[date]:
 
 def windows(case: Case) -> Windows:
     p = disease_params(case.maladie)
-    w = Windows(j0=case.debut_symptomes)
-    if not case.debut_symptomes:
+    j0 = j0_retenu(case)
+    w = Windows(j0=j0)
+    if not j0:
         return w
-    j0 = case.debut_symptomes
     w.exposition = (j0 - timedelta(days=p["incubation_max"]), j0 - timedelta(days=p["incubation_min"]))
     if p["contagiosite"] == "jusqu_inhumation":
         end = burial_date(case) or case.date_deces
@@ -87,7 +99,9 @@ def event_phase(ev: Event, w: Windows) -> str:
 # ---------------------------------------------------------------------------
 @dataclass
 class Phases:
-    j0: Optional[date] = None                       # début des symptômes rapporté
+    j0: Optional[date] = None                       # J0 retenu (rapporté − recul)
+    j0_rapporte: Optional[date] = None              # date rapportée par l'équipe
+    recul: int = 0
     exposition: Optional[Tuple[date, date]] = None  # point d'infection estimé (J-max → J-min)
     incubation: Optional[Tuple[int, int]] = None     # (min, max) jours
     incubation_typique: Optional[Tuple[int, int]] = None
@@ -104,12 +118,12 @@ def _wet_text(ev: Event) -> bool:
 
 def phases(case: Case) -> Phases:
     p = disease_params(case.maladie)
-    ph = Phases(j0=case.debut_symptomes, incubation=(p["incubation_min"], p["incubation_max"]),
+    ph = Phases(j0=j0_retenu(case), j0_rapporte=case.debut_symptomes, recul=recul_j0(case), incubation=(p["incubation_min"], p["incubation_max"]),
                 deux_phases=bool(p.get("phase_humide_j")))
     if p.get("incubation_typique"):
         ph.incubation_typique = tuple(p["incubation_typique"])
     ph.deces = case.date_deces or next((e.date_debut for e in case.sorted_events() if e.type == "Décès" and e.date_debut), None)
-    j0 = case.debut_symptomes
+    j0 = ph.j0
     if not j0:
         return ph
     ph.exposition = (j0 - timedelta(days=p["incubation_max"]), j0 - timedelta(days=p["incubation_min"]))
@@ -119,7 +133,9 @@ def phases(case: Case) -> Phases:
         ph.humide, ph.humide_source = case.debut_phase_humide, "saisie"
     else:
         # la phase sèche dure au moins le jour du début : on cherche les signes humides après J0
-        wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut > j0 and _wet_text(e)]
+        # l'étape « Début maladie » (date rapportée) décrit les premiers signes : on cherche après elle
+        apres = ph.j0_rapporte or j0
+        wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut > apres and _wet_text(e)]
         if wet:
             ph.humide, ph.humide_source = wet[0], "rapportée"
         else:
@@ -316,6 +332,10 @@ def check_consistency(case: Case) -> List[Issue]:
         out.append(Issue("erreur", "Le décès est daté avant l'hospitalisation."))
     if case.date_deces and j0 and case.date_deces < j0:
         out.append(Issue("erreur", "Le décès est daté avant le début des symptômes."))
+    if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
+        out.append(Issue("erreur", "Contact connu : l'ID du cas source est obligatoire (à compléter)."))
+    for e in personnes_manquantes(case):
+        out.append(Issue("alerte", f"« {e.titre or e.type} » : personnes présentes à compléter."))
     if case.issue == "Décès" and not case.date_deces:
         out.append(Issue("alerte", "Issue « Décès » sans date de décès."))
     if case.date_deces and case.issue != "Décès":
@@ -436,6 +456,11 @@ CRITICAL_FIELDS = [
 ]
 
 
+def personnes_manquantes(case: Case) -> List[Event]:
+    """Étapes de la chronologie dont les « Personnes présentes » ne sont pas renseignées."""
+    return [e for e in case.events if not e.personnes.strip() and e.type not in theme.SANS_PERSONNES]
+
+
 def completeness(case: Case) -> Tuple[int, List[str]]:
     missing = []
     for key, label in CRITICAL_FIELDS:
@@ -457,7 +482,12 @@ def completeness(case: Case) -> Tuple[int, List[str]]:
     unknown_contacts = sum(1 for g in case.contacts if g.nombre is None)
     if unknown_contacts:
         missing.append(f"{unknown_contacts} catégorie(s) de contacts non dénombrée(s)")
-    total = len(CRITICAL_FIELDS) + 7
+    if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
+        missing.append("ID du cas source (contact connu)")
+    sans = personnes_manquantes(case)
+    if sans:
+        missing.append(f"Personnes présentes : {len(sans)} étape(s) à compléter")
+    total = len(CRITICAL_FIELDS) + 9
     score = max(0, round(100 * (total - len(missing)) / total))
     return score, missing
 

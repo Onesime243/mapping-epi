@@ -109,14 +109,16 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
     if ph.deux_phases:
         if j0:
             sec_end = (ph.humide - timedelta(days=1)) if ph.humide and ph.humide > j0 else None
-            add("seche", f"J0 {_dm(j0)} (rapporté)" + (f" → {_dm(sec_end)}" if sec_end else ""), dry)
+            add("seche", f"J0 {_dm(j0)}" + (f" → {_dm(sec_end)}" if sec_end else "")
+                + (f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)"), dry)
             rel = rules.relative_day(ph.humide, j0)
             add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", wet)
         else:
             add("seche", "J0 ?", dry)
             add("humide", "?", wet)
     else:
-        add("symptomes", f"J0 {_dm(j0)} (rapporté)" if j0 else "J0 ?", "période contagieuse")
+        add("symptomes", (f"J0 {_dm(j0)}" + (f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)")) if j0 else "J0 ?",
+            "période contagieuse")
     if fin:
         add("deces", f"{_dm(fin)}" + (f" ({rules.relative_day(fin, j0)})" if j0 else ""),
             "charge virale maximale : corps très contagieux")
@@ -134,8 +136,12 @@ def event_chips(ev: Event) -> list:
         out.append({"t": "Liquides biol.", "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
     if ev.sans_pci:
         out.append({"t": "Sans PCI", "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
-    if ev.personnes:
+    if ev.personnes.strip():
         out.append({"t": ev.personnes, "icon": icon_svg("people", 10, theme.NAVY, 2.2), "warn": False})
+    elif ev.type not in theme.SANS_PERSONNES:
+        # information obligatoire : affichée en premier pour rester visible même sur deux rangées
+        out.insert(0, {"t": "Personnes : à compléter", "icon": icon_svg("people", 10, theme.RED, 2.2), "warn": True,
+                       "todo": True})
     return out[:3]
 
 
@@ -185,6 +191,7 @@ class MappingView:
     footer: str
     meta: str
     org: str = ""
+    recul: int = 0
     phase_strip: List[dict] = field(default_factory=list)
     contact: Optional[dict] = None
     theme: dict = field(default_factory=dict)
@@ -241,8 +248,10 @@ def build_mapping_view(case: Case) -> MappingView:
         {"k": "AS", "v": case.aire_sante or "?"},
         {"k": "ZS", "v": case.zs or "?"},
         {"k": "Exposition estimée", "v": f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])}" if ph.exposition else "?",
-         "tip": "Calculée depuis le début des symptômes rapporté (J-21 → J-2 pour la MVE)"},
-        {"k": "Début symptômes (J0)", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
+         "tip": "Calculée depuis le J0 retenu (J-21 → J-2 pour la MVE)"},
+        {"k": "J0 rapporté", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
+        {"k": f"J0 retenu (−{ph.recul} j)" if ph.recul else "J0 retenu", "v": fmt_date(ph.j0),
+         "tip": "La maladie a commencé 2 à 3 jours avant la date rapportée"},
         {"k": case.statut if case.statut != "Confirmé" else "Confirmation", "v": fmt_date(case.date_confirmation)},
         {"k": "Issue", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
         {"k": "Risque", "v": grisk.upper(), "color": theme.risk_color(grisk), "tip": grisk_why},
@@ -289,6 +298,10 @@ def build_mapping_view(case: Case) -> MappingView:
     if case.contact_connu and case.contact_connu != "Inconnu":
         cc = theme.soft(theme.CONTACT_STATUS_COLORS.get(case.contact_connu, theme.RED))
         contact = {"t": case.contact_connu.replace(" suivi", " · suivi").upper(), "fill": cc, "ink": theme.ink_on(cc)}
+        if case.contact_connu in theme.CONTACT_AVEC_SOURCE:
+            src = case.id_cas_source.strip()
+            contact["src"] = f"de {src}" if src else ""
+            contact["todo"] = not src
     score, _ = rules.completeness(case)
     meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
             f"Mapping Épi v{APP_VERSION}")
@@ -296,7 +309,7 @@ def build_mapping_view(case: Case) -> MappingView:
         title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
-        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT,
+        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul,
         meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
 
 

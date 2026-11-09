@@ -105,7 +105,9 @@ def render_svg(case: Case) -> str:
     # lignes repères
     marks = []
     if w.j0:
-        marks.append((w.j0, "J0 début symptômes", theme.GREEN))
+        marks.append((w.j0, "J0 retenu", theme.GREEN))
+        if case.debut_symptomes and case.debut_symptomes != w.j0:
+            marks.append((case.debut_symptomes, "J0 rapporté", theme.MUTED))
     if case.date_deces:
         marks.append((case.date_deces, "Décès", theme.RED))
     if case.date_confirmation:

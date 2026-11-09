@@ -21,16 +21,18 @@ def test_unknown_is_not_zero():
 
 def test_windows_mve(demo):
     w = rules.windows(demo)
-    assert w.exposition == (date(2026, 6, 28), date(2026, 7, 17))
-    assert w.contagiosite == (date(2026, 7, 19), date(2026, 7, 29))   # jusqu'à l'enterrement
+    # J0 rapporté 19/07 → J0 retenu 16/07 (la maladie a commencé 3 jours avant)
+    assert w.j0 == date(2026, 7, 16)
+    assert w.exposition == (date(2026, 6, 25), date(2026, 7, 14))
+    assert w.contagiosite == (date(2026, 7, 16), date(2026, 7, 29))   # jusqu'à l'enterrement
 
 
 def test_event_phase_and_relative_day(demo):
     w = rules.windows(demo)
     ev = demo.events[0]
     assert rules.event_phase(ev, w) == "exposition"
-    assert rules.relative_day(date(2026, 7, 19), w.j0) == "J0"
-    assert rules.relative_day(date(2026, 7, 27), w.j0) == "J+8"
+    assert rules.relative_day(date(2026, 7, 16), w.j0) == "J0"
+    assert rules.relative_day(date(2026, 7, 19), w.j0) == "J+3"
 
 
 def test_risk_rules():
@@ -84,9 +86,10 @@ def test_completeness(demo):
 def test_phases_humide_detectee_et_dds_conservee(demo):
     from datetime import timedelta
     from core import rules
-    j0 = demo.debut_symptomes
     ph = rules.phases(demo)
-    assert ph.j0 == j0                                   # la date rapportée n'est jamais recalculée
+    assert ph.j0_rapporte == demo.debut_symptomes        # la date rapportée est conservée telle quelle
+    j0 = demo.debut_symptomes - timedelta(days=3)        # J0 retenu
+    assert ph.j0 == j0 and ph.recul == 3
     assert ph.exposition == (j0 - timedelta(days=21), j0 - timedelta(days=2))
     assert ph.humide and ph.humide >= j0
     stages = [rules.event_stage(e, ph) for e in demo.sorted_events() if e.date_debut]
@@ -101,3 +104,19 @@ def test_contact_connu_excel(demo, tmp_path):
     p = tmp_path / "c.xlsx"
     storage.export_excel(demo, p)
     assert storage.import_excel(p).contact_connu == "Non contact"
+
+
+def test_contact_source_et_personnes_obligatoires(demo):
+    from core import rules
+    demo.contact_connu = "Contact connu"
+    demo.id_cas_source = ""
+    msgs = [i.message for i in rules.check_consistency(demo)]
+    assert any("cas source" in m for m in msgs)
+    demo.events[0].personnes = ""
+    demo.events[0].type = "Exposition"
+    assert demo.events[0] in rules.personnes_manquantes(demo)
+    from render.html_renderer import render_mapping_html
+    html = render_mapping_html(demo)
+    assert "ID du cas source : à compléter" in html and "Personnes : à compléter" in html
+    demo.id_cas_source = "RDC-TUM-26-001"
+    assert "ID du cas source : à compléter" not in render_mapping_html(demo)

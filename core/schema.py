@@ -30,7 +30,7 @@ EVENT_COLS = [
     Col("titre", "Titre affiché", width=195),
     Col("description", "Description", width=286, tip="Utiliser • pour séparer les éléments"),
     Col("transport", "Transport", "combo", theme.TRANSPORTS, width=123),
-    Col("personnes", "Personnes présentes", width=195),
+    Col("personnes", "Personnes présentes", width=195, tip="Obligatoire : vide = « à compléter » en rouge sur le mapping"),
     Col("contact_corps", "Corps", "bool", width=65, tip="Contact avec le corps → risque très élevé"),
     Col("liquides", "Liquides", "bool", width=78, tip="Liquides biologiques → +1 niveau"),
     Col("sans_pci", "Sans PCI", "bool", width=84, tip="Soins / contacts sans PCI → +1 niveau"),
@@ -40,8 +40,8 @@ EVENT_COLS = [
 ]
 
 PLACE_COLS = [
-        Col("nom", "Lieu", width=221, complete=True), Col("type", "Type", "combo", theme.PLACE_TYPES, width=208),
-        Col("population", "Population exposée", width=260), Col("nombre", "Nombre estimé", "int?", width=130),
+        Col("nom", "Lieu", width=221, complete=True), Col("type", "Type de structure", "combo", theme.PLACE_TYPES, width=208),
+        Col("population", "Personnes exposées", width=260), Col("nombre", "Nombre de personnes exposées", "int?", width=200),
         Col("risque", "Risque (vide = auto)", "choice", [""] + theme.RISK_CHOICES, width=169),
         Col("lat", "Latitude", "float?", width=117), Col("lon", "Longitude", "float?", width=117),
         Col("_suggere", "Suggéré", "computed", width=143)]
@@ -62,11 +62,11 @@ IPC_COLS = [
 
 LAB_COLS = [
         Col("type", "Échantillon", "combo", ["Swab", "Sang total", "Plasma", "Urine", "Autre"], width=143),
-        Col("laboratoire", "Laboratoire", width=182),
+        Col("laboratoire", "Nom laboratoire", width=182),
         Col("prelevement", "Prélèvement", "datetime", width=169, tip="JJ/MM/AAAA HH:MM"),
         Col("envoi", "Envoi", "datetime", width=169), Col("reception", "Réception", "datetime", width=169),
         Col("resultat_le", "Résultat le", "datetime", width=169),
-        Col("resultat", "Résultat", "combo", ["Positif", "Négatif", "En attente", "Indéterminé"], width=143),
+        Col("resultat", "Résultat", "choice", [""] + theme.LAB_RESULTS, width=143),
         Col("_delai", "Délai", "computed", width=104)]
 
 ACTION_COLS = [
