@@ -18,7 +18,7 @@ def test_mapping_html_structure(demo):
               "Actions</span>", "3e CAS CONFIRMÉ MVE | ZS TUMBA", "Minimum documenté : 41 contacts"]:
         assert s.lower() in html.lower(), s
     assert len(re.findall(r'class="card[ "]', html)) == 12
-    assert "Incubation" in html and "Phase humide" in html
+    assert "Incubation" not in html and "Phase humide" in html and "date estimée" in html
 
 
 def test_title_and_two_rows_for_many_events():

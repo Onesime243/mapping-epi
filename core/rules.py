@@ -37,11 +37,80 @@ def recul_j0(case: Case) -> int:
     return int(disease_params(case.maladie).get("recul_j0", 0) or 0)
 
 
+@dataclass
+class EstimationJ0:
+    j0: Optional[date] = None          # J0 retenu (milieu de l'intervalle si estimé)
+    j0_min: Optional[date] = None
+    j0_max: Optional[date] = None
+    source: str = ""                   # « rapportée », « début maladie », « phase humide », « décès », « soins »
+
+    @property
+    def estime(self) -> bool:
+        return self.source not in ("", "rapportée")
+
+
+def _humide_datee(case: Case, apres: Optional[date] = None) -> Optional[date]:
+    if case.debut_phase_humide:
+        return case.debut_phase_humide
+    wet = [e.date_debut for e in case.sorted_events()
+           if e.date_debut and (apres is None or e.date_debut > apres) and _wet_text(e)]
+    return wet[0] if wet else None
+
+
+def estimer_j0(case: Case) -> EstimationJ0:
+    """J0 du cas, quelle que soit la phase où il a été trouvé (vivant ou décédé).
+
+    Date rapportée connue : J0 = date rapportée − recul (la maladie a commencé 2 à 3 jours avant).
+    Sinon, on remonte depuis ce qui est daté, en tenant compte de l'intervalle habituel entre les phases :
+    étape « Début maladie » (même recul), phase humide (J4 à J7), décès (J7 à J10), premiers soins (J0 à J3).
+    Plusieurs repères : on garde l'intervalle commun s'il existe."""
+    p = disease_params(case.maladie)
+    recul = recul_j0(case)
+    if case.debut_symptomes:
+        j = case.debut_symptomes - timedelta(days=recul)
+        return EstimationJ0(j, j, j, "rapportée")
+    rep: List[Tuple[date, date, str]] = []
+    debut = next((e.date_debut for e in case.sorted_events() if e.type == "Début maladie" and e.date_debut), None)
+    if debut:
+        j = debut - timedelta(days=recul)
+        rep.append((j, j, "début maladie"))
+    if p.get("phase_humide_j"):
+        h = _humide_datee(case)
+        if h:
+            a, b = p.get("phase_humide_intervalle", [p["phase_humide_j"], p["phase_humide_j"]])
+            rep.append((h - timedelta(days=int(b)), h - timedelta(days=int(a)), "phase humide"))
+    dc = case.date_deces or next((e.date_debut for e in case.sorted_events() if e.type == "Décès" and e.date_debut), None)
+    if dc and p.get("deces_intervalle"):
+        a, b = p["deces_intervalle"]
+        rep.append((dc - timedelta(days=int(b)), dc - timedelta(days=int(a)), "décès"))
+    soins = next((e.date_debut for e in case.sorted_events()
+                  if e.type in ("Soins / consultation", "Référence", "Hospitalisation") and e.date_debut), None)
+    if soins:
+        rep.append((soins - timedelta(days=int(p.get("soins_apres_j0_max", 3))), soins, "soins"))
+    if not rep:
+        return EstimationJ0()
+    lo, hi, src = rep[0]
+    for a, b, s in rep[1:]:
+        if max(lo, a) <= min(hi, b):          # repères cohérents : on resserre l'intervalle
+            lo, hi = max(lo, a), min(hi, b)
+            if s not in src:
+                src += " + " + s
+    j = lo + timedelta(days=(hi - lo).days // 2)
+    return EstimationJ0(j, lo, hi, src)
+
+
 def j0_retenu(case: Case) -> Optional[date]:
-    """J0 utilisé pour les calculs : date rapportée moins le recul (la maladie a commencé 2 à 3 jours avant)."""
-    if not case.debut_symptomes:
+    """J0 utilisé pour les calculs (rapporté − recul, ou estimé depuis la phase où le cas a été trouvé)."""
+    return estimer_j0(case).j0
+
+
+def exposition_estimee(case: Case) -> Optional[Tuple[date, date]]:
+    """Date estimée d'exposition (intervalle), calculée depuis le J0 retenu ou estimé."""
+    e = estimer_j0(case)
+    if not e.j0:
         return None
-    return case.debut_symptomes - timedelta(days=recul_j0(case))
+    p = disease_params(case.maladie)
+    return (e.j0_min - timedelta(days=p["incubation_max"]), e.j0_max - timedelta(days=p["incubation_min"]))
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +136,7 @@ def windows(case: Case) -> Windows:
     w = Windows(j0=j0)
     if not j0:
         return w
-    w.exposition = (j0 - timedelta(days=p["incubation_max"]), j0 - timedelta(days=p["incubation_min"]))
+    w.exposition = exposition_estimee(case)
     if p["contagiosite"] == "jusqu_inhumation":
         end = burial_date(case) or case.date_deces
         if end is None:
@@ -102,6 +171,8 @@ class Phases:
     j0: Optional[date] = None                       # J0 retenu (rapporté − recul)
     j0_rapporte: Optional[date] = None              # date rapportée par l'équipe
     recul: int = 0
+    j0_source: str = ""                             # rapportée, ou repère utilisé pour l'estimer
+    j0_intervalle: Optional[Tuple[date, date]] = None
     exposition: Optional[Tuple[date, date]] = None  # point d'infection estimé (J-max → J-min)
     incubation: Optional[Tuple[int, int]] = None     # (min, max) jours
     incubation_typique: Optional[Tuple[int, int]] = None
@@ -118,7 +189,9 @@ def _wet_text(ev: Event) -> bool:
 
 def phases(case: Case) -> Phases:
     p = disease_params(case.maladie)
-    ph = Phases(j0=j0_retenu(case), j0_rapporte=case.debut_symptomes, recul=recul_j0(case), incubation=(p["incubation_min"], p["incubation_max"]),
+    est = estimer_j0(case)
+    ph = Phases(j0=est.j0, j0_rapporte=case.debut_symptomes, recul=recul_j0(case), j0_source=est.source,
+                j0_intervalle=(est.j0_min, est.j0_max) if est.j0 else None, incubation=(p["incubation_min"], p["incubation_max"]),
                 deux_phases=bool(p.get("phase_humide_j")))
     if p.get("incubation_typique"):
         ph.incubation_typique = tuple(p["incubation_typique"])
@@ -126,7 +199,7 @@ def phases(case: Case) -> Phases:
     j0 = ph.j0
     if not j0:
         return ph
-    ph.exposition = (j0 - timedelta(days=p["incubation_max"]), j0 - timedelta(days=p["incubation_min"]))
+    ph.exposition = exposition_estimee(case)
     if not ph.deux_phases:
         return ph
     if case.debut_phase_humide:
@@ -134,7 +207,8 @@ def phases(case: Case) -> Phases:
     else:
         # la phase sèche dure au moins le jour du début : on cherche les signes humides après J0
         # l'étape « Début maladie » (date rapportée) décrit les premiers signes : on cherche après elle
-        apres = ph.j0_rapporte or j0
+        debut = next((e.date_debut for e in case.sorted_events() if e.type == "Début maladie" and e.date_debut), None)
+        apres = ph.j0_rapporte or debut or j0
         wet = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut > apres and _wet_text(e)]
         if wet:
             ph.humide, ph.humide_source = wet[0], "rapportée"

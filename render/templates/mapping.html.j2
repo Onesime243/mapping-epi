@@ -123,7 +123,7 @@
       <div class="m-tl-head">
         <span class="pill">Chronologie du parcours</span>
         {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="todo">ID du cas source : à compléter</span>{% endif %}{% endif %}
-        <div class="legend"><span>J±n : jours depuis le J0 retenu{% if v.recul %} (date rapportée − {{ v.recul }} j){% endif %}</span></div>
+        <div class="legend"><span>J±n : jours depuis le J0 {% if v.recul %}retenu (date rapportée − {{ v.recul }} j){% else %}retenu ou estimé{% endif %}</span></div>
       </div>
       <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
         {% for p in v.phase_strip %}

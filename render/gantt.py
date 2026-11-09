@@ -45,7 +45,7 @@ def render_svg(case: Case) -> str:
         dates += list(w.contagiosite)
     out = [K.svg_open(), K.header(
         f"FRISE TEMPORELLE – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
-        f"Jours relatifs au début des symptômes (J0) • incubation {p['incubation_min']}–{p['incubation_max']} j • "
+        f"Jours relatifs au J0 retenu • exposition estimée J-{p['incubation_max']} → J-{p['incubation_min']} • "
         f"suivi des contacts {p['suivi_contacts']} j")]
     out.append(K.card(16, 66, 1248, 616))
     if not dates:

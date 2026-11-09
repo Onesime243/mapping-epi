@@ -79,7 +79,7 @@ CONTACT_STATUS_COLORS = {"Contact connu": RED, "Contact connu suivi": RED, "Non 
 # Phases de la maladie (MVE / Marburg) : point d'infection → incubation → phase sèche → phase humide
 PHASES = {
     "infection":  {"label": "Point d'infection", "contag": "exposition", "color": BLUE},
-    "incubation": {"label": "Incubation", "contag": "non contagieux", "color": TEAL},
+    "incubation": {"label": "Avant symptômes", "contag": "non contagieux", "color": TEAL},
     "seche":      {"label": "Phase sèche", "contag": "contagieux", "color": YELLOW},
     "humide":     {"label": "Phase humide", "contag": "encore plus contagieux", "color": ORANGE},
     "deces":      {"label": "Décès", "contag": "le plus contagieux", "color": RED},

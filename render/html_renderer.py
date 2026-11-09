@@ -88,15 +88,13 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
                     "detail": detail, "color": c, "fill": theme.soft(c)})
 
     j0, inc = ph.j0, ph.incubation
-    typ = f" (souvent {ph.incubation_typique[0]}–{ph.incubation_typique[1]} j)" if ph.incubation_typique else ""
+    estime = ph.j0_source not in ("", "rapportée")
     if ph.exposition:
-        add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (estimé)",
-            f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]}")
-        add("incubation", f"jusqu'au {_dm(j0 - timedelta(days=1))}",
-            f"{inc[0]}–{inc[1]} j{typ} • aucun symptôme, pas de transmission")
+        base = f"J0 estimé depuis : {ph.j0_source}" if estime else "J0 retenu"
+        add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (date estimée)",
+            f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]} du {base}")
     else:
-        add("infection", "? (début des symptômes manquant)", f"J-{inc[1]} → J-{inc[0]}")
-        add("incubation", "?", f"{inc[0]}–{inc[1]} j{typ}")
+        add("infection", "? (aucune date pour estimer)", "renseigner le début des symptômes, la phase humide ou le décès")
     fin = ph.deces
 
     def signes(groupe: set, defaut: str) -> str:
@@ -109,8 +107,11 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
     if ph.deux_phases:
         if j0:
             sec_end = (ph.humide - timedelta(days=1)) if ph.humide and ph.humide > j0 else None
-            add("seche", f"J0 {_dm(j0)}" + (f" → {_dm(sec_end)}" if sec_end else "")
-                + (f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)"), dry)
+            if estime:
+                suffixe = f" (estimé, {ph.j0_source})"
+            else:
+                suffixe = f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)"
+            add("seche", f"J0 {'~' if estime else ''}{_dm(j0)}" + (f" → {_dm(sec_end)}" if sec_end else "") + suffixe, dry)
             rel = rules.relative_day(ph.humide, j0)
             add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", wet)
         else:
@@ -248,10 +249,13 @@ def build_mapping_view(case: Case) -> MappingView:
         {"k": "AS", "v": case.aire_sante or "?"},
         {"k": "ZS", "v": case.zs or "?"},
         {"k": "Exposition estimée", "v": f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])}" if ph.exposition else "?",
-         "tip": "Calculée depuis le J0 retenu (J-21 → J-2 pour la MVE)"},
+         "tip": "Calculée depuis le J0 retenu ou estimé (J-21 → J-2 pour la MVE), quelle que soit la phase du cas"},
         {"k": "J0 rapporté", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
-        {"k": f"J0 retenu (−{ph.recul} j)" if ph.recul else "J0 retenu", "v": fmt_date(ph.j0),
-         "tip": "La maladie a commencé 2 à 3 jours avant la date rapportée"},
+        ({"k": "J0 estimé", "v": "~" + fmt_date(ph.j0),
+          "tip": "Pas de date rapportée : J0 remonté depuis la phase où le cas a été trouvé"}
+         if ph.j0_source not in ("", "rapportée") else
+         {"k": f"J0 retenu (−{ph.recul} j)" if ph.recul else "J0 retenu", "v": fmt_date(ph.j0),
+          "tip": "La maladie a commencé 2 à 3 jours avant la date rapportée"}),
         {"k": case.statut if case.statut != "Confirmé" else "Confirmation", "v": fmt_date(case.date_confirmation)},
         {"k": "Issue", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
         {"k": "Risque", "v": grisk.upper(), "color": theme.risk_color(grisk), "tip": grisk_why},
@@ -309,7 +313,7 @@ def build_mapping_view(case: Case) -> MappingView:
         title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
-        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul,
+        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul if ph.j0_source == "rapportée" else 0,
         meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
 
 

@@ -5,6 +5,8 @@
 # incubation_typique : durée habituelle (affichée) ; phase_humide_j : jour habituel d'entrée en phase humide
 # (MVE / Marburg : phases sèche puis humide ; autres maladies : une seule phase symptomatique)
 # recul_j0 : jours retirés à la date de début rapportée (la maladie a commencé 2 à 3 jours avant) → J0 retenu
+# phase_humide_intervalle / deces_intervalle : jours habituels après J0 (phase humide J4 à J7, décès J7 à J10),
+#   utilisés pour estimer J0 puis la date d'exposition quand la date de début n'est pas rapportée
 # labo_delai_alerte_h : délai prélèvement -> résultat au-delà duquel une action est suggérée
 MVE:
   nom: "Maladie à virus Ebola"
@@ -13,6 +15,8 @@ MVE:
   incubation_typique: [4, 17]
   phase_humide_j: 4        # début habituel de la phase humide (J+4) si aucun signe humide n'est daté
   recul_j0: 3              # J0 retenu = date rapportée − 3 jours
+  phase_humide_intervalle: [4, 7]
+  deces_intervalle: [7, 10]
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true
@@ -24,6 +28,8 @@ Marburg:
   incubation_typique: [5, 10]
   phase_humide_j: 4
   recul_j0: 3
+  phase_humide_intervalle: [4, 7]
+  deces_intervalle: [7, 10]
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true

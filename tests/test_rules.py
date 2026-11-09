@@ -120,3 +120,18 @@ def test_contact_source_et_personnes_obligatoires(demo):
     assert "ID du cas source : à compléter" in html and "Personnes : à compléter" in html
     demo.id_cas_source = "RDC-TUM-26-001"
     assert "ID du cas source : à compléter" not in render_mapping_html(demo)
+
+
+def test_exposition_estimee_sans_date_rapportee():
+    """Cas trouvé décédé ou en phase humide : la date d'exposition est quand même estimée."""
+    from core import rules
+    c = Case(maladie="MVE", date_deces=date(2026, 8, 20))
+    e = rules.estimer_j0(c)
+    assert (e.j0_min, e.j0_max, e.source) == (date(2026, 8, 10), date(2026, 8, 13), "décès")
+    assert rules.exposition_estimee(c) == (date(2026, 7, 20), date(2026, 8, 11))
+    # phase humide datée le 15/08 (J4 à J7) + décès le 20/08 (J7 à J10) : intervalle commun 10/08 → 11/08
+    c.debut_phase_humide = date(2026, 8, 15)
+    e = rules.estimer_j0(c)
+    assert (e.j0_min, e.j0_max) == (date(2026, 8, 10), date(2026, 8, 11))
+    assert "phase humide" in e.source and "décès" in e.source
+    assert rules.phases(c).exposition == (date(2026, 7, 20), date(2026, 8, 9))

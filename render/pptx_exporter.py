@@ -186,7 +186,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
         if v.contact.get("todo"):
             S.text(cx_ + cw_ + 8, tl_top, 190, 22, ["ID du cas source : à compléter"], size=8, color=theme.RED, bold=True,
                    anchor=MSO_ANCHOR.MIDDLE)
-    leg = "J±n : jours depuis le J0 retenu" + (f" (date rapportée − {v.recul} j)" if v.recul else "")
+    leg = "J±n : jours depuis le J0 retenu" + (f" (date rapportée − {v.recul} j)" if v.recul else " ou estimé")
     S.text(930, tl_top + 2, 334, 16, [leg], size=7, color=theme.MUTED, align=PP_ALIGN.RIGHT)
 
     # phases de la maladie (chevrons)
