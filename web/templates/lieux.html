@@ -2,7 +2,7 @@
 {% block title %}Lieux fréquentés · Mapping Épi{% endblock %}
 {% block content %}
 <h1>Lieux les plus fréquentés {{ "par aire de santé" if niveau == "as" else "par zone de santé" }}</h1>
-<p class="hint">Réservé aux administrateurs. Pour tous les cas {{ "d'une même aire de santé" if niveau == "as" else "d'une même zone de santé" }},
+<p class="hint">Limité aux cas de votre périmètre ({{ me.perimetre }}). Pour tous les cas {{ "d'une même aire de santé" if niveau == "as" else "d'une même zone de santé" }},
   quel que soit le compte qui les a saisis : les lieux d'exposition fréquentés par plusieurs cas (chronologie et lieux des fiches).
   Les écritures d'un même lieu sont regroupées (majuscules, accents, précisions entre parenthèses).</p>
 <div class="card">
@@ -44,6 +44,8 @@
       <a class="btn small" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='classement.svg') }}?{{ qs }}">⬇ Classement (SVG)</a>
       <a class="btn small" target="_blank" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='reseau') }}?{{ qs }}">Réseau des cas</a>
       <a class="btn small" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='reseau.svg') }}?{{ qs }}">⬇ Réseau (SVG)</a>
+      <a class="btn small" target="_blank" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='communs') }}?{{ qs }}" title="Date de passage de chaque cas, contagieux ou exposé">Lieux communs (dates)</a>
+      <a class="btn small" href="{{ url_for('frequent_places_visual', niveau=niveau, vue='communs.svg') }}?{{ qs }}">⬇ Lieux communs (SVG)</a>
     </div>
   </div>
   {% if rows %}
@@ -65,6 +67,11 @@
   {% else %}
   <p class="muted" style="margin-top:10px">Aucun lieu fréquenté par au moins {{ min_cas }} cas dans cette sélection.</p>
   {% endif %}
+</div>
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Lieux communs : qui y est passé, quand, et dans quelle période</h2>
+  <p class="hint">Rouge : cas contagieux lors du passage. Bleu : cas dans sa fenêtre d'exposition. « Transmission possible » : un cas contagieux puis un cas exposé au même lieu.</p>
+  <div class="vframe" data-scale><iframe src="{{ url_for('frequent_places_visual', niveau=niveau, vue='communs') }}?{{ qs }}" title="Lieux communs"></iframe></div>
 </div>
 <div class="card" style="margin-top:14px">
   <h2 style="margin-top:0">Classement visuel</h2>

@@ -1,7 +1,8 @@
 """Administration en ligne de commande (serveur ou poste local).
 
     python manage.py creer-admin            créer un compte administrateur (questions interactives)
-    python manage.py creer-utilisateur      créer un compte agent
+    python manage.py creer-utilisateur      créer un compte (niveau aire, zone, province ou national)
+    python manage.py niveau IDENT           changer le niveau / le périmètre d'un compte
     python manage.py utilisateurs           lister les comptes
     python manage.py mot-de-passe IDENT     définir un nouveau mot de passe
     python manage.py desactiver IDENT       désactiver un compte
@@ -23,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 
 from core.paths import data_dir, db_path  # noqa: E402
 from core.storage import Store  # noqa: E402
-from core.users import Users, generate_password  # noqa: E402
+from core.users import NIVEAUX, Users, generate_password  # noqa: E402
 
 
 def _ask_password() -> str:
@@ -38,17 +39,33 @@ def _ask_password() -> str:
         print("Les deux saisies diffèrent, recommencez.")
 
 
+def _ask_scope() -> tuple:
+    """Niveau + périmètre, posés en questions."""
+    keys = list(NIVEAUX)
+    print("Niveau : " + "  ".join(f"{i + 1}={NIVEAUX[k]}" for i, k in enumerate(keys)))
+    rep = input("Choix [1 = aire de santé] : ").strip() or "1"
+    niveau = keys[int(rep) - 1] if rep.isdigit() and 1 <= int(rep) <= len(keys) else "aire"
+    province = zs = aire = ""
+    if niveau != "national":
+        province = input("Province : ").strip()
+    if niveau in ("zone", "aire"):
+        zs = input("Zone de santé : ").strip()
+    if niveau == "aire":
+        aire = input("Aire de santé (facultatif) : ").strip()
+    return niveau, province, zs, aire
+
+
 def create(role: str) -> int:
     us = Users(Store())
-    username = input("Identifiant (ex. admin, agent.tumba) : ").strip().lower()
+    username = input("Identifiant (ex. admin, as.tumba, zs.ganga) : ").strip().lower()
     nom = input("Nom complet : ").strip()
-    zs = input("Zone de santé (facultatif) : ").strip() if role == "agent" else ""
+    niveau, province, zs, aire = ("national", "", "", "") if role == "admin" else _ask_scope()
     try:
-        u = us.create(username, _ask_password(), nom, role, zs)
+        u = us.create(username, _ask_password(), nom, role, zs, niveau, province, aire)
     except ValueError as exc:
         print(f"Erreur : {exc}")
         return 1
-    print(f"Compte « {u.username} » ({u.role}) créé.")
+    print(f"Compte « {u.username} » ({u.role}, {u.niveau_label} : {u.perimetre}) créé.")
     return 0
 
 
@@ -89,8 +106,17 @@ def main(argv) -> int:
     us = Users(Store())
     if cmd == "utilisateurs":
         for u in us.list():
-            print(f"{u.username:24} {u.role:6} {'actif' if u.actif else 'désactivé':10} {u.nom}  "
+            print(f"{u.username:24} {u.role:6} {u.niveau_label:14} {u.perimetre:32} {'actif' if u.actif else 'désactivé':10} {u.nom}  "
                   f"(dernière connexion : {u.derniere_connexion or 'jamais'})")
+        return 0
+    if cmd == "niveau" and args:
+        try:
+            us.set_scope(args[0], *_ask_scope())
+        except ValueError as exc:
+            print(f"Erreur : {exc}")
+            return 1
+        u = us.get(args[0])
+        print(f"Fait : {u.niveau_label}, {u.perimetre}.")
         return 0
     if cmd in ("mot-de-passe", "desactiver", "activer") and args:
         try:

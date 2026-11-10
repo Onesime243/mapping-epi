@@ -53,8 +53,22 @@ Dans VS Code : *Ouvrir le dossier* → `Python: Select Interpreter` → `.venv` 
 Sans l'application de bureau : `python serveur_web.py` (au premier lancement, l'adresse ouvre la page de
 création du compte administrateur).
 
-- **Agent** : crée, modifie et télécharge **ses** cas uniquement.
-- **Administrateur** : voit tous les cas, crée / désactive les comptes, réinitialise les mots de passe.
+Chaque compte a un **niveau** de la pyramide sanitaire (page « Utilisateurs », ou `mapping-epi niveau IDENT` sur le
+serveur ; règles dans `core/access.py`) :
+
+| Niveau | Voit | Corrige |
+|---|---|---|
+| Aire de santé | ses propres cas | ses propres cas |
+| Zone de santé | tous les cas de sa ZS (dont ceux de ses AS) | ses cas et ceux des comptes AS / ZS de sa zone |
+| Provincial | tous les cas de sa province | ses propres cas (le reste en lecture seule) |
+| National | tous les cas | ses propres cas (le reste en lecture seule) |
+| **Administrateur** | tout | tout, plus la création / désactivation des comptes et des mots de passe |
+
+Un cas appartient à une ZS / province par sa localisation **ou** par le compte qui l'a créé. Les comptes créés
+avant les niveaux restent « Aire de santé » (leurs propres cas), comme avant.
+La liste des cas se trie (clic sur un titre de colonne : J0, création, modification, ZS, AS…). Menu **Analyses** :
+chaînes de transmission (à partir de l'« ID du cas source » de chaque fiche) et lieux fréquentés / lieux communs
+(date de passage de chaque cas, contagieux ou dans sa fenêtre d'exposition), limités au périmètre du compte.
 - Mots de passe chiffrés (PBKDF2-SHA256), sessions de 12 h, protection CSRF, blocage après 8 essais ratés.
 - Le serveur tourne sur votre ordinateur : **aucune donnée ne part sur internet**. Pour un accès depuis
   l'extérieur du réseau, il faudrait l'héberger sur un serveur (non activé ici).

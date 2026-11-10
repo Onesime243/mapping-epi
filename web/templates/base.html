@@ -21,20 +21,21 @@
   <a class="brand" href="/">Mapping Épi <small>parcours épidémiologique</small></a>
   <nav>
     {% if me %}
-      <a href="{{ url_for('cases') }}">{{ "Tous les cas" if me.is_admin else "Mes cas" }}</a>
-      {% if me.is_admin %}
+      <a href="{{ url_for('cases') }}">{{ "Mes cas" if me.niveau == "aire" and not me.is_admin else "Cas" }}</a>
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true">Lieux fréquentés ▾</button>
+        <button type="button" class="menu-btn" aria-haspopup="true">Analyses ▾</button>
         <div class="menu-list">
-          <a href="{{ url_for('frequent_places', niveau='zs') }}">Par zone de santé</a>
-          <a href="{{ url_for('frequent_places', niveau='as') }}">Par aire de santé</a>
+          <a href="{{ url_for('chains_page') }}">Chaînes de transmission</a>
+          <a href="{{ url_for('frequent_places', niveau='zs') }}">Lieux fréquentés par zone de santé</a>
+          <a href="{{ url_for('frequent_places', niveau='as') }}">Lieux fréquentés par aire de santé</a>
         </div>
       </div>
+      {% if me.is_admin %}
       <a href="{{ url_for('users_admin') }}">Utilisateurs</a>
       {% endif %}
       <a href="/tutoriel/" target="_blank" rel="noopener">Tutoriel</a>
       <a href="{{ url_for('account') }}">Mon compte</a>
-      <span class="who">{{ me.nom or me.username }}{% if me.is_admin %} · admin{% endif %}</span>
+      <span class="who" title="{{ me.perimetre }}">{{ me.nom or me.username }} · {{ me.niveau_label }}{% if me.is_admin %} · admin{% endif %}</span>
       <a href="{{ url_for('logout') }}">Déconnexion</a>
     {% endif %}
     <button type="button" onclick="toggleTheme()" title="Mode clair / sombre" aria-label="Changer de thème">◐ Thème</button>

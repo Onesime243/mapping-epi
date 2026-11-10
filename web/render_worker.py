@@ -13,13 +13,17 @@ from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from core.models import Case  # noqa: E402
-from render import dashboard, gantt, html_renderer as H, map_view, network  # noqa: E402
+from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network  # noqa: E402
 from render.pptx_exporter import export_report_pptx  # noqa: E402
 
 
-def visual_html(c: Case, key: str, others) -> str:
+def visual_html(c: Case, key: str, others, zone: str = "", focus: bool = True) -> str:
     if key == "mapping":
         return H.render_mapping_html(c)
+    if key in ("chains", "common"):
+        # focus = False : analyse d'un périmètre (page Chaînes), aucune fiche mise en avant
+        mod = chains if key == "chains" else common_places
+        return H.render_svg_page(mod.render_svg(others or [c], c if focus else None, zone), key)
     if key == "dashboard":
         return H.render_svg_page(dashboard.render_svg(others or [c], c.zs), "Multi-cas")
     mod = {"network": network, "route": map_view, "gantt": gantt}[key]
@@ -43,9 +47,9 @@ def main() -> int:
 
     def start():
         if fmt in ("png", "png4k"):
-            ex.to_png(visual_html(c, key, others), out, 3840 if fmt == "png4k" else 1920, finish)
+            ex.to_png(visual_html(c, key, others, job.get("zone", ""), job.get("focus", True)), out, 3840 if fmt == "png4k" else 1920, finish)
         elif fmt in ("pdf", "pdfa4"):
-            html = visual_html(c, key, others)
+            html = visual_html(c, key, others, job.get("zone", ""), job.get("focus", True))
             if fmt == "pdfa4":
                 html = H.with_css(html, H.A4_CSS)
             ex.to_pdf(html, out, finish, a4=(fmt == "pdfa4"))

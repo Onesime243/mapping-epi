@@ -5,7 +5,70 @@ from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QHeaderView, QLabel,
                                QLineEdit, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
-from core.users import Users, generate_password
+from core import pyramide
+from core.users import NIVEAUX, Users, generate_password
+from ui.widgets import SearchCombo
+
+
+class ScopeFields:
+    """Niveau + Province → ZS → AS (listes en cascade), partagé par les deux fenêtres."""
+
+    def __init__(self, form: QFormLayout, user=None):
+        self.pyr = pyramide.get()
+        self.niveau = QComboBox()
+        for k, label in NIVEAUX.items():
+            self.niveau.addItem(label, k)
+        self.province = SearchCombo("Province…")
+        self.zs = SearchCombo("Zone de santé…")
+        self.aire = SearchCombo("Aire de santé (facultatif)…")
+        self.province.set_items(self.pyr.provinces())
+        self.zs.set_items(self.pyr.zones())
+        self.province.changed.connect(lambda p: self.zs.set_items(self.pyr.zones(p) if p.strip() else self.pyr.zones()))
+        self.zs.changed.connect(lambda z: self.aire.set_items(self.pyr.aires(self.province.text(), z)))
+        self.rows = [("Niveau", self.niveau), ("Province", self.province), ("Zone de santé", self.zs),
+                     ("Aire de santé", self.aire)]
+        for label, w in self.rows:
+            form.addRow(label, w)
+        self.form = form
+        self.niveau.currentIndexChanged.connect(self._show)
+        self.niveau.setCurrentIndex(self.niveau.findData(user.niveau if user else "aire"))
+        if user:
+            self.province.setText(user.province)
+            self.zs.setText(user.zs)
+            self.aire.setText(user.aire)
+        self._show()
+
+    def _show(self):
+        n = self.niveau.currentData()
+        need = {"Province": n in ("province", "zone", "aire"), "Zone de santé": n in ("zone", "aire"),
+                "Aire de santé": n == "aire"}
+        for label, w in self.rows[1:]:
+            self.form.setRowVisible(w, need[label])
+
+    def values(self):
+        return self.niveau.currentData(), self.province.text(), self.zs.text(), self.aire.text()
+
+
+RIGHTS = ("Aire de santé : voit et corrige ses propres cas. Zone de santé : voit tous les cas de sa ZS et corrige "
+          "ceux de ses aires. Provincial : voit tous les cas de sa province. National : voit tous les cas. "
+          "Administrateur : tout, plus la gestion des comptes.")
+
+
+class ScopeDialog(QDialog):
+    def __init__(self, user, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Niveau du compte « {user.username} »")
+        self.setMinimumWidth(460)
+        f = QFormLayout(self)
+        self.scope = ScopeFields(f, user)
+        hint = QLabel(RIGHTS)
+        hint.setObjectName("hint")
+        hint.setWordWrap(True)
+        f.addRow(hint)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        f.addRow(bb)
 
 
 class NewUserDialog(QDialog):
@@ -20,16 +83,16 @@ class NewUserDialog(QDialog):
         self.nom.setPlaceholderText("Nom complet")
         self.role = QComboBox()
         self.role.addItems(["agent", "admin"])
-        self.zs = QLineEdit()
-        self.zs.setPlaceholderText("Zone de santé (facultatif)")
         self.pwd = QLineEdit(generate_password())
         self.pwd.setToolTip("Mot de passe proposé : vous pouvez le remplacer (8 caractères minimum, lettres et chiffres).")
         f.addRow("Identifiant", self.username)
         f.addRow("Nom", self.nom)
         f.addRow("Rôle", self.role)
-        f.addRow("Zone de santé", self.zs)
+        self.scope = ScopeFields(f)
+        self.role.currentTextChanged.connect(
+            lambda r: r == "admin" and self.scope.niveau.setCurrentIndex(self.scope.niveau.findData("national")))
         f.addRow("Mot de passe", self.pwd)
-        hint = QLabel("Agent : saisit et télécharge ses propres cas. Admin : gère les comptes et voit tous les cas.")
+        hint = QLabel(RIGHTS)
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         f.addRow(hint)
@@ -52,8 +115,9 @@ class UsersDialog(QDialog):
         info.setObjectName("hint")
         info.setWordWrap(True)
         lay.addWidget(info)
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["Identifiant", "Nom", "Rôle", "Zone de santé", "Actif", "Dernière connexion"])
+        self.table = QTableWidget(0, 7)
+        self.table.setHorizontalHeaderLabels(["Identifiant", "Nom", "Rôle", "Niveau", "Périmètre", "Actif",
+                                              "Dernière connexion"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -61,7 +125,8 @@ class UsersDialog(QDialog):
         lay.addWidget(self.table)
         row = QHBoxLayout()
         for label, slot, prop in [("＋ Nouveau compte", self.add, "primary"), ("Réinitialiser le mot de passe", self.reset, ""),
-                                  ("Activer / désactiver", self.toggle, ""), ("Changer le rôle", self.switch_role, "")]:
+                                  ("Activer / désactiver", self.toggle, ""), ("Changer le rôle", self.switch_role, ""),
+                                  ("Niveau / périmètre…", self.change_scope, "")]:
             b = QPushButton(label)
             if prop:
                 b.setProperty(prop, True)
@@ -81,10 +146,10 @@ class UsersDialog(QDialog):
         us = self.users.list()
         self.table.setRowCount(len(us))
         for r, u in enumerate(us):
-            for c, v in enumerate([u.username, u.nom, u.role, u.zs, "oui" if u.actif else "non",
+            for c, v in enumerate([u.username, u.nom, u.role, u.niveau_label, u.perimetre, "oui" if u.actif else "non",
                                    (u.derniere_connexion or "jamais").replace("T", " ")]):
                 it = QTableWidgetItem(v)
-                if c == 4 and not u.actif:
+                if c == 5 and not u.actif:
                     it.setForeground(QColor("#C0392B"))
                 self.table.setItem(r, c, it)
 
@@ -104,7 +169,9 @@ class UsersDialog(QDialog):
             d.role.setCurrentText("admin")
         while d.exec():
             try:
-                u = self.users.create(d.username.text(), d.pwd.text(), d.nom.text(), d.role.currentText(), d.zs.text())
+                niveau, prov, zs, aire = d.scope.values()
+                u = self.users.create(d.username.text(), d.pwd.text(), d.nom.text(), d.role.currentText(), zs,
+                                      niveau, prov, aire)
             except ValueError as exc:
                 QMessageBox.warning(self, "Compte", str(exc))
                 continue
@@ -130,6 +197,24 @@ class UsersDialog(QDialog):
         except ValueError as exc:
             QMessageBox.warning(self, "Compte", str(exc))
         self.refresh()
+
+    def change_scope(self):
+        name = self._selected()
+        if not name:
+            return
+        u = self.users.get(name)
+        if u.is_admin:
+            QMessageBox.information(self, "Niveau", "Un administrateur est toujours de niveau national.")
+            return
+        d = ScopeDialog(u, self)
+        while d.exec():
+            try:
+                self.users.set_scope(name, *d.scope.values())
+            except ValueError as exc:
+                QMessageBox.warning(self, "Niveau", str(exc))
+                continue
+            self.refresh()
+            break
 
     def switch_role(self):
         u = self._selected()

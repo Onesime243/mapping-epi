@@ -20,7 +20,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from config import credits, theme
 from core import rules, storage
 from core.models import Action, Case, Event
-from render import dashboard, gantt, html_renderer as H, map_view, network
+from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx, export_report_pptx
 from core.netinfo import WEB_PORT, lan_urls
 from core.paths import data_dir
@@ -146,7 +146,8 @@ class MainWindow(QMainWindow):
         self.previews: Dict[str, Preview] = {}
         self.preview_tabs = QTabWidget()
         for key, name in [("mapping", "Mapping"), ("network", "Réseau de contacts"), ("route", "Carte du parcours"),
-                          ("gantt", "Frise temporelle"), ("dashboard", "Multi-cas")]:
+                          ("gantt", "Frise temporelle"), ("dashboard", "Multi-cas"),
+                          ("chains", "Chaînes de transmission"), ("common", "Lieux communs")]:
             p = Preview()
             self.previews[key] = p
             self.preview_tabs.addTab(p, name)
@@ -541,6 +542,10 @@ class MainWindow(QMainWindow):
             return map_view.render_html(c)
         if key == "gantt":
             return gantt.render_html(c)
+        if key == "chains":
+            return chains.render_html(self._all_cases(), c)
+        if key == "common":
+            return common_places.render_html(self._all_cases(), c)
         return dashboard.render_html(self._all_cases(), c.zs)
 
     def visual_svg(self, key: str) -> str:
@@ -548,7 +553,9 @@ class MainWindow(QMainWindow):
         return {"mapping": lambda: H.html_to_svg_wrapper(H.render_mapping_html(c)),
                 "network": lambda: network.render_svg(c), "route": lambda: map_view.render_svg(c),
                 "gantt": lambda: gantt.render_svg(c),
-                "dashboard": lambda: dashboard.render_svg(self._all_cases(), c.zs)}[key]()
+                "dashboard": lambda: dashboard.render_svg(self._all_cases(), c.zs),
+                "chains": lambda: chains.render_svg(self._all_cases(), c),
+                "common": lambda: common_places.render_svg(self._all_cases(), c)}[key]()
 
     def _all_cases(self) -> List[Case]:
         others = [x for x in self.store.all_cases() if x.id != self.case.id]
@@ -605,6 +612,7 @@ class MainWindow(QMainWindow):
     def _default_name(self, key: str, ext: str) -> str:
         c = self.case
         base = {"mapping": "Mapping", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
+                "chains": "Chaines_transmission", "common": "Lieux_communs",
                 "report": "Rapport"}[key]
         rang = f"Cas{c.rang}" if c.rang else "Cas"
         last_dir = self.settings.value("export_dir") or str(Path.home())

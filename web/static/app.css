@@ -159,3 +159,14 @@ table.edit td.ops { white-space: nowrap; }
 /* information obligatoire manquante */
 input.req-missing { border: 1.5px solid #B4554E; background: #FBEAE8; }
 input.req-missing::placeholder { color: #B4554E; font-weight: 700; opacity: 1; }
+
+/* ---------- niveaux des comptes, tri, lecture seule ---------- */
+a.sort { color: var(--muted); text-decoration: none; white-space: nowrap; }
+a.sort:hover, a.sort.on { color: var(--accent); }
+.alert.info { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.pill.ro { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+table.rights { border-collapse: collapse; margin-top: 16px; font-size: 13.5px; width: 100%; }
+table.rights th, table.rights td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+table.rights th { color: var(--muted); font-size: 12.5px; }
+tr.sub td { padding-top: 0; border-bottom: 1px solid var(--border); }
+tr.sub summary { cursor: pointer; color: var(--accent); font-size: 13.5px; font-weight: 600; }

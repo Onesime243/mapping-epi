@@ -20,9 +20,11 @@
     const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
     clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, ms || 2600);
   }
-  function setStatus(txt, err) { const s = $('#status'); s.textContent = txt; s.className = 'status' + (err ? ' err' : ''); }
+  const RO = !!window.READONLY;      // lecture seule (fiche d'un autre compte, niveau provincial / national)
+  function setStatus(txt, err) { const s = $('#status'); if (!s) return; s.textContent = txt; s.className = 'status' + (err ? ' err' : ''); }
 
   function changed() {
+    if (RO) return;
     dirty = true; setStatus('Modifications non enregistrées…');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -370,6 +372,11 @@
   }
 
   // ----------------------------------------------------------------- init
+  function lockEditor() {
+    $$('.editor > section.card .pane').forEach(p => $$('input, select, textarea, button', p).forEach(x => { x.disabled = true; }));
+    $$('[data-add], #sortEvents, #fillGaps, #prefill').forEach(b => { b.style.display = 'none'; });
+  }
+
   async function init() {
     try {
       const [schema, pyr, data] = await Promise.all([api('/api/schema'), api('/api/pyramide'), api('/api/cas/' + ID)]);
@@ -408,7 +415,8 @@
       if (!j.places.length) { toast('Tous les lieux de la chronologie sont déjà listés.'); return; }
       C.places = C.places.concat(j.places); renderTable('places'); changed(); toast(j.places.length + ' lieu(x) ajouté(s).');
     });
-    $('#saveVersion').addEventListener('click', async () => {
+    if (RO) lockEditor();
+    if ($('#saveVersion')) $('#saveVersion').addEventListener('click', async () => {
       const com = prompt('Commentaire de version (facultatif) :', '');
       if (com === null) return;
       clearTimeout(timer); await save(true, com); toast('Version enregistrée dans l\'historique.');

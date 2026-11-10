@@ -1,8 +1,8 @@
 """Version web de Mapping Épi (Flask).
 
 - Connexion par identifiant + mot de passe (comptes créés par l'administrateur).
-- Un agent saisit et télécharge SES cas ; un administrateur voit tous les cas
-  et gère les comptes.
+- Droits selon le niveau du compte (aire, zone, province, national) : voir core/access.py.
+  L'administrateur voit et corrige tous les cas et gère les comptes.
 - Toutes les données restent dans le dossier local (core/paths.py), partagé
   avec l'application de bureau.
 """
@@ -23,17 +23,21 @@ from flask import (Flask, Response, abort, flash, g, jsonify, redirect, render_t
 
 from config import credits, theme
 from core import narratif, pyramide, rules, schema, storage
+from core.access import Access
 from core.models import Action, Case, Event
 from core.paths import data_dir
-from core.users import Users, generate_password
-from render import dashboard, gantt, html_renderer as H, map_view, network
+from core.users import NIVEAUX, Users, generate_password
+from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
 from web import render_client
 
 log = logging.getLogger("mapping_epi.web")
 ROOT = Path(__file__).resolve().parent.parent
 VISUALS = {"mapping": "Mapping", "network": "Réseau de contacts", "route": "Carte du parcours",
-           "gantt": "Frise temporelle", "dashboard": "Multi-cas"}
+           "gantt": "Frise temporelle", "dashboard": "Multi-cas", "chains": "Chaînes de transmission",
+           "common": "Lieux communs"}
+SORTS = {"code": "ID / fiche", "province": "Province", "zs": "ZS", "as": "AS", "j0": "J0",
+         "owner": "Compte", "cree": "Créée le", "updated": "Modifiée le"}
 
 
 def _secret_key() -> bytes:
@@ -128,16 +132,28 @@ def create_app(store: storage.Store | None = None) -> Flask:
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
         return resp
 
-    def get_case(cid: str) -> Case:
+    def access() -> Access:
+        if "access" not in g:
+            g.access = Access(g.user, {u.username: u for u in app.users.list()})
+        return g.access
+
+    def get_case(cid: str, edit: bool = False) -> Case:
         c = app.store.load(cid)
         if not c:
             abort(404)
-        if not g.user.is_admin and app.store.owner_of(cid) != g.user.username:
+        owner = app.store.owner_of(cid) or ""
+        if not access().can_view(c, owner) or (edit and not access().can_edit(c, owner)):
             abort(403)
+        g.case_owner = owner
         return c
 
+    def visible_rows():
+        """(id, modifiée le, compte, fiche) des fiches visibles selon le niveau du compte."""
+        acc = access()
+        return [r for r in app.store.rows_full(None) if acc.can_view(r[3], r[2] or "")]
+
     def visible_cases():
-        return app.store.all_cases(None if g.user.is_admin else g.user.username)
+        return [r[3] for r in visible_rows()]
 
     def zone_cases(c: Case):
         """Cas de la même zone de santé que la fiche ouverte (tableau multi-cas)."""
@@ -235,8 +251,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 if action == "create":
                     pwd = request.form.get("password") or generate_password()
                     app.users.create(uname, pwd, request.form.get("nom", ""), request.form.get("role", "agent"),
-                                     request.form.get("zs", ""))
+                                     request.form.get("zs", ""), request.form.get("niveau", "aire"),
+                                     request.form.get("province", ""), request.form.get("aire", ""))
                     new_pwd = (uname, pwd)
+                elif action == "scope":
+                    app.users.set_scope(uname, request.form.get("niveau", ""), request.form.get("province", ""),
+                                        request.form.get("zs", ""), request.form.get("aire", ""))
+                    flash(f"Niveau du compte « {uname} » modifié.", "ok")
                 elif action == "reset":
                     pwd = generate_password()
                     app.users.set_password(uname, pwd)
@@ -255,7 +276,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         for _cid, _t, _u, owner in app.store.list_full():
             counts[owner] = counts.get(owner, 0) + 1
         return render_template("users.html", users=app.users.list(), new_pwd=new_pwd, err=err, counts=counts,
-                               suggested=generate_password())
+                               suggested=generate_password(), niveaux=NIVEAUX)
 
     # ------------------------------------------------------------------ cas
     @app.route("/")
@@ -266,8 +287,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.route("/cas")
     @login_required
     def cases():
-        rows = app.store.rows_full(None if g.user.is_admin else g.user.username)
-        f = {k: request.args.get(k, "").strip() for k in ("q", "agent", "province", "zs", "as")}
+        rows = visible_rows()
+        acc = access()
+        created = app.store.created_dates()
+        f = {k: request.args.get(k, "").strip() for k in ("q", "agent", "province", "zs", "as", "tri", "ordre")}
+        tri = f["tri"] if f["tri"] in SORTS else "updated"
+        desc = (f["ordre"] != "asc") if f["ordre"] else tri in ("updated", "cree", "j0")
         q = f["q"].lower()
         opts = {"agent": set(), "province": set(), "zs": set(), "as": set()}
         items = []
@@ -291,13 +316,25 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 continue
             items.append({"id": cid, "titre": c.titre_court(), "code": c.code_cas, "updated": (updated or "")[:16].replace("T", " "),
                           "owner": owner, "sub": f"{c.maladie} – {c.statut} – ZS {c.zs or '?'} ({c.aire_sante or '?'})", "province": c.province, "zs": c.zs, "as": c.aire_sante,
-                          "j0": c.debut_symptomes.strftime("%d/%m/%Y") if c.debut_symptomes else "?", "statut": c.statut})
-        opts = {k: sorted(v, key=str.lower) for k, v in opts.items()}
-        return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows))
+                          "j0": c.debut_symptomes.strftime("%d/%m/%Y") if c.debut_symptomes else "?", "statut": c.statut,
+                          "j0_d": c.debut_symptomes, "cree": (created.get(cid) or "")[:16].replace("T", " "),
+                          "edit": acc.can_edit(c, owner or ""), "mine": owner == g.user.username})
 
-    # ------------------------------------------------- analyse (administrateurs) : lieux les plus fréquentés
+        def key(i):
+            v = {"code": i["code"] or i["titre"], "j0": i["j0_d"]}.get(tri, i.get(tri))
+            if v in (None, "", "?"):
+                return (1, "")                      # valeurs inconnues toujours en fin de liste
+            return (0, pyramide.norm(v) if isinstance(v, str) and tri not in ("cree", "updated") else v)
+        known = sorted([i for i in items if key(i)[0] == 0], key=key, reverse=desc)
+        items = known + [i for i in items if key(i)[0] == 1]
+        opts = {k: sorted(v, key=str.lower) for k, v in opts.items()}
+        args = {k: f[k] for k in ("q", "agent", "province", "zs", "as") if f[k]}
+        return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows),
+                               tri=tri, desc=desc, sorts=SORTS, args=args)
+
+    # ------------------------------------------------- analyses multi-cas (limitées au périmètre du compte)
     def _selection(niveau: str):
-        rows = app.store.rows_full(None)
+        rows = visible_rows()
         f = {k: request.args.get(k, "").strip() for k in ("province", "zs", "as")}
         tree: dict = {}
         for _cid, _u, _o, c in rows:
@@ -311,7 +348,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return f, tree, sel, ready, place
 
     @app.route("/analyse/lieux/<niveau>")
-    @admin_required
+    @login_required
     def frequent_places(niveau):
         from core.lieux import case_label, frequentes
         if niveau not in ("zs", "as"):
@@ -332,16 +369,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                ready=ready, place=place, rows=rows, nmax=nmax, ncas=len(sel), min_cas=min_cas, qs=qs)
 
     @app.route("/analyse/lieux/<niveau>/<vue>")
-    @admin_required
+    @login_required
     def frequent_places_visual(niveau, vue):
         from render import frequentes
         f, tree, sel, ready, place = _selection(niveau)
-        if niveau not in ("zs", "as") or vue not in ("classement", "reseau", "classement.svg", "reseau.svg") or not ready:
+        vues = ("classement", "reseau", "communs")
+        if niveau not in ("zs", "as") or vue.removesuffix(".svg") not in vues or not ready:
             abort(404)
         cases_ = [c for _, c in sel]
         min_cas = max(1, min(10, request.args.get("min", 2, type=int)))
         if vue.startswith("classement"):
             svg = frequentes.render_svg(cases_, f"LIEUX LES PLUS FRÉQUENTÉS | {place}", min_cas)
+        elif vue.startswith("communs"):
+            svg = common_places.render_svg(cases_, None, place)
         else:
             svg = dashboard.render_svg(cases_, titre=f"CAS RELIÉS PAR LES LIEUX FRÉQUENTÉS | {place}")
         if vue.endswith(".svg"):
@@ -351,11 +391,51 @@ def create_app(store: storage.Store | None = None) -> Flask:
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
+    @app.route("/analyse/chaines")
+    @login_required
+    def chains_page():
+        f, tree, sel, _ready, _place = _selection("as")
+        zone = _chains_zone(f)
+        return render_template("chaines.html", f=f, tree={k: {z: sorted(a) for z, a in v.items()} for k, v in tree.items()},
+                               ncas=len(sel), zone=zone, qs=request.query_string.decode())
+
+    def _chains_zone(f) -> str:
+        parts = [f"Province {f['province']}" if f["province"] else "", f"ZS {f['zs']}" if f["zs"] else "",
+                 f"AS {f['as']}" if f["as"] else ""]
+        return " – ".join(x for x in parts if x) or g.user.perimetre
+
+    @app.route("/analyse/chaines/<vue>")
+    @login_required
+    def chains_visual(vue):
+        if vue not in ("apercu", "chaines.svg", "chaines.png", "chaines.pdf"):
+            abort(404)
+        f, _tree, sel, _ready, _place = _selection("as")
+        cases_ = [c for _, c in sel]
+        zone = _chains_zone(f)
+        if vue == "apercu":
+            resp = Response(H.render_svg_page(chains.render_svg(cases_, None, zone), "Chaînes de transmission",
+                                              assets="/assets/"), mimetype="text/html")
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
+        name = re.sub(r"[^A-Za-z0-9]+", "_", f"Chaines_transmission_{zone}").strip("_") + vue[-4:]
+        if vue.endswith(".svg"):
+            return send_file(io.BytesIO(chains.render_svg(cases_, None, zone).encode("utf-8")), as_attachment=True,
+                             download_name=name, mimetype="image/svg+xml")
+        if not cases_:
+            abort(404)
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}{vue[-4:]}"
+        ok, msg = render_client.render(cases_[0].model_dump(mode="json"), "chains", vue[-3:], out,
+                                       [c.model_dump(mode="json") for c in cases_], zone=zone, focus=False)
+        if not ok:
+            return Response(f"Export impossible sur ce serveur : {msg}", status=503, mimetype="text/plain; charset=utf-8")
+        return _send_and_delete(out, name)
+
     @app.route("/cas/nouveau", methods=["POST"])
     @login_required
     def new_case():
-        c = Case(investigateur=g.user.nom, zs=g.user.zs)
-        p = pyramide.get().province_of(g.user.zs) if g.user.zs else None
+        u = g.user
+        c = Case(investigateur=u.nom, province=u.province, zs=u.zs, aire_sante=u.aire if u.niveau == "aire" else "")
+        p = pyramide.get().province_of(u.zs) if u.zs and not c.province else None
         if p:
             c.province = p
         app.store.save(c, version=True, auteur=g.user.username, commentaire="Création (web)", owner=g.user.username)
@@ -413,12 +493,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @login_required
     def editor(cid):
         c = get_case(cid)
-        return render_template("editor.html", case=c, visuals=VISUALS)
+        acc = access()
+        owner = g.case_owner
+        owner_user = app.users.get(owner) if owner else None
+        return render_template("editor.html", case=c, visuals=VISUALS, readonly=not acc.can_edit(c, owner),
+                               can_delete=acc.can_delete(c, owner),
+                               owner_label=(owner_user.nom if owner_user else owner) or "application de bureau")
 
     @app.route("/cas/<cid>/supprimer", methods=["POST"])
     @login_required
     def delete_case(cid):
-        get_case(cid)
+        c = get_case(cid)
+        if not access().can_delete(c, g.case_owner):
+            abort(403)
         app.store.delete(cid)
         flash("Fiche supprimée (récupérable dans l'historique par un administrateur).", "ok")
         return redirect(url_for("cases"))
@@ -452,7 +539,10 @@ def create_app(store: storage.Store | None = None) -> Flask:
     def api_case(cid):
         c = get_case(cid)
         if request.method == "GET":
-            return jsonify(case=c.model_dump(mode="json"), controls=controls(c))
+            return jsonify(case=c.model_dump(mode="json"), controls=controls(c),
+                           readonly=not access().can_edit(c, g.case_owner))
+        if not access().can_edit(c, g.case_owner):
+            return jsonify(error="Lecture seule : vous pouvez consulter cette fiche mais pas la modifier."), 403
         try:
             data = request.get_json(force=True)
             data["id"] = cid
@@ -542,7 +632,14 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return H.render_svg_page(gantt.render_svg(c), "Frise", assets="/assets/")
         if key == "dashboard":
             return H.render_svg_page(dashboard.render_svg(zone_cases(c), c.zs), "Multi-cas", assets="/assets/")
+        if key in ("chains", "common"):
+            return H.render_svg_page(multi_svg(c, key), VISUALS[key], assets="/assets/")
         abort(404)
+
+    def multi_svg(c: Case, key: str) -> str:
+        """Chaînes / lieux communs de la fiche, parmi tous les cas visibles par le compte."""
+        mod = chains if key == "chains" else common_places
+        return mod.render_svg(visible_cases(), c, g.user.perimetre)
 
     @app.route("/cas/<cid>/apercu/<key>")
     @login_required
@@ -576,6 +673,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 svg = H.html_to_svg_wrapper(H.render_mapping_html(c))
             elif key == "dashboard":
                 svg = dashboard.render_svg(zone_cases(c), c.zs)
+            elif key in ("chains", "common"):
+                svg = multi_svg(c, key)
             else:
                 svg = {"network": network, "route": map_view, "gantt": gantt}[key].render_svg(c)
             return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name,
@@ -585,9 +684,11 @@ def create_app(store: storage.Store | None = None) -> Flask:
             export_mapping_pptx(c, out)
             return _send_and_delete(out, name)
         if fmt in ("png", "png4k", "pdf", "pdfa4", "rapport-pdf", "rapport-pptx"):
-            others = [x.model_dump(mode="json") for x in zone_cases(c)] if key == "dashboard" else []
+            others = [x.model_dump(mode="json") for x in
+                      (zone_cases(c) if key == "dashboard" else visible_cases() if key in ("chains", "common") else [])]
             out = data_dir() / "exports" / f"{secrets.token_hex(6)}{Path(name).suffix}"
-            ok, msg = render_client.render(c.model_dump(mode="json"), key, fmt, out, others)
+            ok, msg = render_client.render(c.model_dump(mode="json"), key, fmt, out, others,
+                                           zone=g.user.perimetre if key in ("chains", "common") else "")
             if not ok:
                 return Response(f"Export impossible sur ce serveur : {msg}\n\nAstuce : utilisez « Imprimer → "
                                 "Enregistrer en PDF » depuis l'aperçu, ou les formats SVG / PowerPoint.",
@@ -631,7 +732,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     @app.errorhandler(403)
     def forbidden(e):
-        return render_template("error.html", code=403, msg="Accès refusé : cette fiche ne vous appartient pas."), 403
+        return render_template("error.html", code=403,
+                               msg="Accès refusé : cette fiche n'est pas dans votre périmètre, ou vous pouvez seulement la consulter."), 403
 
     @app.errorhandler(404)
     def notfound(e):
@@ -645,7 +747,8 @@ def _filename(c: Case, key: str, fmt: str) -> str:
 
     def slug(s):
         return re.sub(r"[^\w\-]+", "_", s or "", flags=re.UNICODE).strip("_") or "x"
-    base = {"mapping": "Mapping", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas"}[key]
+    base = {"mapping": "Mapping", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
+            "chains": "Chaines_transmission", "common": "Lieux_communs"}[key]
     if fmt.startswith("rapport"):
         base = "Rapport"
     ext = {"png": "png", "png4k": "png", "pdf": "pdf", "pdfa4": "pdf", "svg": "svg", "pptx": "pptx", "json": "json",

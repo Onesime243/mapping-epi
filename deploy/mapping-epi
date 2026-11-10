@@ -15,7 +15,7 @@ OUTILS_USER=outils
 manage() { sudo -u "$SVC_USER" env MAPPING_EPI_DONNEES="$DATA_DIR" "$PY" "$APP_DIR/manage.py" "$@"; }
 
 case "${1:-aide}" in
-  creer-admin|creer-utilisateur|utilisateurs|mot-de-passe|desactiver|activer)
+  creer-admin|creer-utilisateur|utilisateurs|mot-de-passe|desactiver|activer|niveau)
     manage "$@" ;;
   sauvegarde)
     out="$(manage sauvegarde /tmp)"
@@ -228,7 +228,8 @@ CADDY
     cat <<'TXT'
 Mapping Épi : commandes
   creer-admin            créer un compte administrateur
-  creer-utilisateur      créer un compte agent (ZS / AS)
+  creer-utilisateur      créer un compte (niveau aire, zone, province ou national)
+  niveau IDENT           changer le niveau / le périmètre d'un compte
   utilisateurs           lister les comptes
   mot-de-passe IDENT     changer le mot de passe d'un compte
   desactiver IDENT       désactiver un compte   (activer IDENT pour réactiver)

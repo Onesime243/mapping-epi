@@ -19,9 +19,11 @@ ROOT = Path(__file__).resolve().parent.parent
 _lock = threading.Lock()
 
 
-def render(case: dict, visual: str, fmt: str, out: Path, others: List[dict] | None = None,
+def render(case: dict, visual: str, fmt: str, out: Path, others: List[dict] | None = None, zone: str = "",
+           focus: bool = True,
            timeout: int = 150) -> Tuple[bool, str]:
-    job = {"case": case, "visual": visual, "fmt": fmt, "out": str(out), "others": others or []}
+    job = {"case": case, "visual": visual, "fmt": fmt, "out": str(out), "others": others or [], "zone": zone,
+           "focus": focus}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump(job, f)
         job_path = f.name

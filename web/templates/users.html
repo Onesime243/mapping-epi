@@ -1,5 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Utilisateurs · Mapping Épi{% endblock %}
+{% macro scope_fields(u=None) %}
+  <div><label class="f">Niveau</label>
+    <select name="niveau" data-role="niveau">
+      {% for k, label in niveaux.items() %}<option value="{{ k }}"{% if (u and u.niveau == k) or (not u and k == "aire") %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select></div>
+  <div data-need="province zone aire"><label class="f">Province</label>
+    <select name="province" data-role="province" data-value="{{ u.province if u else '' }}"><option value="">Province…</option></select></div>
+  <div data-need="zone aire"><label class="f">Zone de santé</label>
+    <select name="zs" data-role="zs" data-value="{{ u.zs if u else '' }}"><option value="">Zone de santé…</option></select></div>
+  <div data-need="aire"><label class="f">Aire de santé</label>
+    <input name="aire" data-role="aire" value="{{ u.aire if u else '' }}" placeholder="choisir ou saisir…"></div>
+{% endmacro %}
 {% block content %}
 <h1>Utilisateurs</h1>
 {% if err %}<div class="alert err">{{ err }}</div>{% endif %}
@@ -9,22 +21,30 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
 {% endif %}
 <div class="card">
   <h2 style="margin-top:0">Nouveau compte</h2>
-  <form method="post" class="grid">
+  <form method="post" class="grid scope-form">
     <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="create">
     <div><label class="f">Identifiant</label><input name="username" placeholder="ex. agent.ganga" pattern="[a-z0-9._\-]{3,32}" required></div>
     <div><label class="f">Nom complet</label><input name="nom" required></div>
-    <div><label class="f">Zone de santé</label><input name="zs" placeholder="facultatif"></div>
-    <div><label class="f">Rôle</label><select name="role"><option value="agent">Agent (ses cas)</option><option value="admin">Administrateur</option></select></div>
+    {{ scope_fields() }}
+    <div><label class="f">Rôle</label><select name="role"><option value="agent">Utilisateur</option><option value="admin">Administrateur (gère les comptes)</option></select></div>
     <div><label class="f">Mot de passe</label><input name="password" value="{{ suggested }}" minlength="8"></div>
     <div style="align-self:end"><button class="btn primary" style="width:100%">Créer le compte</button></div>
   </form>
+  <table class="rights">
+    <tr><th>Niveau</th><th>Voit</th><th>Corrige</th></tr>
+    <tr><td>Aire de santé</td><td>ses propres cas</td><td>ses propres cas</td></tr>
+    <tr><td>Zone de santé</td><td>tous les cas de sa ZS (dont ceux de ses aires de santé)</td><td>ses cas et ceux des comptes AS / ZS de sa zone</td></tr>
+    <tr><td>Provincial</td><td>tous les cas de sa province (toutes ZS et AS)</td><td>ses propres cas</td></tr>
+    <tr><td>National</td><td>tous les cas de toutes les provinces</td><td>ses propres cas</td></tr>
+    <tr><td>Administrateur</td><td>tout</td><td>tout, plus la gestion des comptes</td></tr>
+  </table>
 </div>
 <div class="card" style="margin-top:14px; overflow-x:auto">
   <table class="list">
-    <tr><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>ZS</th><th>Fiches</th><th>Statut</th><th>Dernière connexion</th><th></th></tr>
+    <tr><th>Identifiant</th><th>Nom</th><th>Niveau</th><th>Périmètre</th><th>Fiches</th><th>Statut</th><th>Dernière connexion</th><th></th></tr>
     {% for u in users %}
     <tr>
-      <td><b>{{ u.username }}</b></td><td>{{ u.nom }}</td><td><span class="pill">{{ u.role }}</span></td><td>{{ u.zs }}</td>
+      <td><b>{{ u.username }}</b>{% if u.is_admin %} <span class="pill">admin</span>{% endif %}</td><td>{{ u.nom }}</td><td>{{ u.niveau_label }}</td><td>{{ u.perimetre }}</td>
       <td>{{ counts.get(u.username, 0) }}</td>
       <td>{% if u.actif %}actif{% else %}<span style="color:var(--danger)">désactivé</span>{% endif %}</td>
       <td class="muted">{{ (u.derniere_connexion or "jamais").replace("T", " ") }}</td>
@@ -35,7 +55,54 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
         {% endfor %}
       </td>
     </tr>
+    {% if not u.is_admin %}
+    <tr class="sub"><td colspan="8">
+      <details><summary>Changer le niveau / le périmètre</summary>
+        <form method="post" class="grid scope-form" style="margin-top:10px">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="scope">
+          <input type="hidden" name="username" value="{{ u.username }}">
+          {{ scope_fields(u) }}
+          <div style="align-self:end"><button class="btn small primary">Enregistrer</button></div>
+        </form>
+      </details>
+    </td></tr>
+    {% endif %}
     {% endfor %}
   </table>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async function () {
+  'use strict';
+  let PYR = {};
+  try { PYR = await (await fetch('/api/pyramide')).json(); } catch (e) { return; }
+  const norm = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/-/g, ' ').trim();
+  const find = (obj, name) => Object.keys(obj || {}).find(k => norm(k) === norm(name));
+  function fill(sel, list, value, empty) {
+    sel.innerHTML = '';
+    const o = document.createElement('option'); o.value = ''; o.textContent = empty; sel.appendChild(o);
+    list.forEach(v => { const x = document.createElement('option'); x.textContent = v; sel.appendChild(x); });
+    sel.value = list.find(v => norm(v) === norm(value)) || '';
+  }
+  document.querySelectorAll('.scope-form').forEach((form, i) => {
+    const niv = form.querySelector('[data-role=niveau]'), prov = form.querySelector('[data-role=province]'),
+          zs = form.querySelector('[data-role=zs]'), as = form.querySelector('[data-role=aire]');
+    const dl = document.createElement('datalist'); dl.id = 'dl-as-' + i; document.body.appendChild(dl); as.setAttribute('list', dl.id);
+    const fillAs = () => {
+      const pk = find(PYR, prov.value), zk = pk ? find(PYR[pk], zs.value) : null;
+      dl.innerHTML = ''; (zk ? PYR[pk][zk] : []).forEach(a => { const o = document.createElement('option'); o.value = a; dl.appendChild(o); });
+    };
+    const fillZs = v => { const pk = find(PYR, prov.value); fill(zs, pk ? Object.keys(PYR[pk]) : [], v, 'Zone de santé…'); fillAs(); };
+    const show = () => form.querySelectorAll('[data-need]').forEach(d => { d.style.display = d.dataset.need.split(' ').includes(niv.value) ? '' : 'none'; });
+    fill(prov, Object.keys(PYR), prov.dataset.value, 'Province…');
+    fillZs(zs.dataset.value);
+    prov.addEventListener('change', () => { fillZs(''); as.value = ''; });
+    zs.addEventListener('change', () => { fillAs(); as.value = ''; });
+    niv.addEventListener('change', show); show();
+    const role = form.querySelector('[name=role]');
+    if (role) role.addEventListener('change', () => { if (role.value === 'admin') { niv.value = 'national'; show(); } });
+  });
+})();
+</script>
 {% endblock %}

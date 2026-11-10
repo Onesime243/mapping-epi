@@ -88,6 +88,10 @@ class Store:
         cols = [r[1] for r in self.db.execute("PRAGMA table_info(cases)")]
         if "owner" not in cols:     # migration v1.0 → v1.1
             self.db.execute("ALTER TABLE cases ADD COLUMN owner TEXT DEFAULT ''")
+        ucols = [r[1] for r in self.db.execute("PRAGMA table_info(users)")]
+        for col in ("niveau", "province", "aire"):      # niveaux de la pyramide sanitaire (comptes)
+            if col not in ucols:
+                self.db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT ''")
         self.db.commit()
 
     # -- cas -------------------------------------------------------------
@@ -144,6 +148,10 @@ class Store:
             q += " WHERE owner=?"
             args = (owner,)
         return self.db.execute(q + " ORDER BY updated DESC", args).fetchall()
+
+    def created_dates(self) -> dict:
+        """{id du cas : date de la première version enregistrée}."""
+        return dict(self.db.execute("SELECT case_id, MIN(ts) FROM versions GROUP BY case_id").fetchall())
 
     def rows_full(self, owner: Optional[str] = None):
         """(id, modifiée le, compte propriétaire, fiche) : toutes les fiches si owner est None."""
