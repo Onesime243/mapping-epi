@@ -726,6 +726,22 @@ def create_app(store: storage.Store | None = None) -> Flask:
         storage.export_excel_template(out)
         return _send_and_delete(out, "Modele_Mapping_ZS_vierge.xlsx")
 
+    @app.route("/modele-word")
+    @login_required
+    def word_model():
+        from core import modele_narratif
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.docx"
+        modele_narratif.generer_docx(out)
+        return _send_and_delete(out, "Modele_Narratif_Mapping_vierge.docx")
+
+    @app.route("/modele-powerpoint")
+    @login_required
+    def pptx_model():
+        from core import modele_narratif
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.pptx"
+        modele_narratif.generer_pptx(out)
+        return _send_and_delete(out, "Modele_Narratif_Mapping_vierge.pptx")
+
     @app.route("/sante")
     def health():
         return jsonify(ok=True, version=H.APP_VERSION)

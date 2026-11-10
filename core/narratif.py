@@ -783,7 +783,19 @@ def extraire(doc: Document) -> Resultat:
 
 
 def importer(path: Path | str) -> Resultat:
-    """Lit un narratif Word / PowerPoint et renvoie le cas pré-rempli (à vérifier dans l'outil)."""
+    """Lit un narratif Word / PowerPoint et renvoie le cas pré-rempli (à vérifier dans l'outil).
+
+    Un narratif rempli à partir du modèle Word / PowerPoint (core/modele_narratif.py) est lu tableau par tableau,
+    comme le classeur Excel ; un ancien narratif libre est analysé à partir du récit."""
+    from core import modele_narratif as M
+    if Path(path).suffix.lower() in (".docx", ".pptx"):
+        lu = M.lire_modele(path)
+        if lu is not None:
+            noms = {"Chronologie": "étape(s) de chronologie", "Lieux": "lieu(x)", "Contacts": "catégorie(s) de contacts",
+                    "PCI": "site(s) PCI", "Laboratoire": "prélèvement(s)", "Actions": "action(s)"}
+            trouves = [f"modèle Mapping Épi reconnu, {lu.champs} champ(s) de la fiche"] + \
+                      [f"{lu.tableaux[k]} {noms[k]}" for k in noms if k in lu.tableaux]
+            return Resultat(lu.case, trouves, M.manquants(lu.case) + lu.erreurs)
     res = extraire(lire(path))
     res.case.note_pied = ""
     return res
