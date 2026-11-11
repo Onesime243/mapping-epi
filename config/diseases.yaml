@@ -5,7 +5,10 @@
 # incubation_typique : durée habituelle (affichée) ; phase_humide_j : jour habituel d'entrée en phase humide
 # (MVE / Marburg : phases sèche puis humide ; autres maladies : une seule phase symptomatique)
 # recul_j0 : jours retirés à la date de début rapportée (la maladie a commencé 2 à 3 jours avant) → J0 retenu
-# phase_humide_intervalle / deces_intervalle : jours habituels après J0 (phase humide J4 à J7, décès J7 à J10),
+# phases_jours : progression habituelle (jours après J0). La « phase des premiers signes rapportés » de la fiche
+#   indique dans quelle phase était le cas à la date rapportée : J0 retenu = date rapportée − fin de cette phase
+#   (phase sèche : − 3 j ; phase humide : − 7 j ; phase critique : − 16 j), intervalle affiché.
+# phase_humide_intervalle / deces_intervalle : jours habituels après J0 (phase humide J4 à J7, décès J7 à J16),
 #   utilisés pour estimer J0 puis la date d'exposition quand la date de début n'est pas rapportée
 # labo_delai_alerte_h : délai prélèvement -> résultat au-delà duquel une action est suggérée
 MVE:
@@ -16,7 +19,11 @@ MVE:
   phase_humide_j: 4        # début habituel de la phase humide (J+4) si aucun signe humide n'est daté
   recul_j0: 3              # J0 retenu = date rapportée − 3 jours
   phase_humide_intervalle: [4, 7]
-  deces_intervalle: [7, 10]
+  phases_jours:            # jours après J0 (début réel de la maladie) : progression habituelle
+    seche: [0, 3]          # phase 1, début (« phase sèche ») : J1 à J4 de la maladie, contagieux dès la fièvre
+    humide: [4, 7]         # phase 2, état (« phase humide ») : J4 à J7, très contagieux (liquides biologiques)
+    critique: [7, 16]      # phase 3, tournant : J7 à J16, guérison ou aggravation (défaillances, saignements)
+  deces_intervalle: [7, 16]   # décès pendant la phase critique (J7 à J16)
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true
@@ -29,7 +36,11 @@ Marburg:
   phase_humide_j: 4
   recul_j0: 3
   phase_humide_intervalle: [4, 7]
-  deces_intervalle: [7, 10]
+  phases_jours:            # jours après J0 (début réel de la maladie) : progression habituelle
+    seche: [0, 3]          # phase 1, début (« phase sèche ») : J1 à J4 de la maladie, contagieux dès la fièvre
+    humide: [4, 7]         # phase 2, état (« phase humide ») : J4 à J7, très contagieux (liquides biologiques)
+    critique: [7, 16]      # phase 3, tournant : J7 à J16, guérison ou aggravation (défaillances, saignements)
+  deces_intervalle: [7, 16]   # décès pendant la phase critique (J7 à J16)
   suivi_contacts: 21
   contagiosite: jusqu_inhumation
   corps_contagieux: true

@@ -88,6 +88,9 @@ class Store:
         cols = [r[1] for r in self.db.execute("PRAGMA table_info(cases)")]
         if "owner" not in cols:     # migration v1.0 → v1.1
             self.db.execute("ALTER TABLE cases ADD COLUMN owner TEXT DEFAULT ''")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS comptes_supprimes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, auteur TEXT, username TEXT, nom TEXT, role TEXT,
+            niveau TEXT, perimetre TEXT, fiches INTEGER, motif TEXT)""")
         ucols = [r[1] for r in self.db.execute("PRAGMA table_info(users)")]
         for col in ("niveau", "province", "aire"):      # niveaux de la pyramide sanitaire (comptes)
             if col not in ucols:
@@ -244,13 +247,18 @@ _CASE_FIELDS = [
     ("age_unite", "Unité âge"), ("profession", "Profession"), ("province", "Province"),
     ("zs", "Zone de santé"), ("aire_sante", "Aire de santé"), ("village", "Village / quartier"),
     ("lat", "Latitude"), ("lon", "Longitude"), ("statut", "Statut"),
-    ("date_confirmation", "Date confirmation"), ("issue", "Issue"), ("investigateur", "Investigateur"),
+    ("date_confirmation", "Date confirmation"), ("issue", "État"), ("investigateur", "Investigateur"),
     ("date_investigation", "Date investigation"), ("debut_symptomes", "Début symptômes"),
     ("symptomes", "Symptômes (séparés par ;)"), ("symptomes_autres", "Autres symptômes"),
     ("date_deces", "Date décès"), ("risque_global", "Risque global (vide = auto)"),
     ("note_pied", "Observations (bas de page)"), ("debut_phase_humide", "Début phase humide"),
     ("contact_connu", "Contact connu ?"), ("id_cas_source", "ID du cas source"),
+    ("phase_dds", "Phase des premiers signes"), ("date_contact_source", "Date du dernier contact avec le cas source"),
+    ("date_notification", "Date de notification"), ("vaccine", "Vacciné"), ("date_vaccination", "Date de vaccination"),
+    ("agent_sante", "Agent de santé (PPL)"), ("agent_sante_structure", "Catégorie et structure de l'agent de santé"),
 ]
+# anciens libellés de la feuille « Cas » encore acceptés à l'import
+CASE_ALIAS = {"Issue": "issue"}
 # anciens libellés de colonnes encore acceptés à l'import
 ALIAS = {"Type de structure": ("Type",), "Personnes exposées": ("Population exposée",),
          "Nombre de personnes exposées": ("Nombre estimé",), "Nom laboratoire": ("Laboratoire",)}
@@ -386,7 +394,7 @@ def import_excel(path: Path | str, base: Optional[Case] = None) -> Case:
     data = base.model_copy(deep=True) if base else Case()
     errors: List[str] = []
     if "Cas" in wb.sheetnames:
-        labels = {label: key for key, label in _CASE_FIELDS}
+        labels = {label: key for key, label in _CASE_FIELDS} | CASE_ALIAS
         for row in wb["Cas"].iter_rows(min_row=1, values_only=True):
             if not row or len(row) < 2 or row[0] not in labels:
                 continue

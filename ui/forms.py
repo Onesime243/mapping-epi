@@ -107,16 +107,37 @@ class IdentityTab(QWidget):
         self.id_source.textChanged.connect(self._maj_source)
         self.contact.currentTextChanged.connect(self._maj_source)
         f.addRow("ID du cas source (si contact) *", self.id_source)
+        self.date_contact_source = DateField()
+        self.date_contact_source.setToolTip("Contact connu : date du dernier contact avec le cas source "
+                                            "(remplace l'estimation de l'exposition)")
+        self.date_contact_source.dateChanged.connect(self.changed)
+        f.addRow("Dernier contact avec le cas source *", self.date_contact_source)
         f.addRow("Sexe *", self.sexe)
         f.addRow("Âge *", age_row)
         f.addRow("Profession", self.profession)
+        self.agent_sante = _combo(theme.OUI_NON)
+        self.agent_sante_structure = QLineEdit()
+        self.agent_sante_structure.setPlaceholderText("Catégorie et structure, ex. Infirmier, CS Nzala")
+        self.vaccine = _combo(theme.OUI_NON)
+        self.date_vaccination = DateField()
+        f.addRow("Agent de santé / prestataire (PPL) *", self.agent_sante)
+        f.addRow("Catégorie et structure (PPL)", self.agent_sante_structure)
+        f.addRow("Vacciné *", self.vaccine)
+        f.addRow("Date de vaccination", self.date_vaccination)
+        for w in (self.agent_sante, self.vaccine):
+            w.currentTextChanged.connect(self.changed)
+        self.agent_sante_structure.textChanged.connect(self.changed)
+        self.date_vaccination.dateChanged.connect(self.changed)
         f.addRow("Province", self.province)
         f.addRow("Zone de santé (ZS) *", self.zs)
         f.addRow("Aire de santé (AS) *", self.aire_sante)
         f.addRow("Village / quartier", self.village)
         f.addRow("Coordonnées GPS", gps)
+        self.date_notification = DateField()
+        self.date_notification.dateChanged.connect(self.changed)
+        f.addRow("Date de notification *", self.date_notification)
         f.addRow("Date de confirmation *", self.date_confirmation)
-        f.addRow("Issue *", self.issue)
+        f.addRow("État du cas *", self.issue)
         f.addRow("Risque global", self.risque_global)
         f.addRow("Investigateur *", self.investigateur)
         f.addRow("Date d'investigation", self.date_investigation)
@@ -165,6 +186,12 @@ class IdentityTab(QWidget):
         self.code_cas.setText(c.code_cas)
         self.contact.setCurrentText(c.contact_connu or "Inconnu")
         self.id_source.setText(c.id_cas_source)
+        self.date_contact_source.set_value(c.date_contact_source)
+        self.date_notification.set_value(c.date_notification)
+        self.agent_sante.setCurrentText(c.agent_sante or "Inconnu")
+        self.agent_sante_structure.setText(c.agent_sante_structure)
+        self.vaccine.setCurrentText(c.vaccine or "Inconnu")
+        self.date_vaccination.set_value(c.date_vaccination)
         self._maj_source()
         self.maladie.setCurrentText(c.maladie)
         self.statut.setCurrentText(c.statut)
@@ -191,6 +218,12 @@ class IdentityTab(QWidget):
         c.code_cas = self.code_cas.text().strip()
         c.contact_connu = self.contact.currentText()
         c.id_cas_source = self.id_source.text().strip()
+        c.date_contact_source = self.date_contact_source.value()
+        c.date_notification = self.date_notification.value()
+        c.agent_sante = self.agent_sante.currentText()
+        c.agent_sante_structure = self.agent_sante_structure.text().strip()
+        c.vaccine = self.vaccine.currentText()
+        c.date_vaccination = self.date_vaccination.value()
         c.maladie = self.maladie.currentText().strip() or "Autre"
         c.statut = self.statut.currentText()
         c.sexe = self.sexe.currentText()
@@ -220,13 +253,19 @@ class ClinicTab(QWidget):
         self.debut = DateField()
         self.deces = DateField()
         self.humide = DateField()
-        f.addRow("Début des symptômes (J0, rapporté) *", self.debut)
+        f.addRow("Début des symptômes (rapporté) *", self.debut)
+        self.phase_dds = _combo(theme.PHASE_DDS_CHOICES)
+        self.phase_dds.setToolTip("Phase du cas à la date rapportée : sèche → J0 = date − 3 j, humide → − 7 j, "
+                                  "critique → − 16 j")
+        self.phase_dds.currentTextChanged.connect(self.changed)
+        f.addRow("Phase des premiers signes rapportés *", self.phase_dds)
         f.addRow("Début phase humide", self.humide)
         f.addRow("Date de décès", self.deces)
         lay.addLayout(f)
-        lay.addWidget(_hint("J0 = date rapportée par l'équipe. Elle sert à estimer le point d'infection (J-21 → J-2 pour la MVE), "
-                            "puis l'incubation, la phase sèche et la phase humide. Phase humide vide : détectée dans la "
-                            "chronologie (diarrhée, vomissements, saignements…) ou estimée à J+4."))
+        lay.addWidget(_hint("À quelle phase était le cas à la date rapportée ? Phase sèche (fièvre, fatigue, céphalées) : "
+                            "J0 = date − 3 j ; phase humide (vomissements, diarrhée) : − 7 j ; phase critique (saignements, "
+                            "confusion, choc) : − 16 j. Le J0 retenu sert au point d'infection (J-21 → J-2) et aux phases. "
+                            "Phase humide vide : détectée dans la chronologie ou estimée à J+4."))
         self.checks: Dict[str, QCheckBox] = {}
         for gname, items in theme.SYMPTOM_GROUPS.items():
             box = QGroupBox(gname)
@@ -283,6 +322,7 @@ class ClinicTab(QWidget):
             if s not in self.checks:
                 self._custom_check(s)
         self.debut.set_value(c.debut_symptomes)
+        self.phase_dds.setCurrentText(c.phase_dds or "Inconnue")
         self.deces.set_value(c.date_deces)
         self.humide.set_value(c.debut_phase_humide)
         for s, cb in self.checks.items():
@@ -291,6 +331,7 @@ class ClinicTab(QWidget):
 
     def save(self, c: Case):
         c.debut_symptomes = self.debut.value()
+        c.phase_dds = self.phase_dds.currentText()
         c.date_deces = self.deces.value()
         c.debut_phase_humide = self.humide.value()
         c.symptomes = [s for s, cb in self.checks.items() if cb.isChecked()]

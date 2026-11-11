@@ -180,12 +180,25 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     if v.contact:
         ct = v.contact["t"] + (" " + v.contact["src"] if v.contact.get("src") else "")
         cw_ = 30 + len(ct) * 7
-        cx_ = W / 2 - cw_ / 2 - (90 if v.contact.get("todo") else 0)
+        cx_ = 230                      # à droite de « Chronologie du parcours », suivi des badges
         sh = S.rect(cx_, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
         S.text(0, 0, 0, 0, [ct], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         if v.contact.get("todo"):
             S.text(cx_ + cw_ + 8, tl_top, 190, 22, ["ID du cas source : à compléter"], size=8, color=theme.RED, bold=True,
                    anchor=MSO_ANCHOR.MIDDLE)
+        bx = cx_ + cw_ + 8 + (190 if v.contact.get("todo") else 0)
+    else:
+        bx = 230
+    # vaccination et agent de santé (PPL)
+    for b in v.badges:
+        bw = 20 + len(b["t"]) * 6.2
+        if b.get("todo"):
+            sh = S.rect(bx, tl_top, bw, 22, "#FFFFFF", theme.RED, radius=5, name=b["t"])
+            S.text(0, 0, 0, 0, [b["t"]], size=7.5, color=theme.RED, bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        else:
+            sh = S.rect(bx, tl_top, bw, 22, b["fill"], radius=5, name=b["t"])
+            S.text(0, 0, 0, 0, [b["t"]], size=7.5, color=b["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        bx += bw + 6
     leg = "J±n : jours depuis le J0 retenu" + (f" (date rapportée − {v.recul} j)" if v.recul else " ou estimé")
     S.text(930, tl_top + 2, 334, 16, [leg], size=7, color=theme.MUTED, align=PP_ALIGN.RIGHT)
 

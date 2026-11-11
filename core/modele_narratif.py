@@ -6,7 +6,7 @@ tableaux. À l'import, ces tableaux sont lus champ par champ (comme une feuille 
 récit : l'extraction est complète et exacte.
 
 Organisation (Word et PowerPoint) :
-    I à IV   tableaux « Champ | Valeur | Aide » : identification, localisation, clinique et issue, investigation
+    I à IV   tableaux « Champ | Valeur | Aide » : identification, localisation, clinique et état, investigation
     V        chronologie en deux tableaux reliés par la colonne « N° » (1/2 : quand et où ; 2/2 : expositions)
     VI à X   lieux, contacts, PCI, laboratoire, actions (une ligne = un élément, en-têtes de l'Excel)
     XI       récit libre (facultatif, non importé : sert à la lecture humaine)
@@ -490,6 +490,7 @@ def tables_brutes(path: Path | str) -> List[List[List[str]]]:
 
 
 _CAS = {_n(label): (key, kind) for _sec, fields in CASE_SECTIONS for key, label, _a, _r, kind in fields}
+_CAS[_n("Issue")] = ("issue", "issue")          # modèles remplis avant le renommage en « État »
 _COLS = {sheet: {_n(lab): key for key, label, *_ in cols for lab in (label,) + ALIAS.get(label, ())}
          for sheet, _t, _c, cols in TABLES}
 _KIND = {(sheet, key): kind for sheet, _t, _c, cols in TABLES for key, _l, _w, kind, _a in cols}

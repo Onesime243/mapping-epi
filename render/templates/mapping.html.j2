@@ -11,7 +11,7 @@
 .m-id > div { display: flex; flex-direction: column; align-items: center; justify-content: center;
   border-left: 1px solid {{ t.BORDER }}; padding: 0 6px; min-width: 0; }
 .m-id > div:first-child { border-left: 0; }
-.m-id .k { font-size: 8.5px; letter-spacing: .8px; color: {{ t.MUTED }}; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+.m-id .k { font-size: 8.5px; letter-spacing: {{ '.4px' if v.identity|length > 10 else '.8px' }}; color: {{ t.MUTED }}; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
 .m-id .v { font-size: 14.5px; font-weight: 800; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 .pill { display: inline-block; background: {{ t.NAVY }}; color: #fff; font-size: 10px; font-weight: 800;
@@ -22,6 +22,9 @@
 .legend { display: flex; gap: 12px; font-size: 9px; color: {{ t.MUTED }}; align-items: center; }
 .legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
 .cbadge { font-size: 10px; font-weight: 800; letter-spacing: .7px; padding: 5px 16px; border-radius: 6px; text-transform: uppercase; }
+.cbadge.sm { padding: 5px 10px; letter-spacing: .4px; white-space: nowrap; }
+.m-tl-head { gap: 6px; justify-content: flex-start !important; }
+.m-tl-head .legend { margin-left: auto; }
 .phases { display: grid; height: 46px; flex: none; gap: 3px; }
 .ph { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 16px 0 18px; min-width: 0;
   clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%, 11px 50%); font-size: 9px; line-height: 1.22; color: {{ t.INK }}; }
@@ -123,6 +126,7 @@
       <div class="m-tl-head">
         <span class="pill">Chronologie du parcours</span>
         {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="todo">ID du cas source : à compléter</span>{% endif %}{% endif %}
+        {% for b in v.badges %}{% if b.todo %}<span class="todo">{{ b.t }}</span>{% else %}<span class="cbadge sm" style="background: {{ b.fill }}; color: {{ b.ink }};">{{ b.t }}</span>{% endif %}{% endfor %}
         <div class="legend"><span>J±n : jours depuis le J0 {% if v.recul %}retenu (date rapportée − {{ v.recul }} j){% else %}retenu ou estimé{% endif %}</span></div>
       </div>
       <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">

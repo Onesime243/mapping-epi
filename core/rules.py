@@ -32,8 +32,23 @@ def disease_params(name: str) -> dict:
     return d.get(name) or d["Autre"]
 
 
+def phase_dds_jours(case: Case) -> Optional[Tuple[int, int]]:
+    """(début, fin) de la phase où était le cas à la date de début rapportée, en jours après J0 (None si inconnue)."""
+    key = theme.PHASE_DDS_KEYS.get(case.phase_dds or "")
+    pj = disease_params(case.maladie).get("phases_jours") or {}
+    if key and key in pj:
+        return int(pj[key][0]), int(pj[key][1])
+    return None
+
+
 def recul_j0(case: Case) -> int:
-    """Jours entre le début réel de la maladie et la date rapportée par l'équipe (MVE / Marburg : 3)."""
+    """Jours entre le début réel de la maladie et la date rapportée par l'équipe.
+
+    Phase des premiers signes précisée : fin de cette phase (sèche 3 j, humide 7 j, critique 16 j) ;
+    sinon le recul par défaut de la maladie (MVE / Marburg : 3 j, premiers signes supposés en phase sèche)."""
+    ph = phase_dds_jours(case)
+    if ph:
+        return ph[1]
     return int(disease_params(case.maladie).get("recul_j0", 0) or 0)
 
 
@@ -178,7 +193,12 @@ class Phases:
     incubation_typique: Optional[Tuple[int, int]] = None
     humide: Optional[date] = None                   # entrée en phase humide
     humide_source: str = ""                          # « saisie », « rapportée » (chronologie / symptômes) ou « estimée »
+    critique: Optional[date] = None                 # entrée en phase critique (phase 3 : saignements, défaillances)
+    critique_source: str = ""
     deces: Optional[date] = None
+    phase_dds: str = ""                              # seche / humide / critique : phase à la date rapportée
+    exposition_source: str = "estimée"               # estimée, dernier contact, cas source, à rechercher
+    source_label: str = ""                           # ID du cas source quand ses dates ont servi
     deux_phases: bool = False                        # MVE / Marburg : phases sèche et humide
 
 
@@ -187,12 +207,40 @@ def _wet_text(ev: Event) -> bool:
     return ev.liquides or any(m in t for m in theme.MOTS_HUMIDES)
 
 
-def phases(case: Case) -> Phases:
+def _critical_text(ev: Event) -> bool:
+    t = f"{ev.titre} {ev.description}".lower()
+    return any(m in t for m in theme.MOTS_CRITIQUES)
+
+
+def periode_contagieuse(case: Case) -> Optional[Tuple[date, date]]:
+    """Période où le cas était contagieux : J0 retenu → inhumation (ou décès, ou dernière étape datée)."""
+    return windows(case).contagiosite
+
+
+def exposition_contact(case: Case, source: Optional[Case] = None) -> Tuple[Optional[Tuple[date, date]], str, str]:
+    """Exposition d'un contact connu, sans estimation depuis son propre J0 (recommandation de l'équipe) :
+    1. date(s) du dernier contact avec le cas source saisies dans la fiche ;
+    2. sinon la période contagieuse du cas source (s'il est enregistré), limitée à la fenêtre d'incubation du cas ;
+    3. sinon « à rechercher ». Renvoie (intervalle, origine, ID du cas source utilisé)."""
+    if case.date_contact_source:
+        return (case.date_contact_source, case.date_contact_source), "dernier contact", ""
+    if source is not None:
+        cont = periode_contagieuse(source)
+        if cont:
+            est = exposition_estimee(case)
+            if est and max(cont[0], est[0]) <= min(cont[1], est[1]):
+                return (max(cont[0], est[0]), min(cont[1], est[1])), "cas source", source.code_cas or ""
+            return cont, "cas source", source.code_cas or ""
+    return None, "à rechercher", ""
+
+
+def phases(case: Case, source: Optional[Case] = None) -> Phases:
     p = disease_params(case.maladie)
     est = estimer_j0(case)
     ph = Phases(j0=est.j0, j0_rapporte=case.debut_symptomes, recul=recul_j0(case), j0_source=est.source,
                 j0_intervalle=(est.j0_min, est.j0_max) if est.j0 else None, incubation=(p["incubation_min"], p["incubation_max"]),
                 deux_phases=bool(p.get("phase_humide_j")))
+    ph.phase_dds = theme.PHASE_DDS_KEYS.get(case.phase_dds or "", "")
     if p.get("incubation_typique"):
         ph.incubation_typique = tuple(p["incubation_typique"])
     ph.deces = case.date_deces or next((e.date_debut for e in case.sorted_events() if e.type == "Décès" and e.date_debut), None)
@@ -200,6 +248,11 @@ def phases(case: Case) -> Phases:
     if not j0:
         return ph
     ph.exposition = exposition_estimee(case)
+    if case.contact_connu in theme.CONTACT_AVEC_SOURCE:
+        expo, origine, lab = exposition_contact(case, source)
+        ph.exposition_source, ph.source_label = origine, lab
+        if expo:
+            ph.exposition = expo
     if not ph.deux_phases:
         return ph
     if case.debut_phase_humide:
@@ -214,8 +267,26 @@ def phases(case: Case) -> Phases:
             ph.humide, ph.humide_source = wet[0], "rapportée"
         else:
             ph.humide, ph.humide_source = j0 + timedelta(days=int(p["phase_humide_j"])), "estimée"
+    dds = case.debut_symptomes
+    if ph.phase_dds in ("humide", "critique") and dds and not case.debut_phase_humide \
+            and not (ph.humide_source == "rapportée" and ph.humide <= dds):
+        ph.humide, ph.humide_source = dds, "rapportée"          # premiers signes rapportés déjà humides
+    # phase critique (phase 3) : signes datés dans la chronologie, phase des premiers signes, ou décès
+    crit = [e.date_debut for e in case.sorted_events() if e.date_debut and e.date_debut > j0 and _critical_text(e)
+            and e.type not in ("Laboratoire", "Riposte", "Investigation")]
+    if ph.phase_dds == "critique" and dds:
+        ph.critique, ph.critique_source = dds, "rapportée"
+    elif crit:
+        ph.critique, ph.critique_source = crit[0], "rapportée"
+    elif ph.deces:
+        a = int((p.get("phases_jours") or {}).get("critique", [7, 16])[0])
+        ph.critique, ph.critique_source = min(ph.deces, j0 + timedelta(days=a)), "estimée"
+    if ph.critique and ph.humide and ph.critique < ph.humide:
+        ph.humide, ph.humide_source = ph.critique, ph.critique_source
     if ph.deces and ph.humide > ph.deces:
         ph.humide, ph.humide_source = ph.deces, "estimée"
+    if ph.deces and ph.critique and ph.critique > ph.deces:
+        ph.critique = ph.deces
     return ph
 
 
@@ -230,6 +301,8 @@ def event_stage(ev: Event, ph: Phases) -> str:
         return "deces"
     if not ph.deux_phases:
         return "symptomes"
+    if ph.critique and d >= ph.critique:
+        return "critique"
     return "humide" if ph.humide and d >= ph.humide else "seche"
 
 
@@ -271,15 +344,40 @@ def _escalate(level: str) -> str:
     return level
 
 
-def suggest_event_risk(ev: Event, case: Case, w: Optional[Windows] = None) -> Tuple[str, str]:
+_SANS_PATIENT = {"Laboratoire", "Riposte", "Investigation", "Période à documenter", "Exposition"}
+
+
+def suggest_event_risk(ev: Event, case: Case, w: Optional[Windows] = None,
+                       ph: Optional["Phases"] = None) -> Tuple[str, str]:
+    """Risque suggéré d'une étape, en trois temps (règle affichée en info-bulle) :
+    1. état du cas : phase de la maladie à la date de l'étape (incubation non contagieuse, phase humide +1,
+       phase critique très élevé) ;
+    2. mode de transmission : contact avec le corps, liquides biologiques, absence de PCI, prise en charge sécurisée ;
+    3. l'état des contacts est pris en compte dans le risque global du cas (global_risk)."""
     w = w or windows(case)
+    ph = ph or phases(case)
     level, reason = _BASE_RISK.get(ev.type, _BASE_RISK["Autre"])
     reasons = [reason]
     phase = event_phase(ev, w)
+    stage = event_stage(ev, ph)
     symptomatic_types = {"Soins / consultation", "Référence", "Hospitalisation", "Activité communautaire",
                          "Rassemblement religieux", "Déplacement"}
-    if ev.type in symptomatic_types and phase == "exposition":
-        level, reasons = "Modéré", ["Avant le début des symptômes : faible contagiosité"]
+    if ev.type in symptomatic_types and (stage in ("incubation", "infection") or (not stage and phase == "exposition")):
+        level, reasons = "Faible", ["Avant le début des symptômes (incubation) : non contagieux"]
+    elif ev.type not in _SANS_PATIENT:
+        # la phase ne relève le risque que si elle est documentée (signes datés ou saisis), pas seulement estimée
+        if stage == "humide" and level in _ESCALATE:
+            if ph.humide_source in ("saisie", "rapportée"):
+                level = _escalate(level)
+                reasons.append("phase humide : très contagieux (liquides biologiques) +1 niveau")
+            else:
+                reasons.append("phase humide probable (estimée) : vérifier les signes")
+        elif stage == "critique" and level in _ESCALATE:
+            if ph.critique_source == "rapportée":
+                level = "Très élevé"
+                reasons.append("phase critique : saignements / défaillances, très contagieux")
+            else:
+                reasons.append("phase critique probable (estimée)")
     if ev.type == "Enterrement" and ev.securise:
         level, reasons = "Contrôlé", ["Enterrement digne et sécurisé"]
     if ev.type in {"Décès", "Funérailles"} and ev.securise:
@@ -300,17 +398,41 @@ def event_risk(ev: Event, case: Case, w: Optional[Windows] = None) -> str:
     return ev.risque or suggest_event_risk(ev, case, w)[0]
 
 
+def phase_atteinte(case: Case, ph: Optional["Phases"] = None) -> str:
+    """Phase la plus avancée documentée : seche, humide, critique (ou '')."""
+    ph = ph or phases(case)
+    if ph.phase_dds == "critique" or ph.critique_source == "rapportée" or ph.deces \
+            or any(s in theme.HEMORRHAGIC for s in case.symptomes):
+        return "critique"
+    if ph.phase_dds == "humide" or ph.humide_source in ("saisie", "rapportée") \
+            or any(s in theme.SYMPTOMES_HUMIDES for s in case.symptomes):
+        return "humide"
+    return "seche" if ph.j0 else ""
+
+
 def global_risk(case: Case) -> Tuple[str, str]:
+    """Risque global : étape la plus à risque, puis état du cas (phase atteinte) et état des contacts."""
     if case.risque_global:
         return case.risque_global, "Saisi par l'investigateur"
     w = windows(case)
+    ph = phases(case)
     best, why = "Inconnu", "Aucune étape documentée"
     for ev in case.events:
-        lvl = event_risk(ev, case, w)
+        lvl = ev.risque or suggest_event_risk(ev, case, w, ph)[0]
         if theme.risk_rank(lvl) > theme.risk_rank(best):
             best, why = lvl, f"Étape la plus à risque : {ev.titre or ev.type}"
     if case.issue == "Décès" and any(e.type == "Enterrement" and not e.securise for e in case.events):
         best, why = "Très élevé", "Décès suivi d'un enterrement non sécurisé"
+    stade = phase_atteinte(case, ph)
+    non_listes = not case.contacts or any(g.nombre is None for g in case.contacts)
+    if stade in ("humide", "critique") and non_listes:
+        best = "Très élevé"
+        why += f" ; phase {stade} atteinte et contacts non (entièrement) listés"
+    elif case.contact_connu == "Non contact" and best in _ESCALATE:
+        best = _escalate(best)
+        why += " ; non connu comme contact : chaîne de transmission non identifiée (+1 niveau)"
+    elif case.contact_connu == "Contact connu suivi":
+        why += " ; contact connu et suivi"
     return best, why
 
 
@@ -408,12 +530,26 @@ def check_consistency(case: Case) -> List[Issue]:
         out.append(Issue("erreur", "Le décès est daté avant le début des symptômes."))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
         out.append(Issue("erreur", "Contact connu : l'ID du cas source est obligatoire (à compléter)."))
+    if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.date_contact_source:
+        out.append(Issue("alerte", "Contact connu : renseigner la date du dernier contact avec le cas source "
+                                   "(l'exposition n'est pas estimée pour un contact connu)."))
+    if case.date_notification and j0 and case.date_notification < j0:
+        out.append(Issue("erreur", "La notification précède le début des symptômes."))
+    if case.date_notification and case.date_confirmation and case.date_confirmation < case.date_notification:
+        out.append(Issue("alerte", "La confirmation précède la notification."))
+    if case.date_contact_source and j0 and case.date_contact_source > j0:
+        out.append(Issue("alerte", "Le dernier contact avec le cas source est postérieur au début des symptômes."))
+    if case.vaccine == "Oui" and not case.date_vaccination:
+        out.append(Issue("info", "Cas vacciné : préciser la date de vaccination."))
+    if case.debut_symptomes and case.phase_dds in ("", "Inconnue"):
+        out.append(Issue("info", "Préciser la phase des premiers signes rapportés (sèche, humide ou critique) : "
+                                 "elle détermine le J0 retenu."))
     for e in personnes_manquantes(case):
         out.append(Issue("alerte", f"« {e.titre or e.type} » : personnes présentes à compléter."))
     if case.issue == "Décès" and not case.date_deces:
-        out.append(Issue("alerte", "Issue « Décès » sans date de décès."))
+        out.append(Issue("alerte", "État « Décès » sans date de décès."))
     if case.date_deces and case.issue != "Décès":
-        out.append(Issue("alerte", "Une date de décès est saisie mais l'issue n'est pas « Décès »."))
+        out.append(Issue("alerte", "Une date de décès est saisie mais l'état n'est pas « Décès »."))
     for lab in case.labs:
         if lab.prelevement and lab.resultat_le and lab.resultat_le < lab.prelevement:
             out.append(Issue("erreur", "Le résultat de laboratoire précède le prélèvement."))
@@ -525,7 +661,9 @@ def suggest_actions(case: Case) -> List[Suggestion]:
 CRITICAL_FIELDS = [
     ("rang", "Rang du cas"), ("sexe", "Sexe"), ("age", "Âge"), ("zs", "Zone de santé"),
     ("aire_sante", "Aire de santé"), ("date_confirmation", "Date de confirmation"),
-    ("debut_symptomes", "Date de début des symptômes"), ("issue", "Issue"),
+    ("debut_symptomes", "Date de début des symptômes"), ("phase_dds", "Phase des premiers signes rapportés"),
+    ("issue", "État du cas"), ("date_notification", "Date de notification"), ("vaccine", "Vacciné ou non"),
+    ("agent_sante", "Agent de santé (PPL) ou non"),
     ("investigateur", "Investigateur"), ("contact_connu", "Contact connu ou non contact"),
 ]
 
@@ -539,7 +677,7 @@ def completeness(case: Case) -> Tuple[int, List[str]]:
     missing = []
     for key, label in CRITICAL_FIELDS:
         v = getattr(case, key)
-        if v in (None, "", "Inconnu"):
+        if v in (None, "", "Inconnu", "Inconnue"):
             missing.append(label)
     if not case.events:
         missing.append("Au moins une étape de chronologie")
@@ -558,10 +696,12 @@ def completeness(case: Case) -> Tuple[int, List[str]]:
         missing.append(f"{unknown_contacts} catégorie(s) de contacts non dénombrée(s)")
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
         missing.append("ID du cas source (contact connu)")
+    if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.date_contact_source:
+        missing.append("Date du dernier contact avec le cas source")
     sans = personnes_manquantes(case)
     if sans:
         missing.append(f"Personnes présentes : {len(sans)} étape(s) à compléter")
-    total = len(CRITICAL_FIELDS) + 9
+    total = len(CRITICAL_FIELDS) + 10
     score = max(0, round(100 * (total - len(missing)) / total))
     return score, missing
 

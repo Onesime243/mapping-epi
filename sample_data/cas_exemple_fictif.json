@@ -528,5 +528,9 @@
   "suggestions_rejetees": [],
   "note_pied": "CAS FICTIF de démonstration (lieux, personnes et dates inventés). TASK FORCE PRÉSIDENTIELLE EBOLA 17 - Système de Gestion de l'Incident MVE 17",
   "modifie_le": null,
-  "modifie_par": ""
+  "modifie_par": "",
+  "phase_dds": "Phase sèche",
+  "date_notification": "2026-07-28",
+  "vaccine": "Non",
+  "agent_sante": "Non"
 }

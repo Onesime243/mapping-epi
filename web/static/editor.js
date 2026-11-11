@@ -25,6 +25,7 @@
 
   function changed() {
     if (RO) return;
+    markRequired();
     dirty = true; setStatus('Modifications non enregistrées…');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -121,13 +122,34 @@
       srcField.style.display = req ? '' : 'none';
       src.classList.toggle('req-missing', req && !src.value.trim());
     };
+    const dcs = inp('date_contact_source', 'date', {min: minDate()});
+    const dcsField = field('Date du dernier contact avec le cas source *', dcs);
+    const srcInfo = el('div', {class: 'hint', id: 'srcInfo', style: 'grid-column: 1 / -1; margin:0'});
+    const majSrc2 = () => {
+      const req = ['Contact connu', 'Contact connu suivi'].includes(C.contact_connu || '');
+      dcsField.style.display = req ? '' : 'none'; srcInfo.style.display = req ? '' : 'none';
+      dcs.classList.toggle('req-missing', req && !dcs.value);
+    };
     src.addEventListener('input', majSrc);
-    cbox.addEventListener('click', majSrc);
+    cbox.addEventListener('click', () => { majSrc(); majSrc2(); });
+    dcs.addEventListener('input', majSrc2);
     g.appendChild(srcField); majSrc();
+    g.appendChild(dcsField); g.appendChild(srcInfo); majSrc2();
     g.appendChild(field('Sexe *', sel('sexe', S.choices.sexes)));
     g.appendChild(field('Âge *', inp('age', 'number', {min: 0, max: 120, placeholder: 'vide si inconnu'})));
     g.appendChild(field('Unité', sel('age_unite', ['ans', 'mois'])));
     g.appendChild(field('Profession', inp('profession')));
+    const ouiNon = S.choices.oui_non || ['Inconnu', 'Oui', 'Non'];
+    const ppl = req(sel('agent_sante', ouiNon), 'agent_sante');
+    const pplS = inp('agent_sante_structure', 'text', {placeholder: 'ex. Infirmier, CS Nzala'});
+    const pplF = field("Catégorie et structure de l'agent de santé", pplS);
+    const vac = req(sel('vaccine', ouiNon), 'vaccine');
+    const vacD = inp('date_vaccination', 'date', {min: minDate()});
+    const vacF = field('Date de vaccination', vacD);
+    const majPV = () => { pplF.style.display = C.agent_sante === 'Oui' ? '' : 'none'; vacF.style.display = C.vaccine === 'Oui' ? '' : 'none'; };
+    ppl.addEventListener('change', majPV); vac.addEventListener('change', majPV);
+    g.appendChild(field('Agent de santé / prestataire (PPL) *', ppl)); g.appendChild(pplF);
+    g.appendChild(field('Vacciné *', vac)); g.appendChild(vacF); majPV();
 
     // Province → ZS → AS (pyramide sanitaire RDC)
     const prov = el('select'), zs = el('select'), as = el('input', {placeholder: 'choisir ou saisir…'});
@@ -155,8 +177,9 @@
     const lon = el('input', {type: 'number', step: 'any', value: C.lon ?? '', placeholder: 'ex. 24.38'}); bindInput(lon, 'lon', 'float');
     g.appendChild(field('Latitude', lat));
     g.appendChild(field('Longitude', lon));
+    g.appendChild(field('Date de notification *', req(inp('date_notification', 'date', {min: minDate()}), 'date_notification')));
     g.appendChild(field('Date de confirmation *', inp('date_confirmation', 'date', {min: minDate()})));
-    g.appendChild(field('Issue *', sel('issue', S.choices.issues)));
+    g.appendChild(field('État du cas *', req(sel('issue', S.choices.issues), 'issue')));
     g.appendChild(field('Risque global', sel('risque_global', [''].concat(S.choices.risks), 'Automatique')));
     g.appendChild(field('Investigateur *', inp('investigateur')));
     g.appendChild(field("Date d'investigation", inp('date_investigation', 'date', {min: minDate()})));
@@ -173,8 +196,12 @@
       const inp = el('input', {type: 'date', min: minDate(), value: C[k] || ''}); bindInput(inp, k, 'date');
       g.appendChild(field(lbl, inp));
     });
+    const pd = el('select'); options(pd, S.choices.phase_dds || ['Inconnue'], C.phase_dds || 'Inconnue'); bindInput(pd, 'phase_dds', 'select');
+    req(pd, 'phase_dds');
+    g.appendChild(field('Phase des premiers signes rapportés *', pd));
     p.appendChild(g);
-    p.appendChild(el('p', {class: 'hint', text: "Saisissez la date rapportée par l'équipe. La maladie ayant commencé 2 à 3 jours avant, l'outil retient J0 = date rapportée − 3 jours (MVE, Marburg). Ce J0 retenu sert à estimer le point d'infection (J-21 → J-2), l'incubation, la phase sèche et la phase humide (détectée dans la chronologie ou estimée à J+4)."}));
+    p.appendChild(el('p', {class: 'hint', text: "À quelle phase se trouvait le cas à la date rapportée ? Phase sèche (fièvre, fatigue, céphalées, douleurs) : J0 = date − 3 j. Phase humide (vomissements, diarrhée, yeux rouges) : J0 = date − 7 j. Phase critique (saignements, confusion, choc) : J0 = date − 16 j. Le J0 retenu sert au point d'infection (J-21 → J-2) et aux phases. Pour un contact connu, l'exposition vient du cas source (onglet Identité)."}));
+    const j0i = el('p', {class: 'hint', id: 'j0Info'}); p.appendChild(j0i);
     p.appendChild(el('h2', {text: 'Symptômes'}));
     const toggle = (s, on) => {
       C.symptomes = on ? C.symptomes.filter(x => x !== s).concat([s]) : C.symptomes.filter(x => x !== s); changed();
@@ -319,7 +346,39 @@
   }
 
   // ---------------------------------------------------- contrôles / actions
+  // champs indispensables vides : case rouge (marquée par req) + bandeau « À compléter » en haut de la fiche
+  function req(input, key) { input.dataset.req = key; return input; }
+  function markRequired() {
+    $$('[data-req]').forEach(x => {
+      const v = C[x.dataset.req];
+      x.classList.toggle('req-missing', v === null || v === undefined || v === '' || v === 'Inconnu' || v === 'Inconnue');
+    });
+  }
+  function renderMissing() {
+    const box = $('#missing'); if (!box || !CTRL) return;
+    box.innerHTML = '';
+    box.hidden = !CTRL.missing.length || RO;
+    if (box.hidden) return;
+    box.appendChild(el('b', {text: 'À compléter (' + CTRL.missing.length + ') : '}));
+    box.appendChild(document.createTextNode(CTRL.missing.join(' • ')));
+  }
+  function renderSourceInfo() {
+    const s = $('#srcInfo'), j = $('#j0Info'), fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
+    if (s && CTRL) {
+      const x = CTRL.source;
+      s.textContent = x ? ('Cas source trouvé : ' + x.code + ' (ZS ' + (x.zs || '?') + ', état ' + x.etat + ') : J0 ' + fmt(x.j0) +
+        (x.contagieux ? ', contagieux du ' + fmt(x.contagieux[0]) + ' au ' + fmt(x.contagieux[1]) : '') +
+        '. Sans date de dernier contact, l\'exposition du mapping est cette période.')
+        : (C.id_cas_source ? 'Cas source non trouvé dans l\'outil : renseignez la date du dernier contact.' : '');
+    }
+    if (j && CTRL) {
+      j.textContent = CTRL.j0_retenu ? ('J0 retenu : ' + fmt(CTRL.j0_retenu) + ' (date rapportée − ' + CTRL.recul + ' j)' +
+        (CTRL.notif_delai !== null ? ' • notification ' + CTRL.notif_delai + ' j après le début des symptômes rapporté' : '')) : '';
+    }
+  }
+
   function renderControls() {
+    markRequired(); renderMissing(); renderSourceInfo();
     const p = $('#p-controles'); if (!CTRL) return; p.innerHTML = '';
     const fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
     p.appendChild(el('div', {class: 'row'}, [el('b', {text: 'Complétude : ' + CTRL.score + ' %'})]));

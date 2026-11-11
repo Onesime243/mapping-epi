@@ -1,0 +1,14 @@
+# Catégories des zones de santé selon le nombre de jours depuis le dernier cas notifié (à la date de référence).
+# Seuils à valider par la coordination de la riposte : modifier ici, l'outil les relit au redémarrage.
+#   Catégorie 1 : la ZS notifie chaque jour (transmission active)
+#   Catégorie 2 : la ZS notifie tous les 3 jours à une semaine ; jusqu'à 21 jours sans nouveau cas
+#   Catégorie 3 : 21 à 42 jours sans nouveau cas
+#   Catégorie 4 : plus de 42 jours sans nouveau cas
+categories:
+  - {num: 1, max_jours: 2, nom: "Transmission active", couleur: "#B4554E"}
+  - {num: 2, max_jours: 21, nom: "Notification espacée", couleur: "#C77B3A"}
+  - {num: 3, max_jours: 42, nom: "21 à 42 jours sans cas", couleur: "#B8962E"}
+  - {num: 4, max_jours: null, nom: "Plus de 42 jours sans cas", couleur: "#4E8A63"}
+# un cas notifié dans une ZS (ou une AS) sans cas depuis plus de `jours_foyer` jours, ou jamais touchée,
+# est signalé comme « nouveau foyer possible » à investiguer
+jours_foyer: 21

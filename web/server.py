@@ -26,7 +26,7 @@ from core import narratif, pyramide, rules, schema, storage
 from core.access import Access
 from core.models import Action, Case, Event
 from core.paths import data_dir
-from core.users import NIVEAUX, Users, generate_password
+from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
 from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
 from web import render_client
@@ -71,6 +71,18 @@ def create_app(store: storage.Store | None = None) -> Flask:
     app.public = public
     app.store = store or storage.Store()
     app.users = Users(app.store)
+
+    def _resolve_source(code: str):
+        """Cas enregistré dont l'ID (N° EPID) est `code` : dates du cas source d'un contact connu."""
+        from core.links import _id
+        k = _id(code)
+        if not k:
+            return None
+        for _cid, _u, _o, c in app.store.rows_full(None):
+            if c.code_cas and _id(c.code_cas) == k:
+                return c
+        return None
+    H.SOURCE_RESOLVER = _resolve_source
     failures: dict = {}
 
     # ------------------------------------------------------------------ outils
@@ -240,15 +252,29 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return render_template("account.html", msg=msg, err=err)
 
     @app.route("/utilisateurs", methods=["GET", "POST"])
-    @admin_required
+    @login_required
     def users_admin():
+        # administrateurs : gestion complète ; niveau national : consultation, suppression et historique
+        if not Users.peut_supprimer(g.user):
+            abort(403)
         new_pwd = None
         err = None
         if request.method == "POST":
             action = request.form.get("action")
             uname = request.form.get("username", "").strip().lower()
             try:
-                if action == "create":
+                if action != "delete" and not g.user.is_admin:
+                    raise ValueError("Action réservée aux administrateurs.")
+                if action not in ("create", "delete"):
+                    e = Users.protege(g.user, uname)
+                    if e:
+                        raise ValueError(e)
+                if action == "delete":
+                    n = sum(1 for _c, _t, _u, owner in app.store.list_full() if owner == uname)
+                    app.users.delete(g.user, uname, request.form.get("motif", ""), n)
+                    flash(f"Compte « {uname} » supprimé ({n} fiche(s) conservée(s)). La suppression est inscrite "
+                          "dans l'historique.", "ok")
+                elif action == "create":
                     pwd = request.form.get("password") or generate_password()
                     app.users.create(uname, pwd, request.form.get("nom", ""), request.form.get("role", "agent"),
                                      request.form.get("zs", ""), request.form.get("niveau", "aire"),
@@ -276,7 +302,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
         for _cid, _t, _u, owner in app.store.list_full():
             counts[owner] = counts.get(owner, 0) + 1
         return render_template("users.html", users=app.users.list(), new_pwd=new_pwd, err=err, counts=counts,
-                               suggested=generate_password(), niveaux=NIVEAUX)
+                               suggested=generate_password(), niveaux=NIVEAUX, suppressions=app.users.suppressions(),
+                               super_admin=SUPER_ADMIN)
 
     # ------------------------------------------------------------------ cas
     @app.route("/")
@@ -390,6 +417,25 @@ def create_app(store: storage.Store | None = None) -> Flask:
         resp = Response(H.render_svg_page(svg, "Lieux fréquentés", assets="/assets/"), mimetype="text/html")
         resp.headers["Cache-Control"] = "no-store"
         return resp
+
+    @app.route("/analyse/zones")
+    @login_required
+    def zones_page():
+        """Catégories des zones de santé, alertes « nouveau foyer » et délais (périmètre du compte)."""
+        from core import indicateurs as IND
+        prov = request.args.get("province", "").strip()
+        try:
+            ref = date.fromisoformat(request.args.get("ref", "")) if request.args.get("ref") else date.today()
+        except ValueError:
+            ref = date.today()
+        allc = visible_cases()
+        provinces = sorted({c.province for c in allc if c.province}, key=pyramide.norm)
+        cases_ = [c for c in allc if not prov or pyramide.norm(c.province) == pyramide.norm(prov)]
+        zs = IND.zones(cases_, ref)
+        al = [a for a in IND.alertes_foyers(cases_) if (ref - a.quand).days <= 60 and a.quand <= ref]
+        return render_template("zones.html", zones=zs, alertes=al, stats=IND.delais(cases_), ref=ref, prov=prov,
+                               provinces=provinces, ncas=len(cases_), cats=IND.config()["categories"],
+                               seuil=IND.config().get("jours_foyer", 21))
 
     @app.route("/analyse/chaines")
     @login_required
@@ -523,7 +569,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     "actions": cols(schema.ACTION_COLS)},
             choices={"diseases": theme.DISEASES, "sexes": theme.SEXES, "status": theme.CASE_STATUS,
                      "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS, "symptom_groups": [[k, v] for k, v in theme.SYMPTOM_GROUPS.items()],
-                     "hemorrhagic": sorted(theme.HEMORRHAGIC)},
+                     "hemorrhagic": sorted(theme.HEMORRHAGIC), "phase_dds": theme.PHASE_DDS_CHOICES,
+                     "oui_non": theme.OUI_NON},
             annee_min=theme.ANNEE_MIN,
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})
 
@@ -571,6 +618,15 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                                      "vérifier les lignes vides ou incomplètes des tableaux."}],
                     "suggestions": [], "computed": {"events": [], "places": [], "contacts": [], "labs": []}}
 
+    def _source_info(c: Case):
+        src = H.find_source(c)
+        if not src:
+            return None
+        cont = rules.periode_contagieuse(src)
+        return {"code": src.code_cas, "j0": src.debut_symptomes.isoformat() if src.debut_symptomes else None,
+                "contagieux": [cont[0].isoformat(), cont[1].isoformat()] if cont else None,
+                "zs": src.zs, "etat": src.issue}
+
     def _controls(c: Case) -> dict:
         w = rules.windows(c)
         p = rules.disease_params(c.maladie)
@@ -578,7 +634,11 @@ def create_app(store: storage.Store | None = None) -> Flask:
         cs = rules.contact_summary(c)
         grisk, why = rules.global_risk(c)
         d = rules.lab_delay_hours(c)
+        ph = rules.phases(c, H.find_source(c))
+        notif = (c.date_notification - c.debut_symptomes).days if c.date_notification and c.debut_symptomes else None
         return {
+            "source": _source_info(c), "notif_delai": notif, "j0_retenu": ph.j0.isoformat() if ph.j0 else None,
+            "recul": ph.recul, "exposition_source": ph.exposition_source,
             "score": score, "missing": missing, "risk": grisk, "risk_why": why, "risk_color": theme.risk_color(grisk),
             "exposure": [w.exposition[0].isoformat(), w.exposition[1].isoformat()] if w.exposition else None,
             "contagious": [w.contagiosite[0].isoformat(), w.contagiosite[1].isoformat()] if w.contagiosite else None,

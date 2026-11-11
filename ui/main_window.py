@@ -73,6 +73,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.store = store
         self.web_proc: Optional[QProcess] = None
+
+        def _resolve_source(code: str):
+            from core.links import _id
+            k = _id(code)
+            return next((x for x in self.store.all_cases() if k and x.code_cas and _id(x.code_cas) == k), None)
+        H.SOURCE_RESOLVER = _resolve_source
         self.case: Case = Case()
         self.dirty = False
         self._loading = False
@@ -139,6 +145,12 @@ class MainWindow(QMainWindow):
         form_box = QWidget()
         fl = QVBoxLayout(form_box)
         fl.setContentsMargins(0, 0, 0, 0)
+        self.missing_label = QLabel("")
+        self.missing_label.setWordWrap(True)
+        self.missing_label.setStyleSheet("color:#8E2F28; background:#FBEAE8; border:1px solid #B4554E; "
+                                         "border-radius:6px; padding:6px 9px;")
+        self.missing_label.hide()
+        fl.addWidget(self.missing_label)
         fl.addWidget(self.form)
         fl.addLayout(nav)
 
@@ -586,6 +598,9 @@ class MainWindow(QMainWindow):
              "", None) for l in c.labs])
         self.actions_tab.show_suggestions(rules.suggest_actions(c))
         self.checks.update_from(c, self.table_errors())
+        manquants = rules.completeness(c)[1]
+        self.missing_label.setText(f"À compléter ({len(manquants)}) : " + " • ".join(manquants))
+        self.missing_label.setVisible(bool(manquants))
         key = self.current_key()
         view = self.previews[key]
         try:

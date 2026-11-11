@@ -774,7 +774,7 @@ def extraire(doc: Document) -> Resultat:
         if ok:
             trouves.append(lab)
     manquants = [lab for lab in ["ID du cas", "Âge", "Sexe", "Zone de santé", "Aire de santé", "Début des symptômes",
-                                 "Confirmation", "Issue", "Contact connu / non contact"] if lab not in trouves]
+                                 "Confirmation", "État", "Contact connu / non contact"] if lab not in trouves]
     if c.contact_connu in theme.CONTACT_AVEC_SOURCE and not c.id_cas_source:
         manquants.append("ID du cas source")
     trouves += [f"{len(c.events)} étape(s) de chronologie", f"{len(c.contacts)} catégorie(s) de contacts",

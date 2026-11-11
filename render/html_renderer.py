@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -69,6 +69,21 @@ def place_label(ev: Event) -> str:
     return ev.lieu or ev.lieu_arrivee or "?"
 
 
+# fonction qui retrouve un cas enregistré à partir de son ID (code_cas) : sert à dater l'exposition d'un contact
+# connu à partir de son cas source. Branchée par web/server.py, ui/main_window.py et web/render_worker.py.
+SOURCE_RESOLVER: Optional[Callable[[str], Optional[Case]]] = None
+
+
+def find_source(case: Case) -> Optional[Case]:
+    if not (case.id_cas_source or "").strip() or SOURCE_RESOLVER is None:
+        return None
+    try:
+        src = SOURCE_RESOLVER(case.id_cas_source)
+    except Exception:
+        return None
+    return src if src is not None and src.id != case.id else None
+
+
 def fmt_date(d) -> str:
     return d.strftime("%d/%m/%Y") if d else "?"
 
@@ -89,7 +104,19 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
 
     j0, inc = ph.j0, ph.incubation
     estime = ph.j0_source not in ("", "rapportée")
-    if ph.exposition:
+    if ph.exposition_source == "à rechercher":
+        add("infection", "contact connu : dates du cas source à rechercher",
+            "renseigner la date du dernier contact avec le cas source (pas d'estimation pour un contact connu)")
+    elif ph.exposition and ph.exposition_source in ("dernier contact", "cas source"):
+        d1, d2 = ph.exposition
+        quand = _dm(d1) if d1 == d2 else f"{_dm(d1)} → {_dm(d2)}"
+        if ph.exposition_source == "dernier contact":
+            add("infection", f"{quand} (dernier contact avec le cas source)",
+                f"contact connu de {case.id_cas_source.strip() or 'cas source ?'} : exposition datée par l'investigation")
+        else:
+            add("infection", f"{quand} (cas source contagieux)",
+                f"période contagieuse de {ph.source_label or case.id_cas_source.strip()} dans la fenêtre d'incubation")
+    elif ph.exposition:
         base = f"J0 estimé depuis : {ph.j0_source}" if estime else "J0 retenu"
         add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (date estimée)",
             f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]} du {base}")
@@ -113,7 +140,13 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
                 suffixe = f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)"
             add("seche", f"J0 {'~' if estime else ''}{_dm(j0)}" + (f" → {_dm(sec_end)}" if sec_end else "") + suffixe, dry)
             rel = rules.relative_day(ph.humide, j0)
-            add("humide", f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?", wet)
+            hum_end = (ph.critique - timedelta(days=1)) if ph.critique and ph.humide and ph.critique > ph.humide else None
+            add("humide", (f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?")
+                + (f" → {_dm(hum_end)}" if hum_end else ""), wet)
+            if ph.critique:
+                crit = signes(theme.HEMORRHAGIC, theme.SIGNES_CRITIQUES)
+                add("critique", f"dès le {_dm(ph.critique)} ({rules.relative_day(ph.critique, j0)}, {ph.critique_source})",
+                    "guérison ou aggravation ; " + crit)
         else:
             add("seche", "J0 ?", dry)
             add("humide", "?", wet)
@@ -195,18 +228,54 @@ class MappingView:
     recul: int = 0
     phase_strip: List[dict] = field(default_factory=list)
     contact: Optional[dict] = None
+    badges: List[dict] = field(default_factory=list)
     theme: dict = field(default_factory=dict)
 
 
-def build_mapping_view(case: Case) -> MappingView:
+def _badges(case: Case) -> List[dict]:
+    """Vaccination et agent de santé (PPL), affichés à côté du statut de contact."""
+    out = []
+    if case.vaccine == "Oui":
+        t = "Vacciné" + (f" le {_dm(case.date_vaccination)}" if case.date_vaccination else "")
+        out.append({"t": t.upper(), "fill": theme.soft(theme.GREEN)})
+    elif case.vaccine == "Non":
+        out.append({"t": "NON VACCINÉ", "fill": theme.soft(theme.ORANGE)})
+    else:
+        out.append({"t": "Vaccination : à compléter", "todo": True})
+    if case.agent_sante == "Oui":
+        t = "PPL : oui" + (f" · {case.agent_sante_structure.strip()}" if case.agent_sante_structure.strip() else "")
+        out.append({"t": t.upper(), "fill": theme.soft(theme.RED)})
+    elif case.agent_sante == "Non":
+        out.append({"t": "PPL : NON", "fill": theme.soft(theme.BLUE)})
+    else:
+        out.append({"t": "PPL : à compléter", "todo": True})
+    for b in out:
+        if b.get("fill"):
+            b["ink"] = theme.ink_on(b["fill"])
+    return out
+
+
+def _notification(case: Case, ph: "rules.Phases") -> dict:
+    ref = case.debut_symptomes or ph.j0
+    if case.date_notification and ref:
+        n = (case.date_notification - ref).days
+        return {"k": f"Notifié (J0{n:+d} j)" if case.debut_symptomes else f"Notifié (J0 ~{n:+d} j)",
+                "v": fmt_date(case.date_notification),
+                "tip": f"{n} jour(s) entre le début des symptômes rapporté et la notification",
+                "color": theme.RED if n > 7 else (theme.ORANGE if n > 3 else None)}
+    return {"k": "Notifié le", "v": fmt_date(case.date_notification)}
+
+
+def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView:
     w = rules.windows(case)
-    ph = rules.phases(case)
+    source = source or find_source(case)
+    ph = rules.phases(case, source)
     params = rules.disease_params(case.maladie)
     grisk, grisk_why = rules.global_risk(case)
 
     cards: List[Card] = []
     for ev in case.events:
-        sug, why = rules.suggest_event_risk(ev, case, w)
+        sug, why = rules.suggest_event_risk(ev, case, w, ph)
         risk = ev.risque or sug
         et = theme.EVENT_TYPES.get(ev.type, theme.EVENT_TYPES["Autre"])
         cards.append(Card(
@@ -248,16 +317,18 @@ def build_mapping_view(case: Case) -> MappingView:
         {"k": "Âge", "v": f"{case.age} {case.age_unite}" if case.age is not None else "?"},
         {"k": "AS", "v": case.aire_sante or "?"},
         {"k": "ZS", "v": case.zs or "?"},
-        {"k": "Exposition estimée", "v": f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])}" if ph.exposition else "?",
-         "tip": "Calculée depuis le J0 retenu ou estimé (J-21 → J-2 pour la MVE), quelle que soit la phase du cas"},
+        _exposition_cell(ph),
         {"k": "J0 rapporté", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
         ({"k": "J0 estimé", "v": "~" + fmt_date(ph.j0),
           "tip": "Pas de date rapportée : J0 remonté depuis la phase où le cas a été trouvé"}
          if ph.j0_source not in ("", "rapportée") else
          {"k": f"J0 retenu (−{ph.recul} j)" if ph.recul else "J0 retenu", "v": fmt_date(ph.j0),
-          "tip": "La maladie a commencé 2 à 3 jours avant la date rapportée"}),
+          "tip": (f"Premiers signes rapportés en {case.phase_dds.lower()} : J0 = date rapportée − {ph.recul} j"
+                  if ph.phase_dds else "Phase des premiers signes non précisée : J0 = date rapportée − "
+                  f"{ph.recul} j (phase sèche)")}),
+        _notification(case, ph),
         {"k": case.statut if case.statut != "Confirmé" else "Confirmation", "v": fmt_date(case.date_confirmation)},
-        {"k": "Issue", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
+        {"k": "État", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
         {"k": "Risque", "v": grisk.upper(), "color": theme.risk_color(grisk), "tip": grisk_why},
     ]
 
@@ -314,7 +385,7 @@ def build_mapping_view(case: Case) -> MappingView:
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
         ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul if ph.j0_source == "rapportée" else 0,
-        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact)
+        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact, badges=_badges(case))
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +400,23 @@ def page(body: str, title: str = "Mapping", extra_css: str = "", assets: Optiona
     tpl = _env.get_template("base.html.j2")
     return tpl.render(body=body, title=title, extra_css=extra_css, assets=assets or assets_uri(), t=theme_ctx(),
                       W=PAGE_W, H=PAGE_H)
+
+
+def _exposition_cell(ph: "rules.Phases") -> dict:
+    if ph.exposition_source == "à rechercher":
+        return {"k": "Exposition", "v": "à rechercher", "color": theme.RED,
+                "tip": "Contact connu : renseigner la date du dernier contact avec le cas source"}
+    if not ph.exposition:
+        return {"k": "Exposition estimée", "v": "?"}
+    d1, d2 = ph.exposition
+    v = _dm(d1) if d1 == d2 else f"{_dm(d1)} → {_dm(d2)}"
+    if ph.exposition_source == "dernier contact":
+        return {"k": "Dernier contact", "v": v, "tip": "Date du dernier contact avec le cas source"}
+    if ph.exposition_source == "cas source":
+        return {"k": "Expo. (cas source)", "v": v,
+                "tip": "Période contagieuse du cas source dans la fenêtre d'incubation du cas"}
+    return {"k": "Exposition estimée", "v": v,
+            "tip": "Calculée depuis le J0 retenu ou estimé (J-21 → J-2 pour la MVE), quelle que soit la phase du cas"}
 
 
 def render_mapping_body(case: Case) -> str:

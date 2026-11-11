@@ -26,11 +26,12 @@
         <button type="button" class="menu-btn" aria-haspopup="true">Analyses ▾</button>
         <div class="menu-list">
           <a href="{{ url_for('chains_page') }}">Chaînes de transmission</a>
+          <a href="{{ url_for('zones_page') }}">Catégories des ZS, délais et incubation</a>
           <a href="{{ url_for('frequent_places', niveau='zs') }}">Lieux fréquentés par zone de santé</a>
           <a href="{{ url_for('frequent_places', niveau='as') }}">Lieux fréquentés par aire de santé</a>
         </div>
       </div>
-      {% if me.is_admin %}
+      {% if me.is_admin or me.niveau == "national" %}
       <a href="{{ url_for('users_admin') }}">Utilisateurs</a>
       {% endif %}
       <a href="/tutoriel/" target="_blank" rel="noopener">Tutoriel</a>

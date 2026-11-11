@@ -119,8 +119,15 @@ class Case(BaseModel):
 
     debut_symptomes: Optional[date] = None   # date RAPPORTÉE par l'équipe (J0), jamais recalculée
     debut_phase_humide: Optional[date] = None   # vide = détectée dans la chronologie ou estimée (J0 + 4)
+    phase_dds: str = "Inconnue"              # phase des premiers signes rapportés : Phase sèche / humide / critique
     contact_connu: str = "Inconnu"           # Contact connu / Contact connu suivi / Non contact / Inconnu
     id_cas_source: str = ""                  # ID du cas dont il est le contact (obligatoire si contact connu)
+    date_contact_source: Optional[date] = None   # dernier contact avec le cas source (contact connu)
+    date_notification: Optional[date] = None
+    vaccine: str = "Inconnu"                 # Oui / Non / Inconnu
+    date_vaccination: Optional[date] = None
+    agent_sante: str = "Inconnu"             # agent de santé / prestataire (PPL) : Oui / Non / Inconnu
+    agent_sante_structure: str = ""          # catégorie et structure de l'agent de santé
     symptomes: List[str] = Field(default_factory=list)
     symptomes_autres: str = ""
     date_deces: Optional[date] = None

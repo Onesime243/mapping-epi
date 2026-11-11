@@ -35,6 +35,9 @@ def main() -> int:
     app = QApplication(sys.argv[:1])
     from ui.exporter import Exporter, pdf_pages_to_png
     c = Case.model_validate(job["case"])
+    if job.get("source"):
+        _src = Case.model_validate(job["source"])
+        H.SOURCE_RESOLVER = lambda code: _src
     others = [Case.model_validate(o) for o in job.get("others", [])]
     out = Path(job["out"])
     fmt, key = job["fmt"], job["visual"]

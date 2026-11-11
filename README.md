@@ -114,7 +114,7 @@ donnees/
 ## 4. Listes Province → Zone de santé → Aire de santé (RDC)
 
 Les champs Province, ZS et AS sont des **listes en cascade** avec recherche : 26 provinces, 521 zones de santé,
-7 098 aires de santé, issues du jeu GRID3 / HDX *DRC Health Zone and Health Area boundaries* (2022),
+7 101 aires de santé, issues du jeu GRID3 / HDX *DRC Health Zone and Health Area boundaries* (2022),
 orthographes harmonisées (`config/rdc_pyramide.csv`). Une aire de santé absente de la liste peut être
 saisie : elle est mémorisée et proposée ensuite (`donnees/pyramide_perso.csv`).
 
@@ -142,6 +142,25 @@ saisie : elle est mémorisée et proposée ensuite (`donnees/pyramide_perso.csv`
 - Exports : PNG HD / 4K, PDF, SVG, **PowerPoint modifiable**, rapport complet, Excel, JSON.
 
 ---
+
+## 5 bis. J0, phases, risque et indicateurs (remarques de la présentation)
+
+- **J0** : on précise la **phase des premiers signes rapportés**. Phase sèche (fièvre, fatigue, douleurs) :
+  J0 = date − 3 j ; phase humide (vomissements, diarrhée) : − 7 j ; phase critique (saignements, confusion, choc) :
+  − 16 j (`config/diseases.yaml`, `phases_jours`). Phases affichées : sèche J0–J3, humide J4–J7, critique J7–J16.
+- **Risque** d'une étape : 1. état du cas (incubation non contagieuse, phase humide +1, phase critique très élevé,
+  si la phase est documentée) ; 2. mode de transmission (corps, liquides, sans PCI, sécurisé) ; 3. état des contacts
+  dans le risque global (phase humide / critique sans contacts listés : très élevé ; non contact : +1).
+- **Contact connu** : pas d'estimation de l'exposition ; date du dernier contact avec le cas source, sinon période
+  contagieuse du cas source enregistré, sinon « à rechercher ».
+- **Fiche** : date de notification (écart avec le J0 sur le mapping), vacciné, agent de santé (PPL), « État »
+  (ancien « Issue », encore accepté à l'import). Les champs indispensables vides sont listés en haut de la fiche.
+- **Analyses → Catégories des ZS, délais et incubation** : catégorie de chaque ZS selon les jours depuis le dernier
+  cas notifié (`config/categories_zs.yaml`, seuils à valider), alertes « nouveau foyer possible », délais
+  début → notification → confirmation, incubation observée et intervalle sériel.
+- **Comptes** : le compte `adminone` ne peut être modifié ou supprimé que par lui-même ; il peut supprimer tout compte.
+  Les administrateurs et les comptes nationaux peuvent supprimer des comptes ; chaque suppression est conservée dans
+  l'historique (page Utilisateurs) et les fiches du compte sont gardées.
 
 ## 6. Tests
 ```bash

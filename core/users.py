@@ -23,7 +23,11 @@ from typing import List, Optional
 from core.storage import Store
 
 ITER = 240_000
+import os
+
 ROLES = ("agent", "admin")
+# compte principal : seul lui peut se modifier ou être supprimé par lui-même ; il peut supprimer tout compte
+SUPER_ADMIN = os.environ.get("MAPPING_EPI_SUPERADMIN", "adminone").strip().lower()
 NIVEAUX = {"national": "National", "province": "Provincial", "zone": "Zone de santé", "aire": "Aire de santé"}
 
 
@@ -176,6 +180,49 @@ class Users:
             self.db.execute("UPDATE users SET niveau=?, province=?, zs=?, aire=? WHERE username=?",
                             (niveau, province, zs, aire, username))
             self.db.commit()
+
+    # -- protection du compte principal et suppression -------------------------------------------------
+    @staticmethod
+    def protege(actor: "User", username: str) -> Optional[str]:
+        """Message d'erreur si `actor` ne peut pas modifier le compte `username` (compte principal)."""
+        if username == SUPER_ADMIN and actor.username != SUPER_ADMIN:
+            return f"Seul le compte « {SUPER_ADMIN} » peut modifier ou supprimer ce compte."
+        return None
+
+    @staticmethod
+    def peut_supprimer(actor: "User") -> bool:
+        return actor.is_admin or actor.niveau == "national"
+
+    def delete(self, actor: "User", username: str, motif: str = "", fiches: int = 0) -> None:
+        """Supprime un compte et garde la trace dans l'historique (les fiches du compte sont conservées)."""
+        username = (username or "").strip().lower()
+        u = self.get(username)
+        if not u:
+            raise ValueError("Utilisateur introuvable.")
+        if not self.peut_supprimer(actor):
+            raise ValueError("Suppression réservée aux administrateurs et aux comptes de niveau national.")
+        if u.username == actor.username:
+            raise ValueError("Vous ne pouvez pas supprimer votre propre compte.")
+        err = self.protege(actor, u.username)
+        if err:
+            raise ValueError(err)
+        if u.is_admin and not actor.is_admin:
+            raise ValueError("Seul un administrateur peut supprimer un compte administrateur.")
+        if u.is_admin and u.actif and self.admin_count() <= 1:
+            raise ValueError("Impossible : il doit rester au moins un administrateur actif.")
+        with self.store.lock:
+            self.db.execute("INSERT INTO comptes_supprimes(ts, auteur, username, nom, role, niveau, perimetre, fiches, motif) "
+                            "VALUES(?,?,?,?,?,?,?,?,?)",
+                            (datetime.now().isoformat(timespec="seconds"), actor.username, u.username, u.nom, u.role,
+                             u.niveau_label, u.perimetre, int(fiches), (motif or "").strip()[:300]))
+            self.db.execute("DELETE FROM users WHERE username=?", (u.username,))
+            self.db.commit()
+
+    def suppressions(self) -> List[dict]:
+        cols = ("ts", "auteur", "username", "nom", "role", "niveau", "perimetre", "fiches", "motif")
+        return [dict(zip(cols, r)) for r in self.db.execute(
+            "SELECT ts, auteur, username, nom, role, niveau, perimetre, fiches, motif FROM comptes_supprimes "
+            "ORDER BY id DESC")]
 
     def admin_count(self) -> int:
         return self.db.execute("SELECT COUNT(*) FROM users WHERE role='admin' AND actif=1").fetchone()[0]

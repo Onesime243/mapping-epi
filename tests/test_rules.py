@@ -45,7 +45,17 @@ def test_risk_rules():
     lvl, why = rules.suggest_event_risk(hosp, c)
     assert lvl == "Très élevé" and "liquides" in why
     before = Event(type="Soins / consultation", date_debut=date(2026, 8, 10))
-    assert rules.suggest_event_risk(before, c)[0] == "Modéré"
+    assert rules.suggest_event_risk(before, c)[0] == "Faible"            # incubation : non contagieux
+    # état du cas : phase humide (+1) et phase critique (très élevé)
+    c.phase_dds = "Phase sèche"
+    soins = Event(type="Soins / consultation", date_debut=date(2026, 8, 20))
+    assert rules.suggest_event_risk(soins, c)[0] == "Élevé"
+    c.debut_phase_humide = date(2026, 8, 19)
+    lvl, why = rules.suggest_event_risk(soins, c)
+    assert lvl == "Très élevé" and "phase humide" in why
+    c.events = [Event(type="Hospitalisation", date_debut=date(2026, 8, 22), description="gingivorragie")]
+    lvl, why = rules.suggest_event_risk(Event(type="Activité communautaire", date_debut=date(2026, 8, 23)), c)
+    assert lvl == "Très élevé" and "phase critique" in why
 
 
 def test_global_risk_auto(demo):
@@ -93,7 +103,7 @@ def test_phases_humide_detectee_et_dds_conservee(demo):
     assert ph.exposition == (j0 - timedelta(days=21), j0 - timedelta(days=2))
     assert ph.humide and ph.humide >= j0
     stages = [rules.event_stage(e, ph) for e in demo.sorted_events() if e.date_debut]
-    assert set(stages) <= {"infection", "incubation", "seche", "humide", "deces"}
+    assert set(stages) <= {"infection", "incubation", "seche", "humide", "critique", "deces"}
     demo.debut_phase_humide = j0 + timedelta(days=1)
     assert rules.phases(demo).humide_source == "saisie"
 
@@ -127,11 +137,57 @@ def test_exposition_estimee_sans_date_rapportee():
     from core import rules
     c = Case(maladie="MVE", date_deces=date(2026, 8, 20))
     e = rules.estimer_j0(c)
-    assert (e.j0_min, e.j0_max, e.source) == (date(2026, 8, 10), date(2026, 8, 13), "décès")
-    assert rules.exposition_estimee(c) == (date(2026, 7, 20), date(2026, 8, 11))
-    # phase humide datée le 15/08 (J4 à J7) + décès le 20/08 (J7 à J10) : intervalle commun 10/08 → 11/08
+    # décès en phase critique (J7 à J16) : J0 entre le 04/08 et le 13/08
+    assert (e.j0_min, e.j0_max, e.source) == (date(2026, 8, 4), date(2026, 8, 13), "décès")
+    assert rules.exposition_estimee(c) == (date(2026, 7, 14), date(2026, 8, 11))
+    # phase humide datée le 15/08 (J4 à J7) + décès le 20/08 : intervalle commun 08/08 → 11/08
     c.debut_phase_humide = date(2026, 8, 15)
     e = rules.estimer_j0(c)
-    assert (e.j0_min, e.j0_max) == (date(2026, 8, 10), date(2026, 8, 11))
+    assert (e.j0_min, e.j0_max) == (date(2026, 8, 8), date(2026, 8, 11))
     assert "phase humide" in e.source and "décès" in e.source
-    assert rules.phases(c).exposition == (date(2026, 7, 20), date(2026, 8, 9))
+    assert rules.phases(c).exposition == (date(2026, 7, 18), date(2026, 8, 9))
+
+
+def test_j0_selon_phase_des_premiers_signes():
+    """La date rapportée est située dans une phase : J0 retenu = date − fin de la phase (sèche 3, humide 7, critique 16)."""
+    from core import rules
+    c = Case(maladie="MVE", debut_symptomes=date(2026, 11, 10))
+    assert rules.j0_retenu(c) == date(2026, 11, 7)                       # phase non précisée : − 3 j
+    c.phase_dds = "Phase humide"
+    e = rules.estimer_j0(c)
+    assert (e.j0, e.j0_min, e.j0_max) == (date(2026, 11, 3), date(2026, 11, 3), date(2026, 11, 3))
+    ph = rules.phases(c)
+    assert ph.recul == 7 and ph.humide == date(2026, 11, 10) and ph.humide_source == "rapportée"
+    c.phase_dds = "Phase critique"
+    ph = rules.phases(c)
+    assert ph.j0 == date(2026, 10, 25) and ph.critique == date(2026, 11, 10)
+    assert rules.phase_atteinte(c) == "critique"
+
+
+def test_exposition_contact_connu():
+    """Contact connu : pas d'estimation depuis son propre J0, mais le dernier contact ou le cas source."""
+    from core import rules
+    src = Case(code_cas="SRC-1", debut_symptomes=date(2026, 10, 15), date_deces=date(2026, 10, 25),
+               events=[Event(type="Enterrement", date_debut=date(2026, 10, 26))])
+    c = Case(debut_symptomes=date(2026, 11, 8), contact_connu="Contact connu", id_cas_source="SRC-1")
+    assert rules.phases(c).exposition_source == "à rechercher"
+    assert any("dernier contact" in m for m in rules.completeness(c)[1])
+    ph = rules.phases(c, source=src)
+    assert ph.exposition_source == "cas source" and ph.exposition == (date(2026, 10, 15), date(2026, 10, 26))
+    c.date_contact_source = date(2026, 10, 24)
+    ph = rules.phases(c, source=src)
+    assert ph.exposition == (date(2026, 10, 24), date(2026, 10, 24)) and ph.exposition_source == "dernier contact"
+
+
+def test_risque_global_etat_des_contacts():
+    from core import rules
+    from core.models import ContactGroup
+    c = Case(debut_symptomes=date(2026, 11, 1), phase_dds="Phase humide",
+             events=[Event(type="Soins / consultation", date_debut=date(2026, 11, 2), personnes="soignants")])
+    lvl, why = rules.global_risk(c)
+    assert lvl == "Très élevé" and "contacts non" in why                 # phase humide sans contacts listés
+    c.contacts = [ContactGroup(categorie="Famille", nombre=5)]
+    c.phase_dds = "Phase sèche"
+    c.contact_connu = "Non contact"
+    lvl, why = rules.global_risk(c)
+    assert "non connu comme contact" in why

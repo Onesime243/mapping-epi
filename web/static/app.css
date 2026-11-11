@@ -170,3 +170,8 @@ table.rights th, table.rights td { text-align: left; padding: 6px 8px; border-bo
 table.rights th { color: var(--muted); font-size: 12.5px; }
 tr.sub td { padding-top: 0; border-bottom: 1px solid var(--border); }
 tr.sub summary { cursor: pointer; color: var(--accent); font-size: 13.5px; font-weight: 600; }
+
+/* ---------- champs à compléter ---------- */
+.missing { border: 1.5px solid #B4554E; background: #FBEAE8; color: #8E2F28; border-radius: 9px; padding: 9px 13px;
+  margin: 0 0 12px; font-size: 13.5px; line-height: 1.45; }
+select.req-missing { border: 1.5px solid #B4554E; background: #FBEAE8; }

@@ -43,7 +43,7 @@ def test_modele_vierge_et_saisie_manuelle(tmp_path, ext):
         for r in t.rows:
             lab = r.cells[0].text.strip()
             val = {"ID du cas": "IT-FAT-26-002", "Sexe": "f", "Âge": "29", "Début symptômes": "03/11/2026",
-                   "Issue": "deces", "Maladie": "mve"}.get(lab)
+                   "État": "deces", "Maladie": "mve"}.get(lab)
             if val:
                 r.cells[1].text = val
     t1 = next(t for t in tabs if t.rows[0].cells[0].text.strip() == "N°" and "Date début" in t.rows[0].cells[1].text)

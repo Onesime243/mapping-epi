@@ -77,11 +77,13 @@ CONTACT_STATUS_CHOICES = ["Inconnu", "Contact connu", "Contact connu suivi", "No
 CONTACT_STATUS_COLORS = {"Contact connu": RED, "Contact connu suivi": RED, "Non contact": RED, "Inconnu": BLUE}
 
 # Phases de la maladie (MVE / Marburg) : point d'infection → incubation → phase sèche → phase humide
+CRITIQUE = "#8E3B46"    # phase critique (phase 3 : tournant, aggravation possible)
 PHASES = {
     "infection":  {"label": "Point d'infection", "contag": "exposition", "color": BLUE},
     "incubation": {"label": "Avant symptômes", "contag": "non contagieux", "color": TEAL},
-    "seche":      {"label": "Phase sèche", "contag": "contagieux", "color": YELLOW},
-    "humide":     {"label": "Phase humide", "contag": "encore plus contagieux", "color": ORANGE},
+    "seche":      {"label": "Phase sèche", "contag": "contagieux dès la fièvre", "color": YELLOW},
+    "humide":     {"label": "Phase humide", "contag": "très contagieux", "color": ORANGE},
+    "critique":   {"label": "Phase critique", "contag": "très contagieux", "color": CRITIQUE},
     "deces":      {"label": "Décès", "contag": "le plus contagieux", "color": RED},
     "symptomes":  {"label": "Phase symptomatique", "contag": "contagieux", "color": ORANGE},
 }
@@ -93,7 +95,14 @@ MOTS_HUMIDES = ("diarrh", "selles liquides", "vomiss", "nausée", "saign", "hém
 SYMPTOMES_HUMIDES = {"Vomissements", "Nausées", "Diarrhée", "Hoquet", "Rougeur oculaire", "Saignements", "Méléna",
                      "Hématémèse", "Gingivorragie", "Épistaxis", "Saignements aux points d'injection"}
 
-ISSUE_CHOICES = ["En traitement", "Vivant", "Guéri", "Décès", "Inconnu"]
+ISSUE_CHOICES = ["En traitement", "Vivant", "Guéri", "Décès", "Inconnu"]     # champ « État » du cas
+PHASE_DDS_CHOICES = ["Inconnue", "Phase sèche", "Phase humide", "Phase critique"]
+PHASE_DDS_KEYS = {"Phase sèche": "seche", "Phase humide": "humide", "Phase critique": "critique"}
+OUI_NON = ["Inconnu", "Oui", "Non"]
+SIGNES_CRITIQUES = "défaillance des organes, confusion, convulsions, choc, saignements"
+# mots qui signalent la phase critique (phase 3) dans une étape
+MOTS_CRITIQUES = ("saign", "hémorrag", "hemorrag", "méléna", "hématémèse", "gingivorr", "épistaxis", "convuls",
+                  "confusion", "choc", "coma", "anurie", "défaillance")
 ISSUE_COLORS = {"Décès": RED, "Guéri": GREEN, "Vivant": GREEN, "En traitement": ORANGE, "Inconnu": BLUE}
 
 # --- Types d'étapes de la chronologie ---------------------------------------

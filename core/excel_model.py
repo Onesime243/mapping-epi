@@ -60,6 +60,10 @@ CASE_SECTIONS = [
         ("age", "Âge", "Nombre ; vide si inconnu", True, "int"),
         ("age_unite", "Unité âge", "ans / mois", False, "unite"),
         ("profession", "Profession", "", False, "text"),
+        ("agent_sante", "Agent de santé (PPL)", "Oui / Non / Inconnu", True, "oui_non"),
+        ("agent_sante_structure", "Catégorie et structure de l'agent de santé", "ex. Infirmier, CS Nzala", False, "text"),
+        ("vaccine", "Vacciné", "Oui / Non / Inconnu", True, "oui_non"),
+        ("date_vaccination", "Date de vaccination", "JJ/MM/AAAA si vacciné", False, "date"),
     ]),
     ("LOCALISATION (pyramide sanitaire RDC)", [
         ("province", "Province", "Choisir dans la liste", True, "province"),
@@ -69,15 +73,20 @@ CASE_SECTIONS = [
         ("lat", "Latitude", "GPS facultatif, ex. 2,6317", False, "float"),
         ("lon", "Longitude", "GPS facultatif, ex. 24,3912", False, "float"),
     ]),
-    ("CLINIQUE ET ISSUE", [
-        ("debut_symptomes", "Début symptômes", "J0 : JJ/MM/AAAA. Sert au calcul des fenêtres d'exposition", True, "date"),
+    ("CLINIQUE ET ÉTAT DU CAS", [
+        ("debut_symptomes", "Début symptômes", "JJ/MM/AAAA : date rapportée par l'équipe", True, "date"),
+        ("phase_dds", "Phase des premiers signes", "Phase du cas à cette date : sèche (fièvre, fatigue…) J0 = date − 3 j ; "
+         "humide (vomissements, diarrhée…) − 7 j ; critique (saignements, défaillances…) − 16 j", True, "phase_dds"),
         ("debut_phase_humide", "Début phase humide", "Diarrhée / vomissements / saignements ; vide = détecté dans la chronologie ou estimé J+4", False, "date"),
         ("contact_connu", "Contact connu ?", "Contact connu / Contact connu suivi / Non contact / Inconnu", True, "contact"),
         ("id_cas_source", "ID du cas source", "Obligatoire si contact connu : ID du cas dont il est le contact", False, "text"),
+        ("date_contact_source", "Date du dernier contact avec le cas source", "Contact connu : JJ/MM/AAAA. Remplace "
+         "l'estimation de l'exposition", False, "date"),
         ("symptomes", "Symptômes (séparés par ;)", "ex. Fièvre; Céphalées; Méléna", False, "text"),
         ("symptomes_autres", "Autres symptômes", "", False, "text"),
+        ("date_notification", "Date de notification", "JJ/MM/AAAA : l'outil calcule l'écart avec le J0", True, "date"),
         ("date_confirmation", "Date confirmation", "JJ/MM/AAAA", True, "date"),
-        ("issue", "Issue", "Vivant / Décès / Guéri / En traitement / Inconnu", True, "issue"),
+        ("issue", "État", "Vivant / Décès / Guéri / En traitement / Inconnu", True, "issue"),
         ("date_deces", "Date décès", "JJ/MM/AAAA si décès", False, "date"),
         ("risque_global", "Risque global (vide = auto)", "Laisser vide : l'outil le calcule", False, "risque"),
     ]),
@@ -151,6 +160,7 @@ LISTS = {
     "sample": ["Swab", "Sang total", "Plasma", "Urine", "Autre"],
     "result": theme.LAB_RESULTS,
     "priority": theme.ACTION_PRIORITY_CHOICES, "action_status": theme.ACTION_STATUS_CHOICES, "bool": ["oui", "non"],
+    "phase_dds": theme.PHASE_DDS_CHOICES, "oui_non": theme.OUI_NON,
 }
 
 
