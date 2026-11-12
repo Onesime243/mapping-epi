@@ -244,13 +244,13 @@ def test_langue_bienvenue_theme(app):
     c = app.test_client()
     _login(c, "admin", "Secret123")
     page = c.get("/").get_data(as_text=True)
-    assert "Bienvenue dans Mapping Épi." in page and "'light'" in page and '<html lang="fr">' in page
+    assert "Bienvenue dans Mapping Épi" in page and "'light'" in page and '<html lang="fr">' in page
     c.get("/langue/en", headers={"Referer": "http://localhost/"})
     page = c.get("/").get_data(as_text=True)
-    assert "Welcome to Mapping Épi." in page and "View cases" in page and '<html lang="en">' in page
+    assert "Welcome to Mapping Épi" in page and "View cases" in page and '<html lang="en">' in page
     assert "Saved" in c.get("/cas").get_data(as_text=True)
     c2 = app.test_client()                    # langue gardée pour le compte, nouvelle session
     _login(c2, "admin", "Secret123")
-    assert "Welcome to Mapping Épi." in c2.get("/").get_data(as_text=True)
+    assert "Welcome to Mapping Épi" in c2.get("/").get_data(as_text=True)
     c2.get("/langue/fr")
     assert "Bienvenue" in c2.get("/").get_data(as_text=True)

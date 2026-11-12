@@ -47,6 +47,13 @@ EN = {
         "Use this tool to document the epidemiological pathway of each confirmed case. Complete all mandatory fields, "
         "marked with an asterisk (*), then save the record: only complete, saved records are included in the analyses "
         "and shared with the coordination team.",
+    "Bienvenue dans Mapping Épi": "Welcome to Mapping Épi",
+    "Documentation du parcours épidémiologique des cas confirmés":
+        "Documenting the epidemiological pathway of confirmed cases",
+    "Pour chaque cas, renseignez l'ensemble des champs obligatoires, signalés par un astérisque (*), puis enregistrez "
+    "la fiche.": "For each case, complete all mandatory fields, marked with an asterisk (*), then save the record.",
+    "Seules les fiches complètes et enregistrées sont prises en compte dans les analyses et partagées avec la "
+    "coordination.": "Only complete, saved records are included in the analyses and shared with the coordination team.",
     "Créer la fiche": "Create the record", "Compléter les champs *": "Complete the * fields", "Enregistrer": "Save",
     "Nouveau cas": "New case", "Voir mes cas": "View my cases", "Voir les cas": "View cases",
     "Exemple fictif": "Practice example", "pour s'entraîner": "for practice", "reprendre mon exemple": "resume my example",
