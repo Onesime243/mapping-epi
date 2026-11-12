@@ -224,3 +224,26 @@ Fonctions ajoutées sans toucher au mapping, aux comptes ni aux fiches existante
   sans connexion. Un .zip ne contient que des fiches de cas (jamais de comptes). À l'import : nouvelles fiches
   ajoutées ; une fiche connue n'est remplacée que par une version plus récente (l'ancienne reste dans l'historique) ;
   un N° EPID déjà porté par une autre fiche est signalé sans rien écraser ; les fiches hors droits sont ignorées.
+
+## Version 1.2 : synchronisation, sécurité, carte, réunion
+
+- **Synchronisation automatique** de l'application de bureau avec le serveur : sur le site, *Mon compte* →
+  *Créer un jeton* (un par ordinateur, révocable) ; dans l'application, *Riposte ▾ → Synchronisation…* (adresse du
+  site + jeton, automatique toutes les 15 minutes si coché). Le bureau envoie ses fiches puis reçoit celles du
+  périmètre du compte, avec les règles du paquet de fiches (rien n'est perdu, la plus récente l'emporte).
+  API : `POST /api/sync/envoyer`, `GET /api/sync/recevoir` (en-tête `Authorization: Bearer <jeton>`).
+- **Sécurité ▾** (bureau) : mot de passe au démarrage ; sauvegarde automatique quotidienne et à la fermeture dans
+  un dossier choisi (clé USB), 20 dernières gardées ; reprise des fiches d'une sauvegarde sans rien écraser.
+  Le mot de passe ne chiffre pas le disque : activer BitLocker (Windows) ou FileVault (Mac).
+- **Nouvelle version** : l'application de bureau compare sa version à `packaging/VERSION` sur GitHub (sans envoyer
+  de données) et prévient une fois.
+- **Carte des cas** (hors ligne) : GPS de la fiche, sinon coordonnées de l'aire de santé (CSV
+  `province;zone_sante;aire_sante;latitude;longitude` importé sur la page Carte, gardé dans le dossier de données),
+  sinon centre de la ZS ; les cas sans position sont listés.
+- **Mode réunion** : diaporama plein écran (chiffres, courbe, ZS actives, indicateurs en alerte, alertes, actions en
+  retard, mapping de chaque nouveau cas).
+- **Doublons possibles** : même N° EPID, ou même ZS, sexe, âge ± 1 an et début ± 2 jours (rien n'est fusionné).
+- **Vaccination en anneau** (colonne *Vaccinés* des contacts, date de début de l'anneau), **séquençage**,
+  **nombre de reproduction observé** (cas secondaires reliés par cas de plus de 42 jours).
+- **Téléphone** : menu repliable et pages adaptées aux petits écrans.
+- Fichiers d'automatisation GitHub (tests, installateurs) : `packaging/github/`.

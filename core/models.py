@@ -60,6 +60,7 @@ class ContactGroup(BaseModel):
     lien: str = ""
     nombre: Optional[int] = None    # None = « ? »
     suivis: Optional[int] = None
+    vaccines: Optional[int] = None  # contacts vaccinés (vaccination en anneau) ; None = « ? »
     risque: str = "Haut"
     lieu: str = ""
     dernier_contact: Optional[date] = None
@@ -126,6 +127,8 @@ class Case(BaseModel):
     date_notification: Optional[date] = None
     vaccine: str = "Inconnu"                 # Oui / Non / Inconnu
     date_vaccination: Optional[date] = None
+    date_debut_anneau: Optional[date] = None     # début de la vaccination de l'anneau autour du cas
+    sequencage: str = ""                     # résultat du séquençage (clade, lignée, lien génomique)
     agent_sante: str = "Inconnu"             # agent de santé / prestataire (PPL) : Oui / Non / Inconnu
     agent_sante_structure: str = ""          # catégorie et structure de l'agent de santé
     symptomes: List[str] = Field(default_factory=list)

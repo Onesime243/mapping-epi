@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mode réunion · Mapping Épi</title>
+<style>
+  :root { --navy:#1F3A5F; --red:#B4554E; --orange:#C77B3A; --muted:#5F6B7A; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#0F1C2E; font-family: Inter, 'Segoe UI', Arial, sans-serif; }
+  .slide { display:none; position:absolute; inset:0; padding:3.2vh 3.5vw 7vh; background:#F3F5F8; color:#1B2430; overflow:auto; }
+  .slide.on { display:block; }
+  h1 { margin:0 0 1.5vh; color:var(--navy); font-size:3.4vh; }
+  h2 { color:var(--navy); font-size:2.6vh; margin:2vh 0 1vh; }
+  .kpis { display:flex; gap:2vw; flex-wrap:wrap; margin:2vh 0; }
+  .kpi { background:#fff; border:1px solid #D3DAE3; border-radius:14px; padding:2vh 2vw; min-width:16vw; }
+  .kpi b { display:block; font-size:6vh; color:var(--navy); line-height:1.1; }
+  .kpi span { color:var(--muted); font-size:2vh; }
+  .card { background:#fff; border:1px solid #D3DAE3; border-radius:14px; padding:2vh 1.5vw; }
+  table { border-collapse:collapse; width:100%; font-size:2vh; }
+  th { text-align:left; color:var(--muted); border-bottom:2px solid #D3DAE3; padding:.8vh .6vw; }
+  td { border-bottom:1px solid #EEF1F5; padding:.8vh .6vw; vertical-align:top; }
+  .red { color:var(--red); font-weight:700; }
+  .frame { position:relative; width:min(93vw, calc(82vh * 16 / 9)); aspect-ratio:16 / 9; margin:0 auto; overflow:hidden; border-radius:10px; background:#fff; }
+  .frame iframe { border:0; width:1920px; height:1080px; transform-origin:0 0; position:absolute; left:0; top:0; }
+  .bar { position:fixed; left:0; right:0; bottom:0; height:5.5vh; background:#0F1C2E; color:#C9D4E2; display:flex;
+    align-items:center; gap:1.5vw; padding:0 2vw; font-size:1.8vh; z-index:2; }
+  .bar button { background:#1F3A5F; color:#fff; border:0; border-radius:8px; padding:.6vh 1.2vw; font-size:1.8vh; cursor:pointer; }
+  .bar .sp { flex:1; }
+  .muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<section class="slide on">
+  <h1>Briefing riposte MVE : situation au {{ ref.strftime("%d/%m/%Y") }}</h1>
+  <div class="muted" style="font-size:2vh">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %}</div>
+  <div class="kpis">
+    <div class="kpi"><b>{{ nouveaux|length }}</b><span>nouveau(x) cas depuis {{ jours }} jour(s)</span></div>
+    <div class="kpi"><b>{{ n_tous }}</b><span>cas au total</span></div>
+    <div class="kpi"><b>{{ n_deces }}</b><span>décès</span></div>
+    <div class="kpi"><b class="{{ 'red' if alertes }}">{{ alertes|length }}</b><span>alerte(s) nouveau foyer (21 j)</span></div>
+    <div class="kpi"><b class="{{ 'red' if actions }}">{{ actions|length }}</b><span>action(s) en retard</span></div>
+  </div>
+  <div class="card">{{ courbe|safe }}</div>
+</section>
+
+<section class="slide">
+  <h1>Zones de santé actives et indicateurs en alerte</h1>
+  <h2>Zones de santé en catégorie 1 ou 2</h2>
+  <div class="card">{% if zones %}<table><tr><th>Catégorie</th><th>ZS</th><th>Cas</th><th>7 derniers j</th><th>Dernier cas</th><th>Jours sans cas</th></tr>
+    {% for z in zones %}<tr><td style="color:{{ z.cat.couleur }}; font-weight:700">Cat. {{ z.cat.num }} · {{ z.cat.nom }}</td><td><b>{{ z.zs }}</b> <span class="muted">{{ z.province }}</span></td>
+      <td>{{ z.n }}</td><td>{{ z.n7 }}</td><td>{{ z.dernier.strftime("%d/%m") if z.dernier else "?" }}</td><td>{{ z.jours }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="muted">Aucune ZS en transmission récente.</p>{% endif %}</div>
+  <h2>Indicateurs en alerte (21 derniers jours)</h2>
+  <div class="card">{% if ind %}<table><tr><th>Indicateur</th><th>Résultat</th><th>Cible</th></tr>
+    {% for i in ind %}<tr><td>{{ i.nom }}</td><td class="red">{{ i.texte() }}</td><td>{{ i.cible }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="muted">Aucun indicateur en alerte.</p>{% endif %}</div>
+</section>
+
+<section class="slide">
+  <h1>Alertes et actions en retard</h1>
+  <h2>Nouveau foyer possible (21 derniers jours)</h2>
+  <div class="card">{% if alertes %}<table><tr><th>Notifié le</th><th>Cas</th><th>Lieu</th><th>Lecture</th></tr>
+    {% for a in alertes %}<tr><td>{{ a.quand.strftime("%d/%m") }}</td><td>{{ a.case.code_cas }}</td><td>{{ a.niveau }} {{ a.lieu }}</td><td class="red">{{ a.texte }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="muted">Aucune alerte.</p>{% endif %}</div>
+  <h2>Actions en retard</h2>
+  <div class="card">{% if actions %}<table><tr><th>Cas</th><th>ZS</th><th>Action</th><th>Responsable</th><th>Retard</th></tr>
+    {% for a in actions[:14] %}<tr><td>{{ a.case.code_cas }}</td><td>{{ a.case.zs }}</td><td>{{ a.action.texte }}</td><td>{{ a.action.responsable or "à désigner" }}</td><td class="red">{{ a.retard }} j</td></tr>{% endfor %}</table>
+    {% if actions|length > 14 %}<p class="muted">… et {{ actions|length - 14 }} autre(s) : menu Riposte → Suivi des actions.</p>{% endif %}
+    {% else %}<p class="muted">Aucune action en retard.</p>{% endif %}</div>
+</section>
+
+{% for c in nouveaux %}
+<section class="slide" data-src="{{ url_for('preview', cid=c.id, key='mapping') }}">
+  <h1 style="font-size:2.6vh">Nouveau cas {{ loop.index }}/{{ nouveaux|length }} : {{ c.code_cas or c.titre_court() }} · ZS {{ c.zs or "?" }}</h1>
+  <div class="frame"><iframe title="Mapping {{ c.code_cas }}" loading="lazy"></iframe></div>
+</section>
+{% endfor %}
+
+<div class="bar">
+  <button onclick="go(-1)">◀ Précédent</button><button onclick="go(1)">Suivant ▶</button>
+  <span id="pos"></span><span class="sp"></span>
+  <span>Flèches ← → ou espace · F : plein écran</span>
+  <a href="{{ url_for('riposte_reunion', depuis=jours, province=prov) }}" style="color:#C9D4E2">Actualiser</a>
+  <a href="{{ url_for('riposte_indicateurs') }}" style="color:#C9D4E2">Quitter</a>
+</div>
+<script>
+  var S = document.querySelectorAll('.slide'), i = 0;
+  function fit(s) {
+    var f = s.querySelector('.frame'); if (!f) return;
+    var fr = f.querySelector('iframe');
+    if (!fr.src) fr.src = s.dataset.src;
+    var k = Math.min(f.clientWidth / 1920, f.clientHeight / 1080);
+    fr.style.transform = 'scale(' + k + ')';
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(S.length - 1, n));
+    S.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+    fit(S[i]);
+    document.getElementById('pos').textContent = (i + 1) + ' / ' + S.length;
+  }
+  function go(d) { show(i + d); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1);
+    if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  });
+  window.addEventListener('resize', function () { fit(S[i]); });
+  show(0);
+</script>
+</body>
+</html>

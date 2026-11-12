@@ -17,13 +17,14 @@ for rel in ("config", "assets", "render/templates", "web/templates", "web/static
     for f in src.rglob("*"):
         if f.is_file() and f.suffix not in (".py", ".pyc") and "__pycache__" not in f.parts and f.name != ".DS_Store":
             datas.append((str(f), str(f.parent.relative_to(ROOT))))
-datas += collect_data_files("docx") + collect_data_files("pptx")
+datas += collect_data_files("docx") + collect_data_files("pptx") + collect_data_files("certifi")
+datas.append((str(ROOT / "packaging" / "VERSION"), "packaging"))     # avertissement « nouvelle version »
 
 a = Analysis(
     [str(ROOT / "app.py")],
     pathex=[str(ROOT)],
     datas=datas,
-    hiddenimports=["serveur_web", "web.render_worker", "web.server", "waitress", "openpyxl", "yaml",
+    hiddenimports=["certifi", "serveur_web", "web.render_worker", "web.server", "waitress", "openpyxl", "yaml",
                    "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineCore", "PySide6.QtPdf", "PySide6.QtSvg",
                    "PySide6.QtPrintSupport"],
     excludes=["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "numpy.tests"],

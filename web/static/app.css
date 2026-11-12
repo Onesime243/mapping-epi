@@ -175,3 +175,23 @@ tr.sub summary { cursor: pointer; color: var(--accent); font-size: 13.5px; font-
 .missing { border: 1.5px solid #B4554E; background: #FBEAE8; color: #8E2F28; border-radius: 9px; padding: 9px 13px;
   margin: 0 0 12px; font-size: 13.5px; line-height: 1.45; }
 select.req-missing { border: 1.5px solid #B4554E; background: #FBEAE8; }
+
+/* ---------- téléphone : menu repliable, tableaux défilants ---------- */
+.nav-toggle { display: none; margin-left: auto; background: rgba(255,255,255,.12); color: var(--header-text); border: 0;
+  border-radius: 8px; padding: 8px 12px; font: inherit; font-weight: 650; }
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; }
+  .nav-toggle { display: block; }
+  .topbar nav { display: none; width: 100%; flex-direction: column; align-items: stretch; margin-left: 0; }
+  .topbar.open nav { display: flex; }
+  .topbar nav a, .topbar nav button { text-align: left; }
+  .menu-list { position: static; display: block; box-shadow: none; border: 0; background: transparent; padding: 0 0 0 12px; }
+  .topbar nav .menu-list a { color: var(--header-text); }
+  .menu-btn { pointer-events: none; opacity: .75; }
+  .card { padding: 12px; }
+  table.list { font-size: 13px; }
+  .card > table.list, .card > .list { display: block; overflow-x: auto; }
+  .filters select, .filters input { flex: 1 1 100%; }
+  .row { flex-wrap: wrap; }
+  input[type=file] { max-width: 100%; }
+}

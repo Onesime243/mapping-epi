@@ -27,7 +27,14 @@ MISE À JOUR
   Installer la nouvelle version par-dessus l'ancienne : les fiches et les comptes sont conservés.
   La désinstallation ne supprime pas non plus les données.
 
-SAUVEGARDE
-  Copier régulièrement le dossier « donnees » indiqué ci-dessus sur une clé USB ou un disque.
+SYNCHRONISATION AVEC LE SERVEUR (quand internet est disponible)
+  Sur le site : Mon compte > Créer un jeton. Dans l'application : Riposte > Synchronisation…,
+  coller l'adresse du site et le jeton, cocher « automatiquement ». Les fiches partent et arrivent seules.
+
+SÉCURITÉ ET SAUVEGARDE
+  Menu Sécurité : mot de passe au démarrage, et sauvegarde automatique sur une clé USB
+  (chaque jour et à la fermeture). En cas de panne, « Reprendre les fiches d'une sauvegarde ».
+  Activer aussi le chiffrement du disque : BitLocker (Windows) ou FileVault (Mac).
+  À défaut, copier régulièrement le dossier « donnees » indiqué ci-dessus sur une clé USB ou un disque.
   Ces données contiennent des informations de santé : les garder sur un ordinateur protégé
   par mot de passe.

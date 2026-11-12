@@ -9,9 +9,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import QProcess, QSettings, Qt, QTimer, QUrl
+from PySide6.QtCore import QObject, QProcess, QSettings, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QCursor, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QInputDialog,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QInputDialog,
                                QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox,
                                QPushButton, QScrollArea, QSplitter, QTabWidget, QTextBrowser, QToolBar, QToolButton,
                                QVBoxLayout, QWidget)
@@ -61,6 +61,12 @@ class Preview(QWebEngineView):
         super().resizeEvent(e)
         z = min(self.width() / H.PAGE_W, self.height() / H.PAGE_H)
         self.setZoomFactor(max(0.25, min(z, 5.0)))
+
+
+class _Relais(QObject):
+    """Ramène dans la fenêtre les résultats des tâches en arrière-plan (synchronisation, nouvelle version)."""
+    fini = Signal(bool, str)
+    texte = Signal(str)
 
 
 def slug(s: str) -> str:
@@ -231,6 +237,20 @@ class MainWindow(QMainWindow):
         self.set_theme(self.settings.value("theme") or "systeme")
         self.statusBar().showMessage(f"Données locales : {data_dir()}", 8000)
 
+        # synchronisation automatique (toutes les 15 min si activée), sauvegarde quotidienne, nouvelle version
+        self._sync_en_cours = False
+        self.sync_timer = QTimer(self, interval=15 * 60_000)
+        self.sync_timer.timeout.connect(lambda: self.synchroniser(silencieux=True))
+        if self.settings.value("sync_auto", "false") == "true" and self.settings.value("sync_jeton"):
+            self.sync_timer.start()
+            QTimer.singleShot(20_000, lambda: self.synchroniser(silencieux=True))
+        from core import securite as SEC
+        if SEC.sauvegarde_due(self.store):
+            QTimer.singleShot(5000, lambda: self.sauvegarder_maintenant(silencieux=True))
+        self._signal = _Relais()
+        self._signal.texte.connect(self._nouvelle_version)
+        SEC.verifier_version(lambda v: self._signal.texte.emit(v))
+
     # ------------------------------------------------------------------
     def _build_toolbar(self):
         tb = QToolBar("Principal")
@@ -291,8 +311,24 @@ class MainWindow(QMainWindow):
         m5.addSeparator()
         _add(m5, "Exporter un paquet de fiches (.zip)…", self.export_paquet)
         _add(m5, "Importer un paquet de fiches (.zip)…", self.import_paquet)
+        m5.addSeparator()
+        _add(m5, "Synchronisation avec le serveur…", self.reglage_sync)
+        _add(m5, "Synchroniser maintenant", lambda: self.synchroniser(silencieux=False))
+        _add(m5, "Doublons possibles…", self.show_doublons)
+        _add(m5, "Carte des cas…", self.show_carte)
         rip.setMenu(m5)
         tb.addWidget(rip)
+        sec = QToolButton()
+        sec.setText("Sécurité ▾")
+        sec.setPopupMode(QToolButton.InstantPopup)
+        m6 = QMenu(sec)
+        _add(m6, "Mot de passe au démarrage…", self.reglage_mot_de_passe)
+        m6.addSeparator()
+        _add(m6, "Sauvegarde automatique (dossier, clé USB)…", self.reglage_sauvegarde)
+        _add(m6, "Sauvegarder maintenant", lambda: self.sauvegarder_maintenant(silencieux=False))
+        _add(m6, "Reprendre les fiches d'une sauvegarde…", self.restaurer_sauvegarde)
+        sec.setMenu(m6)
+        tb.addWidget(sec)
         tb.addSeparator()
         th = QToolButton()
         th.setText("Thème ▾")
@@ -940,6 +976,205 @@ class MainWindow(QMainWindow):
             self.load_case(cur)
         QMessageBox.information(self, "Paquet importé", b.texte())
 
+    # ---------------------------------------------------- doublons, carte
+    def show_doublons(self):
+        from core import doublons as DB
+        from core import riposte as RIP
+        import html as _h
+        ds = DB.doublons(self._cas_enregistres())
+        rows = "".join(f"<tr><td>{_h.escape(d.certitude)}</td><td>{_h.escape(d.a.code_cas or d.a.titre_court())}</td>"
+                       f"<td>{_h.escape(d.b.code_cas or d.b.titre_court())}</td><td>{_h.escape(d.a.zs)}</td>"
+                       f"<td>{_h.escape(d.raison)}</td></tr>" for d in ds)
+        corps = ('<p class="hint">Rien n\'est supprimé automatiquement : ouvrez les deux fiches dans la liste, gardez la '
+                 "plus complète et supprimez l'autre (récupérable dans l'historique).</p><div class='card'>"
+                 + ("<table class='list'><tr><th>Certitude</th><th>Fiche 1</th><th>Fiche 2</th><th>ZS</th><th>Raison</th></tr>"
+                    + rows + "</table>" if ds else "<p class='muted'>Aucun doublon possible.</p>") + "</div>")
+        self._fenetre_html("Doublons possibles", lambda _v: RIP.page_bureau("Doublons possibles", corps))
+
+    def show_carte(self):
+        from core import carte as CARTE
+        from core import riposte as RIP
+        cases = self._cas_enregistres()
+
+        def rendu(periode):
+            sel = RIP.filtrer(cases, periode, date.today())
+            ct = CARTE.construire(sel)
+            sans = (f"<p class='hint'>{len(ct.sans_position)} cas sans position (ni GPS, ni coordonnées de leur aire "
+                    "ou zone de santé).</p>" if ct.sans_position else "")
+            corps = (f"<p class='hint'>{len(sel)} cas · {ct.n_coord} aire(s) de santé avec coordonnées "
+                     f"(fichier {CARTE.fichier()}).</p><div class='card'>{CARTE.svg(ct)}</div>{sans}")
+            return RIP.page_bureau("Carte des cas", corps)
+        self._fenetre_html("Carte des cas", rendu, [("21 derniers jours", 21), ("42 derniers jours", 42),
+                                                    ("toute la période", None)])
+
+    # ---------------------------------------------------- synchronisation
+    def reglage_sync(self):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Synchronisation avec le serveur")
+        lay = QVBoxLayout(dlg)
+        lab = QLabel("Sur le site, ouvrez « Mon compte » puis « Créer un jeton ». Collez ici l'adresse du site et le "
+                     "jeton. Les fiches de cet ordinateur sont envoyées au serveur, puis celles de votre périmètre "
+                     "sont reçues. Rien n'est effacé : la version la plus récente de chaque fiche l'emporte.")
+        lab.setWordWrap(True)
+        lay.addWidget(lab)
+        url = QLineEdit(self.settings.value("sync_url", "") or "")
+        url.setPlaceholderText("https://adresse-du-site")
+        jet = QLineEdit(self.settings.value("sync_jeton", "") or "")
+        jet.setEchoMode(QLineEdit.Password)
+        jet.setPlaceholderText("mepi_…")
+        auto = QCheckBox("Synchroniser automatiquement toutes les 15 minutes quand internet est disponible")
+        auto.setChecked(self.settings.value("sync_auto", "false") == "true")
+        for t, w in (("Adresse du site", url), ("Jeton", jet)):
+            lay.addWidget(QLabel(t))
+            lay.addWidget(w)
+        lay.addWidget(auto)
+        bb = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        lay.addWidget(bb)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        self.settings.setValue("sync_url", url.text().strip())
+        self.settings.setValue("sync_jeton", jet.text().strip())
+        self.settings.setValue("sync_auto", "true" if auto.isChecked() else "false")
+        if auto.isChecked() and jet.text().strip():
+            self.sync_timer.start()
+        else:
+            self.sync_timer.stop()
+        if url.text().strip() and jet.text().strip():
+            self.synchroniser(silencieux=False)
+
+    def synchroniser(self, silencieux: bool = True):
+        url, jeton = self.settings.value("sync_url", ""), self.settings.value("sync_jeton", "")
+        if not url or not jeton:
+            if not silencieux:
+                self.reglage_sync()
+            return
+        if self._sync_en_cours:
+            return
+        self._sync_en_cours = True
+        self.autosave_now()
+        self.statusBar().showMessage("Synchronisation en cours…")
+        relais = _Relais(self)
+        relais.fini.connect(lambda ok, msg: self._sync_fini(ok, msg, silencieux))
+
+        def run():
+            from core import sync as SYNC
+            try:
+                envoi, recu = SYNC.synchroniser(self.store, url, jeton)
+                relais.fini.emit(True, f"Envoi : {envoi}\nRéception : {recu}")
+            except Exception as exc:
+                relais.fini.emit(False, str(exc))
+        import threading
+        threading.Thread(target=run, daemon=True).start()
+
+    def _sync_fini(self, ok: bool, msg: str, silencieux: bool):
+        self._sync_en_cours = False
+        self.settings.setValue("sync_dernier", datetime.now().isoformat(timespec="seconds") if ok else
+                               self.settings.value("sync_dernier", ""))
+        self.refresh_list()
+        cur = self.store.load(self.case.id)
+        if ok and cur and not self.dirty and cur.model_dump_json() != self.case.model_dump_json():
+            self.load_case(cur)
+        self.statusBar().showMessage(("Synchronisé " + datetime.now().strftime("%H:%M")) if ok else
+                                     f"Synchronisation impossible : {msg}", 10000)
+        if not silencieux:
+            (QMessageBox.information if ok else QMessageBox.warning)(
+                self, "Synchronisation", msg if ok else f"Synchronisation impossible : {msg}")
+
+    # ---------------------------------------------------- sécurité
+    def reglage_mot_de_passe(self):
+        from core import securite as SEC
+        if SEC.a_mot_de_passe(self.store):
+            mdp, ok = QInputDialog.getText(self, "Mot de passe", "Mot de passe actuel (pour le changer ou le retirer) :",
+                                           QLineEdit.Password)
+            if not ok:
+                return
+            if not SEC.verifier_mot_de_passe(self.store, mdp):
+                QMessageBox.warning(self, "Mot de passe", "Mot de passe incorrect.")
+                return
+            if QMessageBox.question(self, "Mot de passe", "Retirer le mot de passe au démarrage ?\n(Non : le changer)") \
+                    == QMessageBox.Yes:
+                SEC.retirer_mot_de_passe(self.store)
+                QMessageBox.information(self, "Mot de passe", "Mot de passe retiré.")
+                return
+        n1, ok = QInputDialog.getText(self, "Mot de passe au démarrage",
+                                      "Nouveau mot de passe (8 caractères, lettres et chiffres) :", QLineEdit.Password)
+        if not ok or not n1:
+            return
+        n2, ok = QInputDialog.getText(self, "Mot de passe au démarrage", "Confirmez le mot de passe :", QLineEdit.Password)
+        if not ok:
+            return
+        if n1 != n2:
+            QMessageBox.warning(self, "Mot de passe", "Les deux mots de passe ne correspondent pas.")
+            return
+        try:
+            SEC.definir_mot_de_passe(self.store, n1)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Mot de passe", str(exc))
+            return
+        QMessageBox.information(self, "Mot de passe", (
+            "Le mot de passe sera demandé à chaque ouverture de l'application. Notez-le : sans lui, seule une "
+            "personne ayant accès au dossier de données peut récupérer les fiches.\n\nPour protéger les données en "
+            "cas de vol de l'ordinateur, activez aussi le chiffrement du disque (BitLocker sous Windows, FileVault "
+            "sur Mac)."))
+
+    def reglage_sauvegarde(self):
+        from core import securite as SEC
+        d = QFileDialog.getExistingDirectory(self, "Dossier des sauvegardes automatiques (clé USB, disque externe…)",
+                                             SEC.lire(self.store, "dossier_sauvegarde") or str(Path.home()))
+        if not d:
+            return
+        SEC.ecrire(self.store, "dossier_sauvegarde", d)
+        self.sauvegarder_maintenant(silencieux=False)
+
+    def sauvegarder_maintenant(self, silencieux: bool = True):
+        from core import securite as SEC
+        d = SEC.lire(self.store, "dossier_sauvegarde")
+        if not d:
+            if not silencieux:
+                self.reglage_sauvegarde()
+            return
+        self.autosave_now()
+        try:
+            out = SEC.sauvegarder(self.store, d)
+        except Exception as exc:
+            log.exception("Sauvegarde")
+            self.statusBar().showMessage(f"Sauvegarde impossible ({exc}) : la clé USB est-elle branchée ?", 12000)
+            if not silencieux:
+                QMessageBox.warning(self, "Sauvegarde", f"Sauvegarde impossible dans {d} :\n{exc}")
+            return
+        self.statusBar().showMessage(f"Sauvegarde : {out}", 8000)
+        if not silencieux:
+            QMessageBox.information(self, "Sauvegarde", (
+                f"Sauvegarde enregistrée :\n{out}\n\nUne sauvegarde est faite chaque jour et à la fermeture ; les 20 "
+                "dernières sont gardées. Ce fichier contient des données de santé : gardez la clé USB en lieu sûr."))
+
+    def restaurer_sauvegarde(self):
+        from core import securite as SEC
+        path, _ = QFileDialog.getOpenFileName(self, "Reprendre les fiches d'une sauvegarde",
+                                              SEC.lire(self.store, "dossier_sauvegarde") or str(Path.home()),
+                                              "Sauvegarde Mapping Épi (*.sqlite)")
+        if not path:
+            return
+        self.autosave_now()
+        try:
+            b = SEC.restaurer(self.store, path, storage.current_user())
+        except Exception as exc:
+            QMessageBox.warning(self, "Sauvegarde", f"Fichier illisible : {exc}")
+            return
+        self.refresh_list()
+        QMessageBox.information(self, "Sauvegarde", "Fiches reprises (rien de plus récent n'est écrasé) : " + b.texte())
+
+    def _nouvelle_version(self, v: str):
+        if self.settings.value("version_signalee") == v:
+            self.statusBar().showMessage(f"Nouvelle version {v} disponible.", 10000)
+            return
+        self.settings.setValue("version_signalee", v)
+        QMessageBox.information(self, "Nouvelle version", (
+            f"Une nouvelle version de Mapping Épi ({v}) est disponible.\n\nDemandez l'installateur à votre "
+            "coordination, puis installez-le par-dessus l'ancien : les fiches sont conservées."))
+
     # ------------------------------------------------------- utilisateurs
     def manage_users(self):
         UsersDialog(self.store, self).exec()
@@ -1009,4 +1244,11 @@ class MainWindow(QMainWindow):
                 self.store.save(self.case)
         except Exception:
             log.exception("Sauvegarde à la fermeture")
+        try:
+            from core import securite as SEC
+            d = SEC.lire(self.store, "dossier_sauvegarde")
+            if d and Path(d).is_dir():
+                SEC.sauvegarder(self.store, d)
+        except Exception:
+            log.exception("Sauvegarde automatique à la fermeture")
         super().closeEvent(e)

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import re
@@ -125,6 +126,9 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     @app.before_request
     def check_csrf():
+        # synchronisation du bureau : authentifiée par jeton personnel (en-tête), jamais par cookie de session
+        if request.path.startswith("/api/sync/"):
+            return
         if request.method in ("POST", "PUT", "DELETE"):
             sent = request.headers.get("X-CSRF") or request.form.get("csrf")
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
@@ -234,11 +238,49 @@ def create_app(store: storage.Store | None = None) -> Flask:
         session.clear()
         return redirect(url_for("login"))
 
+    # ------------------------------------------- synchronisation de l'application de bureau (jetons)
+    def _sync_user():
+        from core import sync as SYNC
+        auth = request.headers.get("Authorization", "")
+        uname = SYNC.verifier(app.store, auth[7:].strip()) if auth.startswith("Bearer ") else None
+        u = app.users.get(uname) if uname else None
+        if not u or not u.actif:
+            abort(Response(json.dumps({"error": "Jeton invalide ou révoqué : créez-en un dans « Mon compte »."}),
+                           status=401, mimetype="application/json"))
+        g.user = u
+        return u
+
+    @app.route("/api/sync/envoyer", methods=["POST"])
+    def sync_envoyer():
+        from core import echanges as ECH
+        u = _sync_user()
+        acc = access()
+        try:
+            b = ECH.importer_paquet(app.store, request.get_data(), u.username, u.username,
+                                    lambda c, own: acc.can_edit(c, own))
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        return jsonify(bilan=b.texte(), compte=u.username)
+
+    @app.route("/api/sync/recevoir")
+    def sync_recevoir():
+        from core import echanges as ECH
+        u = _sync_user()
+        return send_file(io.BytesIO(ECH.paquet_bytes(visible_cases(), u.username, u.perimetre)),
+                         mimetype="application/zip", download_name="paquet.zip")
+
     @app.route("/mon-compte", methods=["GET", "POST"])
     @login_required
     def account():
+        from core import sync as SYNC
         msg = err = None
-        if request.method == "POST":
+        nouveau_jeton = None
+        if request.method == "POST" and request.form.get("action") == "jeton":
+            nouveau_jeton = SYNC.creer_jeton(app.store, g.user.username, request.form.get("nom", "").strip())
+        elif request.method == "POST" and request.form.get("action") == "revoquer":
+            SYNC.revoquer(app.store, g.user.username, int(request.form.get("id", "0") or 0))
+            msg = "Jeton révoqué : l'ordinateur concerné ne peut plus se synchroniser."
+        elif request.method == "POST":
             if not app.users.authenticate(g.user.username, request.form.get("old", "")):
                 err = "Mot de passe actuel incorrect."
             elif request.form.get("new") != request.form.get("new2"):
@@ -249,7 +291,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     msg = "Mot de passe modifié."
                 except ValueError as exc:
                     err = str(exc)
-        return render_template("account.html", msg=msg, err=err)
+        return render_template("account.html", msg=msg, err=err, jetons=SYNC.jetons(app.store, g.user.username),
+                               nouveau_jeton=nouveau_jeton, adresse=request.host_url.rstrip("/"))
 
     @app.route("/utilisateurs", methods=["GET", "POST"])
     @login_required
@@ -460,6 +503,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         recents = RIP.filtrer(allc, periode, ref, prov)
         cb = RIP.courbe(tous)
         return render_template("riposte.html", frag=RIP.html_indicateurs(RIP.indicateurs(recents)),
+                               repro=RIP.reproduction(tous, ref),
                                courbe=RIP.courbe_svg(cb), cb=cb, prov=prov, periode=periode, ref=ref,
                                provinces=provinces, n_tous=len(tous), n_recents=len(recents))
 
@@ -473,6 +517,58 @@ def create_app(store: storage.Store | None = None) -> Flask:
         items = RIP.actions_ouvertes(RIP.filtrer(allc, None, ref, prov), ref, toutes)
         return render_template("actions.html", frag=RIP.html_actions(items, lambda c: url_for("editor", cid=c.id)),
                                bilan=RIP.bilan_actions(items), prov=prov, provinces=provinces, toutes=toutes)
+
+    @app.route("/riposte/carte", methods=["GET", "POST"])
+    @login_required
+    def riposte_carte():
+        """Carte des cas : GPS de la fiche, sinon coordonnées de l'aire de santé, sinon centre de la ZS."""
+        from core import carte as CARTE
+        if request.method == "POST":
+            if not (g.user.is_admin or g.user.niveau == "national"):
+                abort(403)
+            f = request.files.get("coordonnees")
+            n = CARTE.enregistrer(f.read().decode("utf-8", "replace")) if f else 0
+            flash(f"{n} aire(s) de santé avec coordonnées enregistrée(s)." if n else
+                  "Aucune coordonnée valide : colonnes attendues province;zone_sante;aire_sante;latitude;longitude.",
+                  "ok" if n else "err")
+            return redirect(url_for("riposte_carte"))
+        allc, prov, periode, ref, provinces = _filtres_riposte()
+        from core import riposte as RIP
+        cases_ = RIP.filtrer(allc, periode, ref, prov)
+        ct = CARTE.construire(cases_)
+        return render_template("carte.html", svg=CARTE.svg(ct, ref), carte=ct, prov=prov, periode=periode,
+                               ref=ref, provinces=provinces, n=len(cases_))
+
+    @app.route("/riposte/reunion")
+    @login_required
+    def riposte_reunion():
+        """Diaporama du briefing : chiffres, courbe, alertes, actions en retard, nouveaux cas (mapping)."""
+        from core import indicateurs as IND
+        from core import riposte as RIP
+        allc, prov, _periode, ref, _provinces = _filtres_riposte()
+        jours = request.args.get("depuis", "1")
+        jours = int(jours) if jours.isdigit() else 1
+        tous = RIP.filtrer(allc, None, ref, prov)
+        crees = app.store.created_dates()
+        nouveaux = []
+        for c in tous:
+            d, _ = IND.date_notification(c)
+            cr = (crees.get(c.id) or "")[:10]
+            if (d and 0 <= (ref - d).days <= jours) or (cr and 0 <= (ref - date.fromisoformat(cr)).days <= jours):
+                nouveaux.append(c)
+        ind = [i for i in RIP.indicateurs(RIP.filtrer(allc, 21, ref, prov)) if i.statut == "alerte"]
+        al = [a for a in IND.alertes_foyers(tous) if 0 <= (ref - a.quand).days <= 21]
+        acts = [a for a in RIP.actions_ouvertes(tous, ref) if a.retard]
+        zones = [z for z in IND.zones(tous, ref) if z.cat.get("num") in (1, 2)]
+        return render_template("reunion.html", nouveaux=nouveaux, ind=ind, alertes=al, actions=acts, zones=zones,
+                               courbe=RIP.courbe_svg(RIP.courbe(tous)), ref=ref, jours=jours, prov=prov,
+                               n_tous=len(tous), n_deces=sum(1 for c in tous if c.issue == "Décès"))
+
+    @app.route("/donnees/doublons")
+    @login_required
+    def donnees_doublons():
+        from core import doublons as DB
+        return render_template("doublons.html", doublons=DB.doublons(visible_cases()))
 
     @app.route("/donnees", methods=["GET", "POST"])
     @login_required

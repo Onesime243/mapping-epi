@@ -150,6 +150,7 @@
     ppl.addEventListener('change', majPV); vac.addEventListener('change', majPV);
     g.appendChild(field('Agent de santé / prestataire (PPL) *', ppl)); g.appendChild(pplF);
     g.appendChild(field('Vacciné *', vac)); g.appendChild(vacF); majPV();
+    g.appendChild(field("Début de la vaccination de l'anneau", inp('date_debut_anneau', 'date', {min: minDate()})));
 
     // Province → ZS → AS (pyramide sanitaire RDC)
     const prov = el('select'), zs = el('select'), as = el('input', {placeholder: 'choisir ou saisir…'});
@@ -179,6 +180,7 @@
     g.appendChild(field('Longitude', lon));
     g.appendChild(field('Date de notification *', req(inp('date_notification', 'date', {min: minDate()}), 'date_notification')));
     g.appendChild(field('Date de confirmation *', inp('date_confirmation', 'date', {min: minDate()})));
+    g.appendChild(field('Séquençage (clade, lignée)', inp('sequencage', 'text', {placeholder: 'ex. lignée 2026-A, lié au cas …'})));
     g.appendChild(field('État du cas *', req(sel('issue', S.choices.issues), 'issue')));
     g.appendChild(field('Risque global', sel('risque_global', [''].concat(S.choices.risks), 'Automatique')));
     g.appendChild(field('Investigateur *', inp('investigateur')));

@@ -19,6 +19,7 @@
 <body>
 <header class="topbar">
   <a class="brand" href="/">Mapping Épi <small>parcours épidémiologique</small></a>
+  <button type="button" class="nav-toggle" aria-label="Menu" onclick="this.parentNode.classList.toggle('open')">☰ Menu</button>
   <nav>
     {% if me %}
       <a href="{{ url_for('cases') }}">{{ "Mes cas" if me.niveau == "aire" and not me.is_admin else "Cas" }}</a>
@@ -35,7 +36,9 @@
         <button type="button" class="menu-btn" aria-haspopup="true">Riposte ▾</button>
         <div class="menu-list">
           <a href="{{ url_for('riposte_indicateurs') }}">Indicateurs clés et courbe épidémique</a>
+          <a href="{{ url_for('riposte_carte') }}">Carte des cas</a>
           <a href="{{ url_for('riposte_actions') }}">Suivi des actions</a>
+          <a href="{{ url_for('riposte_reunion') }}" target="_blank" rel="noopener">Mode réunion (diaporama)</a>
         </div>
       </div>
       <div class="menu">
@@ -44,6 +47,7 @@
           <a href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">Liste des cas (Excel)</a>
           <a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">Rapport de situation (Word)</a>
           <a href="{{ url_for('donnees_page') }}">Échanger des fiches (paquet hors ligne)</a>
+          <a href="{{ url_for('donnees_doublons') }}">Doublons possibles</a>
         </div>
       </div>
       {% if me.is_admin or me.niveau == "national" %}

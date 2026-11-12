@@ -19,6 +19,13 @@
   {{ frag|safe }}
 </div>
 <div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Nombre de reproduction observé</h2>
+  <p style="font-size:22px; font-weight:750; margin:4px 0">{{ "%.2f"|format(repro.r) if repro.r is not none else "?" }}
+    <span class="muted" style="font-size:14px; font-weight:400">cas secondaires reliés par cas</span></p>
+  <p class="hint">{{ repro.note }}. Au-dessus de 1, l'épidémie progresse ; en dessous, elle recule. Estimation simple
+    à partir des liens « ID du cas source » saisis dans l'outil, à interpréter avec l'équipe épidémiologique.</p>
+</div>
+<div class="card" style="margin-top:14px">
   <h2 style="margin-top:0">Courbe épidémique : cas par semaine de début de la maladie</h2>
   <p class="hint">Semaine du J0 retenu (date rapportée corrigée selon la phase des premiers signes), par zone de santé, depuis le début.
     {% if cb.par_notification %}{{ cb.par_notification }} cas sans date de début placé(s) à la date de notification. {% endif %}

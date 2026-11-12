@@ -1,0 +1,106 @@
+# Construit les installateurs de l'application de bureau (sans connexion à l'usage) :
+#   Windows : MappingEpi-<version>-Windows-Installation.exe (Inno Setup)
+#   Mac     : MappingEpi-<version>-Mac-arm64.dmg (Apple M1 à M4) et Mac-x86_64.dmg (Intel)
+# Lancement : onglet Actions > « Installateurs » > Run workflow, ou en poussant une étiquette v1.0.0.
+# Les tests passent d'abord : un installateur n'est construit que si tout fonctionne.
+# Les fichiers sont dans les « Artifacts » de l'exécution ; avec une étiquette, ils sont aussi publiés en Release.
+name: Installateurs
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  construire:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            nom: Windows
+          - os: macos-15
+            nom: Mac-arm64
+          - os: macos-15-intel
+            nom: Mac-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dépendances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pyinstaller>=6.16"
+
+      - name: Tests
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Application (PyInstaller)
+        run: python -m PyInstaller packaging/mapping_epi.spec --noconfirm --distpath dist --workpath build
+
+      - name: Essai du rendu d'un mapping avec l'application construite
+        shell: bash
+        env:
+          MAPPING_EPI_DONNEES: ${{ runner.temp }}/donnees
+          QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM: "1"
+        run: |
+          python -c "import json;c=json.load(open('sample_data/cas_exemple_fictif.json',encoding='utf-8'));json.dump({'case':c,'visual':'mapping','fmt':'png','out':'essai.png','others':[],'zone':'','focus':True,'source':None},open('job.json','w'))"
+          if [ "$RUNNER_OS" = "Windows" ]; then BIN="dist/Mapping Epi/Mapping Epi.exe"; else BIN="dist/Mapping Epi.app/Contents/MacOS/Mapping Epi"; fi
+          "$BIN" --rendu job.json
+          test -s essai.png && echo "Rendu OK : $(wc -c < essai.png) octets"
+
+      - name: Installateur Windows (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $v = (Get-Content packaging/VERSION).Trim()
+          choco install innosetup --no-progress -y
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" packaging\windows\mapping_epi.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Installateur Mac (.dmg)
+        if: runner.os == 'macOS'
+        run: |
+          V="$(cat packaging/VERSION)"
+          STAGE="$(mktemp -d)"
+          cp -R "dist/Mapping Epi.app" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          cp packaging/LISEZMOI-installation.txt "$STAGE/LISEZMOI.txt"
+          hdiutil create -volname "Mapping Épi $V" -srcfolder "$STAGE" -ov -format UDZO "dist/MappingEpi-$V-${{ matrix.nom }}.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MappingEpi-${{ matrix.nom }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+          if-no-files-found: error
+
+  publier:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: construire
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: installateurs
+          merge-multiple: true
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" installateurs/* packaging/LISEZMOI-installation.txt \
+            --title "Mapping Épi ${GITHUB_REF_NAME#v} : application de bureau" \
+            --notes "Installateurs de l'application de bureau, utilisable sans connexion. Voir LISEZMOI-installation.txt."

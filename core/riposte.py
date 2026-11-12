@@ -188,6 +188,20 @@ def indicateurs(cases: List[Case]) -> List[Indic]:
     out.append(Indic("Contacts", "Cas avec au moins un groupe de contacts listé", len(dn), n, 0, "100 %", "haut",
                      95, 80, cas=[_code(c) for c in cases if not c.contacts]))
 
+    # -- vaccination en anneau
+    lv = sum(g.nombre for c in cases for g in c.contacts if g.nombre is not None and g.vaccines is not None)
+    vv = sum(g.vaccines for c in cases for g in c.contacts if g.nombre is not None and g.vaccines is not None)
+    sans_v = sum(1 for c in cases for g in c.contacts if g.vaccines is None)
+    out.append(Indic("Vaccination en anneau", "Contacts vaccinés parmi les contacts listés", vv, lv, sans_v,
+                     "≥ 90 %", "haut", 90, 70, note="colonne « Vaccinés » des groupes de contacts"))
+    dl = [(c.date_debut_anneau - c.date_confirmation).days for c in cases
+          if c.date_debut_anneau and c.date_confirmation and c.date_debut_anneau >= c.date_confirmation]
+    out.append(Indic("Vaccination en anneau", "Délai médian confirmation → début de l'anneau",
+                     median(dl) if dl else None, None, n - len(dl), "≤ 3 j", "bas", 3, 7, unite="j",
+                     note="date « Début de la vaccination de l'anneau » de la fiche"))
+    out.append(Indic("Vaccination en anneau", "Cas avec un anneau vacciné", len(dl), n, 0, "100 %", "haut", 90, 70,
+                     cas=[_code(c) for c in cases if not c.date_debut_anneau]))
+
     # -- populations particulières
     ppl = [c for c in cases if c.agent_sante != "Inconnu"]
     out.append(Indic("Populations", "Cas parmi les agents de santé (PPL)", sum(1 for c in ppl if c.agent_sante == "Oui"),
@@ -198,12 +212,47 @@ def indicateurs(cases: List[Case]) -> List[Indic]:
     out.append(Indic("Populations", "Cas vaccinés", sum(1 for c in vac if c.vaccine == "Oui"), len(vac),
                      n - len(vac), "", "info", note="statut vaccinal renseigné dans la fiche"))
 
+    # -- séquençage
+    sq = [c for c in cases if c.date_confirmation]
+    out.append(Indic("Laboratoire", "Cas confirmés avec un résultat de séquençage", sum(1 for c in sq if c.sequencage.strip()),
+                     len(sq), 0, "", "info", note="confirme ou corrige les chaînes de transmission"))
+
     # -- qualité des données
     comp = [rules.completeness(c)[0] for c in cases]
     out.append(Indic("Qualité des données", "Fiches complètes à 80 % ou plus", sum(1 for x in comp if x >= 80), n, 0,
                      "≥ 90 %", "haut", 90, 70,
                      cas=[_code(c) for c, x in zip(cases, comp) if x < 80]))
     return out
+
+
+# ---------------------------------------------------------------------------
+# nombre de reproduction observé (à partir des chaînes reliées dans l'outil)
+# ---------------------------------------------------------------------------
+@dataclass
+class Reproduction:
+    r: Optional[float]
+    cas_utilises: int
+    secondaires: int
+    note: str
+
+
+def reproduction(cases: List[Case], ref: Optional[date] = None, recul: int = 42) -> Reproduction:
+    """Nombre moyen de cas secondaires reliés par cas, pour les cas assez anciens (début > `recul` jours)
+    pour que leurs cas secondaires aient pu apparaître. Sous-estime si des liens ne sont pas saisis."""
+    from core.links import _id
+    ref = ref or date.today()
+    enfants = Counter(_id(c.id_cas_source) for c in cases if c.id_cas_source.strip())
+    anciens = []
+    for c in cases:
+        d, _src = date_debut(c)
+        if d and (ref - d).days > recul and c.code_cas.strip():
+            anciens.append(c)
+    if not anciens:
+        return Reproduction(None, 0, 0, f"aucun cas avec un début de maladie de plus de {recul} jours")
+    sec = sum(enfants.get(_id(c.code_cas), 0) for c in anciens)
+    return Reproduction(sec / len(anciens), len(anciens), sec,
+                        f"{sec} cas secondaires reliés à {len(anciens)} cas de plus de {recul} jours ; sous-estimé si "
+                        "des liens (ID du cas source) ne sont pas saisis")
 
 
 # ---------------------------------------------------------------------------

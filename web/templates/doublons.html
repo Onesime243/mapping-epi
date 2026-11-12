@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Doublons possibles · Mapping Épi{% endblock %}
+{% block content %}
+<h1>Doublons possibles</h1>
+<p class="hint">Même N° EPID (certitude forte), ou même zone de santé, sexe, âge (± 1 an) et début des symptômes (± 2 jours) :
+  à vérifier. Rien n'est supprimé ni fusionné automatiquement : ouvrez les deux fiches, gardez la plus complète et
+  supprimez l'autre (elle reste récupérable dans l'historique).</p>
+<div class="card">
+  {% if doublons %}
+  <div style="overflow-x:auto"><table class="list">
+    <tr><th>Certitude</th><th>Fiche 1</th><th>Fiche 2</th><th>ZS</th><th>Raison</th></tr>
+    {% for d in doublons %}
+    <tr><td><span class="pill"{% if d.certitude == "forte" %} style="color: var(--danger)"{% endif %}>{{ d.certitude }}</span></td>
+      <td><a href="{{ url_for('editor', cid=d.a.id) }}">{{ d.a.code_cas or d.a.titre_court() }}</a></td>
+      <td><a href="{{ url_for('editor', cid=d.b.id) }}">{{ d.b.code_cas or d.b.titre_court() }}</a></td>
+      <td>{{ d.a.zs }}</td><td>{{ d.raison }}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="muted">Aucun doublon possible dans votre périmètre.</p>{% endif %}
+</div>
+{% endblock %}

@@ -59,6 +59,23 @@ def _excepthook(exc_type, exc, tb):
         pass
 
 
+def _deverrouiller(store) -> bool:
+    """Mot de passe de démarrage (menu Sécurité ▾), s'il a été défini."""
+    from core import securite as SEC
+    if not SEC.a_mot_de_passe(store):
+        return True
+    from PySide6.QtWidgets import QInputDialog, QLineEdit
+    for essai in range(5):
+        mdp, ok = QInputDialog.getText(None, "Mapping Épi", "Mot de passe :" if not essai else
+                                       "Mot de passe incorrect. Réessayez :", QLineEdit.Password)
+        if not ok:
+            return False
+        if SEC.verifier_mot_de_passe(store, mdp):
+            return True
+    QMessageBox.warning(None, "Mapping Épi", "Trop d'essais. L'application se ferme.")
+    return False
+
+
 def main() -> int:
     sys.excepthook = _excepthook
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
@@ -75,6 +92,9 @@ def main() -> int:
         app.setFont(QFont("Inter", 10))
     from ui.main_window import MainWindow
     store = Store()
+    if not _deverrouiller(store):
+        store.close()
+        return 0
     win = MainWindow(store)
     win.show()
     code = app.exec()

@@ -52,6 +52,7 @@ CONTACT_COLS = [
                                                   "Voisins", "Collègues"], width=247),
         Col("lien", "Lien avec le cas", width=182), Col("nombre", "Nombre (? = inconnu)", "int?", width=169),
         Col("libelle_nombre", "Libellé", width=91, tip="ex. « listés »"), Col("suivis", "Suivis", "int?", width=91),
+        Col("vaccines", "Vaccinés", "int?", width=91, tip="contacts vaccinés (anneau) ; ? = inconnu"),
         Col("risque", "Risque", "choice", theme.CONTACT_RISK_CHOICES, width=123),
         Col("lieu", "Lieu de contact", width=195, complete=True), Col("dernier_contact", "Dernier contact", "date", width=143),
         Col("_fin", "Fin du suivi", "computed", width=130)]
