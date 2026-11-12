@@ -284,3 +284,11 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
 - **Exemple fictif en mode entraînement** (`Case.entrainement`, ou ID commençant par « FICTIF ») : visible par son
   auteur seulement, jamais compté dans la liste des cas, les analyses, la carte, les exports ni la synchronisation.
   Un seul exemple par compte, recommencé à chaque clic.
+
+## Version 1.5 : langue, thème clair, accueil
+
+- **Langue** (menu FR ▾ / EN ▾ de la barre du haut) : français ou anglais, gardé pour le compte (`web/i18n.py`,
+  table `preferences`). Traduits : connexion, accueil, menus, liste des cas, pied de page. Le formulaire de la fiche
+  et les visuels produits restent en français pour l'instant.
+- **Thème clair par défaut** ; le bouton Thème reste disponible (choix gardé sur le navigateur).
+- **Message de bienvenue** sur l'accueil (champs obligatoires, enregistrement) et **pied de page** collé en bas.

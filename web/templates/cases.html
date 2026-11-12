@@ -1,48 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Mes cas · Mapping Épi{% endblock %}
+{% block title %}{{ t('Mes cas') }} · Mapping Épi{% endblock %}
 {% macro sort_link(k) -%}
   {%- set next_order = ("asc" if desc else "desc") if tri == k else ("desc" if k in ("updated", "cree", "j0") else "asc") -%}
-  <a class="sort{% if tri == k %} on{% endif %}" href="{{ url_for('cases', **dict(args, tri=k, ordre=next_order)) }}">{{ sorts[k] }}{% if tri == k %} {{ "▼" if desc else "▲" }}{% endif %}</a>
+  <a class="sort{% if tri == k %} on{% endif %}" href="{{ url_for('cases', **dict(args, tri=k, ordre=next_order)) }}">{{ t(sorts[k]) }}{% if tri == k %} {{ "▼" if desc else "▲" }}{% endif %}</a>
 {%- endmacro %}
 {% set multi = me.is_admin or me.niveau != "aire" %}
 {% block content %}
 <div class="row" style="justify-content:space-between; margin-bottom:10px">
   <div>
-    <a class="muted" href="{{ url_for('home') }}">← Accueil</a>
-    <h1 style="margin:2px 0 0">{{ "Mes cas" if not multi else "Tous les cas" if me.is_admin or me.niveau == "national" else "Cas de mon périmètre" }}</h1>
-    <div class="muted" style="font-size:14px">{{ me.niveau_label }}{% if me.is_admin %} · administrateur{% endif %} : {{ me.perimetre }}</div>
+    <a class="muted" href="{{ url_for('home') }}">{{ t("← Accueil") }}</a>
+    <h1 style="margin:2px 0 0">{{ t("Mes cas") if not multi else t("Tous les cas") if me.is_admin or me.niveau == "national" else t("Cas de mon périmètre") }}</h1>
+    <div class="muted" style="font-size:14px">{{ t(me.niveau_label) }}{% if me.is_admin %} · {{ t("administrateur") }}{% endif %} : {{ t(me.perimetre) }}</div>
   </div>
-  <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">＋ Nouveau cas</button></form>
+  <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t("＋ Nouveau cas") }}</button></form>
 </div>
 <div class="onglets">
-  <a class="onglet{% if onglet == 'cas' %} on{% endif %}" href="{{ url_for('cases') }}">Enregistrés ({{ total }})</a>
-  <a class="onglet{% if onglet == 'brouillons' %} on{% endif %}" href="{{ url_for('cases', onglet='brouillons') }}">Brouillons ({{ brouillons|length }})</a>
-  {% if exemples %}<a class="onglet{% if onglet == 'exemples' %} on{% endif %}" href="{{ url_for('cases', onglet='exemples') }}">Exemple fictif ({{ exemples|length }})</a>{% endif %}
+  <a class="onglet{% if onglet == 'cas' %} on{% endif %}" href="{{ url_for('cases') }}">{{ t("Enregistrés") }} ({{ total }})</a>
+  <a class="onglet{% if onglet == 'brouillons' %} on{% endif %}" href="{{ url_for('cases', onglet='brouillons') }}">{{ t("Brouillons") }} ({{ brouillons|length }})</a>
+  {% if exemples %}<a class="onglet{% if onglet == 'exemples' %} on{% endif %}" href="{{ url_for('cases', onglet='exemples') }}">{{ t("Exemple fictif") }} ({{ exemples|length }})</a>{% endif %}
 </div>
 {% if onglet == 'brouillons' %}
 <div class="card">
-  <p class="hint">Fiches commencées mais pas encore enregistrées. Ouvrez-en une pour la terminer. Une fiche laissée vide
-    est supprimée automatiquement après 24 heures.</p>
+  <p class="hint">{{ t("Fiches commencées mais pas encore enregistrées. Ouvrez-en une pour la terminer. Une fiche laissée vide est supprimée automatiquement après 24 heures.") }}</p>
   {% if brouillons %}
   <table class="list">
-    <tr><th>Fiche</th><th>Zone de santé</th><th>Aire de santé</th><th>Modifiée le</th><th></th></tr>
+    <tr><th>{{ t("Fiche") }}</th><th>{{ t("Zone de santé") }}</th><th>{{ t("Aire de santé") }}</th><th>{{ t("Modifiée le") }}</th><th></th></tr>
     {% for cid, upd, c in brouillons %}
-    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Nouvelle fiche" }}</a></td><td>{{ c.zs or "?" }}</td>
+    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or t("Nouvelle fiche") }}</a></td><td>{{ c.zs or "?" }}</td>
       <td>{{ c.aire_sante or "?" }}</td><td class="muted">{{ upd[:16].replace("T", " ") }}</td>
-      <td style="text-align:right"><span class="pill ro">incomplet</span> <a class="btn small" href="{{ url_for('editor', cid=cid) }}">Ouvrir</a></td></tr>
+      <td style="text-align:right"><span class="pill ro">{{ t("incomplet") }}</span> <a class="btn small" href="{{ url_for('editor', cid=cid) }}">{{ t("Ouvrir") }}</a></td></tr>
     {% endfor %}
   </table>
-  {% else %}<p class="muted">Aucun brouillon.</p>{% endif %}
+  {% else %}<p class="muted">{{ t("Aucun brouillon.") }}</p>{% endif %}
 </div>
 {% elif onglet == 'exemples' %}
 <div class="card">
-  <p class="hint">Mode entraînement : cet exemple est visible par vous seul et n'est jamais compté avec les vrais cas
-    (liste, analyses, carte, synchronisation).</p>
+  <p class="hint">{{ t("Mode entraînement : cet exemple est visible par vous seul et n'est jamais compté avec les vrais cas (liste, analyses, carte, synchronisation).") }}</p>
   <table class="list">
-    <tr><th>Fiche</th><th>Zone de santé</th><th>Modifiée le</th><th></th></tr>
+    <tr><th>{{ t("Fiche") }}</th><th>{{ t("Zone de santé") }}</th><th>{{ t("Modifiée le") }}</th><th></th></tr>
     {% for cid, upd, c in exemples %}
     <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Exemple" }}</a></td><td>{{ c.zs }}</td>
-      <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=cid) }}">Ouvrir</a></td></tr>
+      <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=cid) }}">{{ t("Ouvrir") }}</a></td></tr>
     {% endfor %}
   </table>
 </div>
@@ -50,25 +48,26 @@
 <div class="card">
   <form class="filters" method="get">
     <input type="hidden" name="tri" value="{{ tri }}"><input type="hidden" name="ordre" value="{{ 'desc' if desc else 'asc' }}">
-    <input name="q" value="{{ q }}" placeholder="Rechercher (ID, ZS, AS, maladie{% if multi %}, agent{% endif %}…)">
+    <input name="q" value="{{ q }}" placeholder="{{ t('Rechercher (ID, ZS, AS, maladie, agent…)') if multi else t('Rechercher (ID, ZS, AS, maladie…)') }}">
     {% if multi %}
-    <select name="agent" onchange="this.form.submit()"><option value="">Tous les comptes</option>
+    <select name="agent" onchange="this.form.submit()"><option value="">{{ t("Tous les comptes") }}</option>
       {% for o in opts.agent %}<option{% if f.agent == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
     {% endif %}
-    <select name="province" onchange="this.form.zs.value=''; this.form['as'].value=''; this.form.submit()"><option value="">Toutes les provinces</option>
+    <select name="province" onchange="this.form.zs.value=''; this.form['as'].value=''; this.form.submit()"><option value="">{{ t("Toutes les provinces") }}</option>
       {% for o in opts.province %}<option{% if f.province == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
-    <select name="zs" onchange="this.form['as'].value=''; this.form.submit()"><option value="">Toutes les ZS</option>
+    <select name="zs" onchange="this.form['as'].value=''; this.form.submit()"><option value="">{{ t("Toutes les ZS") }}</option>
       {% for o in opts.zs %}<option{% if f.zs == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
-    <select name="as" onchange="this.form.submit()"><option value="">Toutes les AS</option>
+    <select name="as" onchange="this.form.submit()"><option value="">{{ t("Toutes les AS") }}</option>
       {% for o in opts['as'] %}<option{% if f['as'] == o %} selected{% endif %}>{{ o }}</option>{% endfor %}</select>
-    <button class="btn">Filtrer</button>
-    {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">Effacer</a>{% endif %}
+    <button class="btn">{{ t("Filtrer") }}</button>
+    {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">{{ t("Effacer") }}</a>{% endif %}
   </form>
-  <p class="hint">{{ items|length }} fiche(s) affichée(s) sur {{ total }}.
-    {% if me.is_admin %}En tant qu'administrateur, vous voyez et corrigez les mappings de <b>tous les comptes</b>.
-    {% elif me.niveau == "zone" %}Vous voyez et corrigez les cas de votre zone de santé, dont ceux de ses aires de santé.
-    {% elif me.niveau in ("province", "national") %}Vous voyez les cas de {{ "toutes les provinces" if me.niveau == "national" else "votre province" }} ; les fiches des autres comptes s'ouvrent en lecture seule.
-    {% endif %}Cliquez sur un titre de colonne pour trier.</p>
+  <p class="hint">{% if lang == "en" %}{{ items|length }} of {{ total }} record(s) shown.{% else %}{{ items|length }} fiche(s) affichée(s) sur {{ total }}.{% endif %}
+    {% if me.is_admin %}{{ t("En tant qu'administrateur, vous voyez et corrigez les mappings de tous les comptes.") }}
+    {% elif me.niveau == "zone" %}{{ t("Vous voyez et corrigez les cas de votre zone de santé, dont ceux de ses aires de santé.") }}
+    {% elif me.niveau == "national" %}{{ t("Vous voyez les cas de toutes les provinces ; les fiches des autres comptes s'ouvrent en lecture seule.") }}
+    {% elif me.niveau == "province" %}{{ t("Vous voyez les cas de votre province ; les fiches des autres comptes s'ouvrent en lecture seule.") }}
+    {% endif %}{{ t("Cliquez sur un titre de colonne pour trier.") }}</p>
   {% if items %}
   <div style="overflow-x:auto"><table class="list">
     <tr><th>{{ sort_link("code") }}</th><th>{{ sort_link("province") }}</th><th>{{ sort_link("zs") }}</th><th>{{ sort_link("as") }}</th><th>{{ sort_link("j0") }}</th>{% if multi %}<th>{{ sort_link("owner") }}</th>{% endif %}<th>{{ sort_link("cree") }}</th><th>{{ sort_link("updated") }}</th><th></th></tr>
@@ -76,11 +75,11 @@
     <tr>
       <td><a href="{{ url_for('editor', cid=it.id) }}"><b>{{ it.code or it.titre }}</b></a><div class="muted" style="font-size:12.5px">{{ it.sub }}</div></td>
       <td style="white-space:nowrap">{{ it.province or "?" }}</td><td>{{ it.zs or "?" }}</td><td>{{ it['as'] or "?" }}</td><td class="muted">{{ it.j0 }}</td>
-      {% if multi %}<td>{% if it.mine %}<b>moi</b>{% else %}{{ it.owner or "bureau" }}{% endif %}</td>{% endif %}
+      {% if multi %}<td>{% if it.mine %}<b>{{ t("moi") }}</b>{% else %}{{ it.owner or "bureau" }}{% endif %}</td>{% endif %}
       <td class="muted">{{ it.cree }}</td>
       <td class="muted">{{ it.updated }}</td>
-      <td style="text-align:right; white-space:nowrap"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}"{% if not it.edit %} title="Lecture seule"{% endif %}>{{ "Ouvrir" if it.edit else "Consulter" }}</a>
-        <a class="btn small" href="{{ url_for('preview', cid=it.id, key='mapping') }}" target="_blank" title="Voir le mapping">Mapping</a></td>
+      <td style="text-align:right; white-space:nowrap"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}"{% if not it.edit %} title="Lecture seule"{% endif %}>{{ t("Ouvrir") if it.edit else t("Consulter") }}</a>
+        <a class="btn small" href="{{ url_for('preview', cid=it.id, key='mapping') }}" target="_blank" title="{{ t('Voir le mapping') }}">{{ t("Mapping") }}</a></td>
     </tr>
     {% endfor %}
   </table></div>
@@ -92,13 +91,13 @@
 <div class="card" style="margin-top:14px">
   <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <b>Importer une fiche</b> <span class="muted">(Excel rempli à partir du
+    <b>{{ t("Importer une fiche") }}</b> <span class="muted">(Excel rempli à partir du
       <a href="{{ url_for('excel_model') }}">modèle Excel vierge</a>, du
       <a href="{{ url_for('word_model') }}">modèle Word</a> ou du <a href="{{ url_for('pptx_model') }}">modèle PowerPoint</a>
       (mêmes champs que l'Excel, lus tableau par tableau), ou ancien narratif Word / PowerPoint libre :
       les champs sont remplis automatiquement, à vérifier)</span>
     <input type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required style="max-width:340px">
-    <button class="btn">Importer</button>
+    <button class="btn">{{ t("Importer") }}</button>
   </form>
 </div>
 {% endblock %}

@@ -28,6 +28,7 @@ from core.access import Access
 from core.models import Action, Case, Event
 from core.paths import data_dir
 from core import obligatoires as OBL
+from web import i18n as I18N
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
 from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
@@ -137,10 +138,31 @@ def create_app(store: storage.Store | None = None) -> Flask:
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
                 abort(400, "Jeton de sécurité invalide : rechargez la page.")
 
+    def langue() -> str:
+        """Langue de l'interface : choix de la session, sinon celui du compte, sinon le français."""
+        lg = session.get("lang")
+        if lg in I18N.LANGUES:
+            return lg
+        u = getattr(g, "user", None) or current_user()
+        lg = I18N.langue_du_compte(app.store, u.username) if u else None
+        return lg or "fr"
+
     @app.context_processor
     def inject():
+        lg = langue()
         return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": _static_version(),
-                "credits": credits}
+                "credits": credits, "lang": lg, "langues": I18N.LANGUES, "t": lambda s: I18N.t(s, lg)}
+
+    @app.route("/langue/<code>")
+    def choisir_langue(code):
+        if code in I18N.LANGUES:
+            session["lang"] = code
+            u = current_user()
+            if u:
+                I18N.enregistrer_langue(app.store, u.username, code)
+        ref = request.referrer or ""
+        host = request.host_url
+        return redirect(ref if ref.startswith(host) else url_for("home"))
 
     @app.after_request
     def headers(resp):

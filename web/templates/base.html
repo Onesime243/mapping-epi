@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Mapping Épi{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v={{ app_version }}">
 <script>
-  (function () { try { var t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+  (function () { var t = null; try { t = localStorage.getItem('theme'); } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t || 'light'); })();   /* clair par défaut */
   function toggleTheme() {
     var cur = document.documentElement.getAttribute('data-theme')
       || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -18,47 +19,53 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="/">Mapping Épi <small>parcours épidémiologique</small></a>
-  <button type="button" class="nav-toggle" aria-label="Menu" onclick="this.parentNode.classList.toggle('open')">☰ Menu</button>
+  <a class="brand" href="/">Mapping Épi <small>{{ t("parcours épidémiologique") }}</small></a>
+  <button type="button" class="nav-toggle" aria-label="Menu" onclick="this.parentNode.classList.toggle('open')">☰ {{ t("Menu") }}</button>
   <nav>
     {% if me %}
-      <a href="{{ url_for('cases') }}">{{ "Mes cas" if me.niveau == "aire" and not me.is_admin else "Cas" }}</a>
+      <a href="{{ url_for('cases') }}">{{ t("Mes cas") if me.niveau == "aire" and not me.is_admin else t("Cas") }}</a>
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true">Analyses ▾</button>
+        <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Analyses") }} ▾</button>
         <div class="menu-list">
-          <a href="{{ url_for('chains_page') }}">Chaînes de transmission</a>
-          <a href="{{ url_for('zones_page') }}">Catégories des ZS, délais et incubation</a>
-          <a href="{{ url_for('frequent_places', niveau='zs') }}">Lieux fréquentés par zone de santé</a>
-          <a href="{{ url_for('frequent_places', niveau='as') }}">Lieux fréquentés par aire de santé</a>
+          <a href="{{ url_for('chains_page') }}">{{ t("Chaînes de transmission") }}</a>
+          <a href="{{ url_for('zones_page') }}">{{ t("Catégories des ZS, délais et incubation") }}</a>
+          <a href="{{ url_for('frequent_places', niveau='zs') }}">{{ t("Lieux fréquentés par zone de santé") }}</a>
+          <a href="{{ url_for('frequent_places', niveau='as') }}">{{ t("Lieux fréquentés par aire de santé") }}</a>
         </div>
       </div>
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true">Riposte ▾</button>
+        <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Riposte") }} ▾</button>
         <div class="menu-list">
-          <a href="{{ url_for('riposte_indicateurs') }}">Indicateurs clés et courbe épidémique</a>
-          <a href="{{ url_for('riposte_carte') }}">Carte des cas</a>
-          <a href="{{ url_for('riposte_actions') }}">Suivi des actions</a>
-          <a href="{{ url_for('riposte_reunion') }}" target="_blank" rel="noopener">Mode réunion (diaporama)</a>
+          <a href="{{ url_for('riposte_indicateurs') }}">{{ t("Indicateurs clés et courbe épidémique") }}</a>
+          <a href="{{ url_for('riposte_carte') }}">{{ t("Carte des cas") }}</a>
+          <a href="{{ url_for('riposte_actions') }}">{{ t("Suivi des actions") }}</a>
+          <a href="{{ url_for('riposte_reunion') }}" target="_blank" rel="noopener">{{ t("Mode réunion (diaporama)") }}</a>
         </div>
       </div>
       <div class="menu">
-        <button type="button" class="menu-btn" aria-haspopup="true">Données ▾</button>
+        <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Données") }} ▾</button>
         <div class="menu-list">
-          <a href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">Liste des cas (Excel)</a>
-          <a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">Rapport de situation (Word)</a>
-          <a href="{{ url_for('donnees_page') }}">Échanger des fiches (paquet hors ligne)</a>
-          <a href="{{ url_for('donnees_doublons') }}">Doublons possibles</a>
+          <a href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">{{ t("Liste des cas (Excel)") }}</a>
+          <a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">{{ t("Rapport de situation (Word)") }}</a>
+          <a href="{{ url_for('donnees_page') }}">{{ t("Échanger des fiches (paquet hors ligne)") }}</a>
+          <a href="{{ url_for('donnees_doublons') }}">{{ t("Doublons possibles") }}</a>
         </div>
       </div>
       {% if me.is_admin or me.niveau == "national" %}
-      <a href="{{ url_for('users_admin') }}">Utilisateurs</a>
+      <a href="{{ url_for('users_admin') }}">{{ t("Utilisateurs") }}</a>
       {% endif %}
-      <a href="/tutoriel/" target="_blank" rel="noopener">Tutoriel</a>
-      <a href="{{ url_for('account') }}">Mon compte</a>
-      <span class="who" title="{{ me.perimetre }}">{{ me.nom or me.username }} · {{ me.niveau_label }}{% if me.is_admin %} · admin{% endif %}</span>
-      <a href="{{ url_for('logout') }}">Déconnexion</a>
+      <a href="/tutoriel/" target="_blank" rel="noopener">{{ t("Tutoriel") }}</a>
+      <a href="{{ url_for('account') }}">{{ t("Mon compte") }}</a>
+      <span class="who" title="{{ me.perimetre }}">{{ me.nom or me.username }} · {{ t(me.niveau_label) }}{% if me.is_admin %} · admin{% endif %}</span>
+      <a href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
     {% endif %}
-    <button type="button" onclick="toggleTheme()" title="Mode clair / sombre" aria-label="Changer de thème">◐ Thème</button>
+    <div class="menu">
+      <button type="button" class="menu-btn" aria-haspopup="true" title="{{ t('Langue') }}">{{ lang|upper }} ▾</button>
+      <div class="menu-list">
+        {% for code, nom in langues.items() %}<a href="{{ url_for('choisir_langue', code=code) }}">{{ nom }}{% if code == lang %} ✓{% endif %}</a>{% endfor %}
+      </div>
+    </div>
+    <button type="button" onclick="toggleTheme()" title="{{ t('Mode clair / sombre') }}" aria-label="{{ t('Changer de thème') }}">◐ {{ t("Thème") }}</button>
   </nav>
 </header>
 <main class="{% block mainclass %}{% endblock %}">
@@ -68,9 +75,9 @@
   {% block content %}{% endblock %}
 </main>
 <footer class="credits">
-  {{ credits.INSTITUTION }} · {{ credits.EQUIPE }} · Pour tout contact :
+  {{ t(credits.INSTITUTION) }} · {{ t(credits.EQUIPE) }} · {{ t("Pour tout contact :") }}
   {% for m in credits.CONTACTS %}<a href="mailto:{{ m }}">{{ m }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
-  · <a href="https://github.com/Onesime243/mapping-epi/blob/main/LICENSE" target="_blank" rel="noopener">{{ credits.LICENCE }}</a>
+  · <a href="https://github.com/Onesime243/mapping-epi/blob/main/LICENSE" target="_blank" rel="noopener">{{ t(credits.LICENCE) }}</a>
 </footer>
 {% block scripts %}{% endblock %}
 </body>

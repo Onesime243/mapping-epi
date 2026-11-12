@@ -218,3 +218,14 @@ input.obl-missing, select.obl-missing, textarea.obl-missing { border: 2px solid 
 .onglet.on { color: var(--accent); border-bottom-color: var(--accent); }
 .missing.neutre { border-color: var(--border); background: var(--panel2); color: var(--muted); }
 .missing.neutre summary { cursor: pointer; color: var(--text); }
+
+/* ---------- pied de page toujours en bas de l'écran ---------- */
+body { min-height: 100vh; display: flex; flex-direction: column; }
+body > main { flex: 1 0 auto; width: 100%; box-sizing: border-box; }
+body > footer.credits { flex-shrink: 0; }
+/* ---------- message de bienvenue (accueil) ---------- */
+.bienvenue { border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0;
+  background: var(--panel); padding: 14px 18px; margin: 0 0 20px; font-size: 14.5px; line-height: 1.6; }
+.etapes { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 10px; font-size: 13.5px; color: var(--muted); }
+.etapes b { display: inline-block; width: 20px; height: 20px; line-height: 20px; border-radius: 50%; text-align: center;
+  background: var(--accent-soft); color: var(--accent); font-size: 12px; margin-right: 6px; }

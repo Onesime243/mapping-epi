@@ -1,20 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Accueil · Mapping Épi{% endblock %}
+{% block title %}{{ t("Accueil") }} · Mapping Épi{% endblock %}
 {% block content %}
 <div class="accueil">
-  <h1 style="margin:0">Bonjour {{ me.nom or me.username }}</h1>
-  <div class="muted" style="font-size:14px; margin-bottom:22px">{{ me.niveau_label }} · {{ me.perimetre }}</div>
+  <h1 style="margin:0">{{ t("Bonjour") }} {{ me.nom or me.username }}</h1>
+  <div class="muted" style="font-size:14px; margin-bottom:16px">{{ t(me.niveau_label) }} · {{ t(me.perimetre) }}</div>
+  <div class="bienvenue">
+    <b>{{ t("Bienvenue dans Mapping Épi.") }}</b>
+    {{ t("Documentez ici le parcours épidémiologique de chaque cas confirmé. Renseignez l'ensemble des champs obligatoires, signalés par un astérisque (*), puis enregistrez la fiche : seules les fiches complètes et enregistrées sont prises en compte dans les analyses et partagées avec la coordination.") }}
+    <div class="etapes"><span><b>1</b>{{ t("Créer la fiche") }}</span><span><b>2</b>{{ t("Compléter les champs *") }}</span><span><b>3</b>{{ t("Enregistrer") }}</span></div>
+  </div>
   <div class="tuiles">
     <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="tuile primaire"><span class="ic">＋</span>Nouveau cas</button></form>
-    <a class="tuile" href="{{ url_for('cases') }}"><span class="ic">☰</span>{{ "Voir mes cas" if me.niveau == "aire" and not me.is_admin else "Voir les cas" }}
-      <small>{{ n_cas }} enregistré{{ "s" if n_cas > 1 }}{% if n_brouillons %} · {{ n_brouillons }} brouillon{{ "s" if n_brouillons > 1 }}{% endif %}</small></a>
-    <a class="tuile" href="{{ url_for('chains_page') }}"><span class="ic">⤳</span>Chaînes de transmission</a>
+      <button class="tuile primaire"><span class="ic">＋</span>{{ t("Nouveau cas") }}</button></form>
+    <a class="tuile" href="{{ url_for('cases') }}"><span class="ic">☰</span>{{ t("Voir mes cas") if me.niveau == "aire" and not me.is_admin else t("Voir les cas") }}
+      <small>{{ n_cas }} {{ t("enregistrés" if n_cas > 1 else "enregistré") }}{% if n_brouillons %} · {{ n_brouillons }} {{ t("brouillons" if n_brouillons > 1 else "brouillon") }}{% endif %}</small></a>
+    <a class="tuile" href="{{ url_for('chains_page') }}"><span class="ic">⤳</span>{{ t("Chaînes de transmission") }}</a>
     {% if exemple %}
-    <a class="tuile" href="{{ url_for('editor', cid=exemple) }}"><span class="ic">✎</span>Exemple fictif<small>reprendre mon exemple</small></a>
+    <a class="tuile" href="{{ url_for('editor', cid=exemple) }}"><span class="ic">✎</span>{{ t("Exemple fictif") }}<small>{{ t("reprendre mon exemple") }}</small></a>
     {% else %}
     <form method="post" action="{{ url_for('demo_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="tuile"><span class="ic">✎</span>Exemple fictif<small>pour s'entraîner</small></button></form>
+      <button class="tuile"><span class="ic">✎</span>{{ t("Exemple fictif") }}<small>{{ t("pour s'entraîner") }}</small></button></form>
     {% endif %}
   </div>
 </div>
