@@ -180,7 +180,15 @@ def create_app(store: storage.Store | None = None) -> Flask:
     def visible_rows():
         """(id, modifiée le, compte, fiche) des fiches visibles selon le niveau du compte."""
         acc = access()
-        return [r for r in app.store.rows_full(None) if acc.can_view(r[3], r[2] or "")]
+        # les exemples fictifs (mode entraînement) ne comptent jamais avec les vrais cas
+        return [r for r in app.store.rows_full(None) if not r[3].exemple() and acc.can_view(r[3], r[2] or "")]
+
+    def mes_exemples():
+        return [r for r in app.store.rows_full(g.user.username) if r[3].exemple()]
+
+    def mes_brouillons():
+        app.store.purger_brouillons_vides(24)
+        return app.store.brouillons(g.user.username)
 
     def visible_cases():
         return [r[3] for r in visible_rows()]
@@ -235,7 +243,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     session["user"] = user.username
                     csrf_token()
                     nxt = request.args.get("next", "")
-                    return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("cases"))
+                    return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("home"))
                 n += 1
                 lock = time.time() + 300 if n >= 8 else 0
                 failures[key] = (n, lock)
@@ -366,7 +374,10 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.route("/")
     @login_required
     def home():
-        return redirect(url_for("cases"))
+        """Accueil : quatre actions, sans liste (la liste est dans « Voir mes cas »)."""
+        ex = mes_exemples()
+        return render_template("accueil.html", n_cas=len(visible_rows()), n_brouillons=len(mes_brouillons()),
+                               exemple=ex[0][0] if ex else None)
 
     @app.route("/cas")
     @login_required
@@ -413,10 +424,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
         items = known + [i for i in items if key(i)[0] == 1]
         opts = {k: sorted(v, key=str.lower) for k, v in opts.items()}
         args = {k: f[k] for k in ("q", "agent", "province", "zs", "as") if f[k]}
-        brouillons = [(cid, upd, c, OBL.manquants(c)) for cid, upd, own, c in
-                      app.store.brouillons(None if g.user.is_admin else g.user.username)]
+        onglet = request.args.get("onglet", "")
+        onglet = onglet if onglet in ("brouillons", "exemples") else "cas"
+        brouillons = [(cid, upd, c) for cid, upd, own, c in mes_brouillons()]
+        exemples = [(cid, upd, c) for cid, upd, own, c in mes_exemples()]
         return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows),
-                               tri=tri, desc=desc, sorts=SORTS, args=args, brouillons=brouillons)
+                               tri=tri, desc=desc, sorts=SORTS, args=args, brouillons=brouillons,
+                               exemples=exemples, onglet=onglet)
 
     # ------------------------------------------------- analyses multi-cas (limitées au périmètre du compte)
     def _selection(niveau: str):
@@ -699,9 +713,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.route("/cas/demo", methods=["POST"])
     @login_required
     def demo_case():
+        # mode entraînement : un seul exemple par compte, recommencé à neuf, jamais compté avec les vrais cas
+        for cid, _u, _o, _c in mes_exemples():
+            app.store.delete(cid)
         c = storage.load_json(ROOT / "sample_data" / "cas_exemple_fictif.json")
         import uuid
         c.id = uuid.uuid4().hex
+        c.entrainement = True
         app.store.save(c, version=True, auteur=g.user.username, commentaire="Exemple fictif", owner=g.user.username)
         return redirect(url_for("editor", cid=c.id))
 
@@ -758,6 +776,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         owner = g.case_owner
         owner_user = app.users.get(owner) if owner else None
         return render_template("editor.html", case=c, visuals=VISUALS, readonly=not acc.can_edit(c, owner),
+                               exemple=c.exemple(),
                                can_delete=acc.can_delete(c, owner),
                                owner_label=(owner_user.nom if owner_user else owner) or "application de bureau")
 

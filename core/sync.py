@@ -107,6 +107,7 @@ def synchroniser(store, url: str, jeton: str) -> Tuple[str, str]:
     if not base.startswith(("http://", "https://")):
         base = "https://" + base
     envoi = json.loads(_requete(base + "/api/sync/envoyer", jeton,
-                                ECH.paquet_bytes(store.all_cases(), "bureau", "application de bureau")))
+                                ECH.paquet_bytes([c for c in store.all_cases() if not c.exemple()], "bureau",
+                                                 "application de bureau")))
     recu = ECH.importer_paquet(store, _requete(base + "/api/sync/recevoir", jeton), envoi.get("compte", "serveur"))
     return envoi.get("bilan", ""), recu.texte()

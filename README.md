@@ -273,3 +273,14 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
   l'équipe de développement.
 - Police Inter : SIL OFL 1.1. Contours des aires de santé : GRID3 / CIESIN (à citer). Les fiches de cas
   saisies ne font pas partie du logiciel et ne sont jamais publiées.
+
+## Version 1.4 : accueil simplifié, brouillons rangés, exemple en mode entraînement
+
+- **Accueil** après la connexion : quatre boutons (Nouveau cas, Voir mes cas, Chaînes de transmission, Exemple fictif),
+  sans liste. La liste est dans « Voir mes cas », en onglets **Enregistrés** et **Brouillons** (les siens seulement).
+- Le texte rouge n'apparaît que dans une fiche ouverte : « Pas encore enregistrée : il manque … ». Les éléments utiles
+  au mapping complet sont repliés, en gris.
+- Les brouillons restés **entièrement vides** plus de 24 heures sont supprimés automatiquement.
+- **Exemple fictif en mode entraînement** (`Case.entrainement`, ou ID commençant par « FICTIF ») : visible par son
+  auteur seulement, jamais compté dans la liste des cas, les analyses, la carte, les exports ni la synchronisation.
+  Un seul exemple par compte, recommencé à chaque clic.

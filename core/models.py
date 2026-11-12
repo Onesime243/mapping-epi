@@ -164,11 +164,16 @@ class Case(BaseModel):
     actions: List[Action] = Field(default_factory=list)
     suggestions_rejetees: List[str] = Field(default_factory=list)
 
+    entrainement: bool = False      # exemple fictif : hors liste des cas, analyses, carte et synchronisation
     note_pied: str = NOTE_PIED_DEFAUT
     modifie_le: Optional[datetime] = None
     modifie_par: str = ""
 
     # ------------------------------------------------------------------
+    def exemple(self) -> bool:
+        """Fiche d'entraînement (exemple fictif) : jamais comptée avec les vrais cas."""
+        return self.entrainement or self.code_cas.strip().upper().startswith("FICTIF")
+
     def titre_court(self) -> str:
         rang = self.code_cas.strip() or (f"Cas {self.rang}" if self.rang else "Cas")
         return f"{rang} – {self.maladie} – ZS {self.zs or '?'} ({self.aire_sante or '?'})"

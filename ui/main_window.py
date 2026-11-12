@@ -224,6 +224,7 @@ class MainWindow(QMainWindow):
         self.refresh_list()
         if not self.store.list() and SAMPLE.exists():
             demo = storage.load_json(SAMPLE)
+            demo.entrainement = True          # mode entraînement : jamais compté avec les vrais cas
             self.store.save(demo, version=True, commentaire="Cas de démonstration")
             self.refresh_list()
         last = self.settings.value("last_case")
@@ -375,15 +376,18 @@ class MainWindow(QMainWindow):
         self.case_list.clear()
         from core import obligatoires as OBL
         for cid, _upd, _own, c in self.store.brouillons():
-            it = QListWidgetItem("✎ Brouillon : " + (c.code_cas or "nouvelle fiche") + (f" ({c.zs})" if c.zs else ""))
+            it = QListWidgetItem("✎ " + (c.code_cas or "Nouvelle fiche") + (f" ({c.zs})" if c.zs else "") + " · incomplet")
             it.setData(Qt.UserRole, cid)
-            it.setForeground(QColor(theme.RED))
+            it.setForeground(QColor(theme.ORANGE))
             it.setToolTip("Non enregistrée : manque " + ", ".join(OBL.manquants(c)))
             self.case_list.addItem(it)
             if cid == self.case.id:
                 it.setSelected(True)
+        exemples = {c.id for c in self.store.all_cases() if c.exemple()}
         for cid, titre, updated in self.store.list(self.search.text().strip()):
-            it = QListWidgetItem(titre)
+            it = QListWidgetItem(("Exemple fictif · " if cid in exemples else "") + titre)
+            if cid in exemples:
+                it.setForeground(QColor(theme.MUTED))
             it.setData(Qt.UserRole, cid)
             it.setToolTip(f"Modifié le {updated[:16].replace('T', ' ')}")
             self.case_list.addItem(it)
@@ -439,8 +443,8 @@ class MainWindow(QMainWindow):
         self.collect()
         if self.dirty:
             self._enregistrer()
-        c = Case(investigateur=self.case.investigateur, zs=self.case.zs, province=self.case.province,
-                 maladie=self.case.maladie)
+        ref = Case() if self.case.exemple() else self.case      # ne pas reprendre la ZS fictive de l'exemple
+        c = Case(investigateur=ref.investigateur, zs=ref.zs, province=ref.province, maladie=ref.maladie)
         self.store.save_brouillon(c, "bureau")
         self.load_case(c)
         self.refresh_list()
@@ -653,7 +657,7 @@ class MainWindow(QMainWindow):
                 "common": lambda: common_places.render_svg(self._all_cases(), c)}[key]()
 
     def _all_cases(self) -> List[Case]:
-        others = [x for x in self.store.all_cases() if x.id != self.case.id]
+        others = [x for x in self.store.all_cases() if x.id != self.case.id and not x.exemple()]
         return others + [self.case]
 
     def update_preview(self, force: bool = False):
@@ -909,8 +913,9 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------ riposte
     def _cas_enregistres(self) -> List[Case]:
+        """Vrais cas enregistrés (sans les exemples fictifs du mode entraînement)."""
         self.autosave_now()
-        return self.store.all_cases()
+        return [c for c in self.store.all_cases() if not c.exemple()]
 
     def _fenetre_html(self, titre: str, rendu, choix=None):
         """Fenêtre affichant une page HTML ; `rendu(valeur du choix)` renvoie la page."""

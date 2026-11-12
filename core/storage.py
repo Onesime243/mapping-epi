@@ -144,6 +144,18 @@ class Store:
         row = self.db.execute("SELECT data, owner FROM brouillons WHERE id=?", (case_id,)).fetchone()
         return (Case.model_validate_json(row[0]), row[1] or "") if row else None
 
+    def purger_brouillons_vides(self, heures: int = 24) -> int:
+        """Supprime les brouillons restés entièrement vides depuis plus de `heures` heures."""
+        from datetime import timedelta
+        from core.obligatoires import vide
+        limite = (datetime.now() - timedelta(hours=heures)).isoformat()
+        n = 0
+        for cid, upd, _own, c in self.brouillons():
+            if (upd or "") < limite and vide(c) and self.load(cid) is None:
+                self.delete_brouillon(cid)
+                n += 1
+        return n
+
     def delete_brouillon(self, case_id: str) -> None:
         with self.lock:
             self.db.execute("DELETE FROM brouillons WHERE id=?", (case_id,))

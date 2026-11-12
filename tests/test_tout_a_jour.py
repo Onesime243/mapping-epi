@@ -181,7 +181,9 @@ def test_champs_obligatoires(app):
     d.update(code_cas="RDC-NOK-KAT-26-900", province="Nord-Kivu", zs="Katwa")
     j = c.put(f"/api/cas/{cid}", data=json.dumps(d), headers=hdr).get_json()
     assert j["brouillon"] and "Aire de santé" in j["obligatoires"] and app.store.load(cid) is None
-    assert "Brouillons non enregistrés" in c.get("/cas").get_data(as_text=True)
+    liste = c.get("/cas").get_data(as_text=True)
+    assert "Brouillons (1)" in liste and "Aire de santé" not in liste.split("onglets")[0]
+    assert "incomplet" in c.get("/cas?onglet=brouillons").get_data(as_text=True)
     d.update(aire_sante="Vighole", sexe="F", age=24, debut_symptomes="2026-11-01", date_confirmation="2026-11-05",
              issue="En traitement")
     j = c.put(f"/api/cas/{cid}", data=json.dumps(d), headers=hdr).get_json()
@@ -205,3 +207,34 @@ def test_carte_contours():
     assert ct.points[0].source == "aire de santé"
     s = CARTE.svg(ct, REF)
     assert "<path" in s and "KATWA" in s and "GRID3" in s
+
+
+
+def test_accueil_exemple_brouillons_vides(app):
+    from datetime import datetime, timedelta
+    c = app.test_client()
+    tok = _login(c, "admin", "Secret123")
+    page = c.get("/").get_data(as_text=True)
+    assert "Nouveau cas" in page and "Voir les cas" in page and "Chaînes de transmission" in page and "Exemple fictif" in page
+    # exemple fictif : mode entraînement, jamais compté avec les vrais cas
+    n = len(app.store.all_cases())
+    cid = c.post("/cas/demo", data={"csrf": tok}).headers["Location"].rsplit("/", 1)[1]
+    assert app.store.load(cid).entrainement and "mode entraînement" in c.get(f"/cas/{cid}").get_data(as_text=True)
+    assert "FICTIF-TUM" not in c.get("/cas").get_data(as_text=True)
+    assert "FICTIF-TUM" in c.get("/cas?onglet=exemples").get_data(as_text=True)
+    cid2 = c.post("/cas/demo", data={"csrf": tok}).headers["Location"].rsplit("/", 1)[1]
+    assert app.store.load(cid) is None and len(app.store.all_cases()) == n + 1      # un seul exemple par compte
+    ancien = _cas("FICTIF-TUM-26-003")          # ancien exemple enregistré avant ce mode : exclu aussi
+    app.store.save(ancien, owner="admin")
+    assert ECH.lire_paquet(c.get("/donnees/paquet.zip").data)[0] and all(
+        not x.exemple() for x in ECH.lire_paquet(c.get("/donnees/paquet.zip").data)[0])
+    # brouillon vide de plus de 24 h : supprimé ; brouillon commencé : gardé
+    vide, commence = Case(zs="Bunia", province="Ituri"), Case(code_cas="RDC-X-1")
+    for b in (vide, commence):
+        app.store.save_brouillon(b, "admin")
+    old = (datetime.now() - timedelta(hours=30)).isoformat()
+    app.store.db.execute("UPDATE brouillons SET updated=?", (old,))
+    app.store.db.commit()
+    c.get("/")
+    assert app.store.load_brouillon(vide.id) is None and app.store.load_brouillon(commence.id)
+    assert cid2

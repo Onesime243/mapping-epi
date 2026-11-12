@@ -116,6 +116,8 @@ def importer_paquet(store, data: bytes, auteur: str, owner: str = "",
         if c.code_cas.strip():
             par_code.setdefault(_id(c.code_cas), cid)
     for c in cases:
+        if c.exemple():             # exemple fictif : jamais mélangé aux vrais cas
+            continue
         code = c.code_cas or c.id[:8]
         if c.id in par_id:
             own, old = par_id[c.id]

@@ -34,6 +34,13 @@ def manquants(c: Case) -> List[str]:
     return out
 
 
+def vide(c: Case) -> bool:
+    """Brouillon jamais rempli (seuls les champs pré-remplis depuis le compte : province, zone…)."""
+    return (not c.code_cas.strip() and not c.aire_sante.strip() and c.age is None and c.sexe in VIDES
+            and not c.debut_symptomes and not c.date_confirmation and not c.events and not c.places
+            and not c.contacts and not c.labs and not c.ipc)
+
+
 def complet(c: Case) -> bool:
     return not manquants(c)
 

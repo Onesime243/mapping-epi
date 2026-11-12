@@ -6,31 +6,47 @@
 {%- endmacro %}
 {% set multi = me.is_admin or me.niveau != "aire" %}
 {% block content %}
-<div class="row" style="justify-content:space-between; margin-bottom:12px">
+<div class="row" style="justify-content:space-between; margin-bottom:10px">
   <div>
-    <h1 style="margin:0">{{ "Mes cas" if not multi else "Tous les cas" if me.is_admin or me.niveau == "national" else "Cas de mon périmètre" }}</h1>
+    <a class="muted" href="{{ url_for('home') }}">← Accueil</a>
+    <h1 style="margin:2px 0 0">{{ "Mes cas" if not multi else "Tous les cas" if me.is_admin or me.niveau == "national" else "Cas de mon périmètre" }}</h1>
     <div class="muted" style="font-size:14px">{{ me.niveau_label }}{% if me.is_admin %} · administrateur{% endif %} : {{ me.perimetre }}</div>
   </div>
-  <div class="row">
-    <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">＋ Nouveau cas</button></form>
-    <a class="btn" href="{{ url_for('chains_page', province=f.province, zs=f.zs, **{'as': f['as']}) }}">Chaînes de transmission</a>
-    <form method="post" action="{{ url_for('demo_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" title="Cas fictif complet pour s'entraîner">Exemple fictif</button></form>
-  </div>
+  <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">＋ Nouveau cas</button></form>
 </div>
-{% if brouillons %}
-<div class="card" style="margin-bottom:14px; border-color: var(--warn)">
-  <h2 style="margin-top:0">Brouillons non enregistrés ({{ brouillons|length }})</h2>
-  <p class="hint">Ces fiches n'apparaissent pas dans la liste des cas ni dans les analyses tant que les champs obligatoires
-    ne sont pas remplis. Ouvrez-les pour les compléter.</p>
+<div class="onglets">
+  <a class="onglet{% if onglet == 'cas' %} on{% endif %}" href="{{ url_for('cases') }}">Enregistrés ({{ total }})</a>
+  <a class="onglet{% if onglet == 'brouillons' %} on{% endif %}" href="{{ url_for('cases', onglet='brouillons') }}">Brouillons ({{ brouillons|length }})</a>
+  {% if exemples %}<a class="onglet{% if onglet == 'exemples' %} on{% endif %}" href="{{ url_for('cases', onglet='exemples') }}">Exemple fictif ({{ exemples|length }})</a>{% endif %}
+</div>
+{% if onglet == 'brouillons' %}
+<div class="card">
+  <p class="hint">Fiches commencées mais pas encore enregistrées. Ouvrez-en une pour la terminer. Une fiche laissée vide
+    est supprimée automatiquement après 24 heures.</p>
+  {% if brouillons %}
   <table class="list">
-    <tr><th>Fiche</th><th>Modifiée le</th><th>Champs obligatoires manquants</th></tr>
-    {% for cid, upd, c, m in brouillons %}
-    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Nouvelle fiche" }}</a>{% if c.zs %} <span class="muted">({{ c.zs }})</span>{% endif %}</td>
-      <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="color: var(--danger)">{{ m|join(", ") or "aucun (sera enregistrée à la prochaine modification)" }}</td></tr>
+    <tr><th>Fiche</th><th>Zone de santé</th><th>Aire de santé</th><th>Modifiée le</th><th></th></tr>
+    {% for cid, upd, c in brouillons %}
+    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Nouvelle fiche" }}</a></td><td>{{ c.zs or "?" }}</td>
+      <td>{{ c.aire_sante or "?" }}</td><td class="muted">{{ upd[:16].replace("T", " ") }}</td>
+      <td style="text-align:right"><span class="pill ro">incomplet</span> <a class="btn small" href="{{ url_for('editor', cid=cid) }}">Ouvrir</a></td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">Aucun brouillon.</p>{% endif %}
+</div>
+{% elif onglet == 'exemples' %}
+<div class="card">
+  <p class="hint">Mode entraînement : cet exemple est visible par vous seul et n'est jamais compté avec les vrais cas
+    (liste, analyses, carte, synchronisation).</p>
+  <table class="list">
+    <tr><th>Fiche</th><th>Zone de santé</th><th>Modifiée le</th><th></th></tr>
+    {% for cid, upd, c in exemples %}
+    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Exemple" }}</a></td><td>{{ c.zs }}</td>
+      <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=cid) }}">Ouvrir</a></td></tr>
     {% endfor %}
   </table>
 </div>
-{% endif %}
+{% else %}
 <div class="card">
   <form class="filters" method="get">
     <input type="hidden" name="tri" value="{{ tri }}"><input type="hidden" name="ordre" value="{{ 'desc' if desc else 'asc' }}">
@@ -69,9 +85,10 @@
     {% endfor %}
   </table></div>
   {% else %}
-  <p class="muted">Aucune fiche{% if total %} pour ces filtres{% endif %}. Cliquez sur « Nouveau cas » pour commencer, ou « Exemple fictif » pour voir un cas complet.</p>
+  <p class="muted">Aucune fiche{% if total %} pour ces filtres{% endif %}. Cliquez sur « Nouveau cas » pour commencer.</p>
   {% endif %}
 </div>
+{% endif %}
 <div class="card" style="margin-top:14px">
   <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">

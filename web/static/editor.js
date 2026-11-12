@@ -376,9 +376,10 @@
     if (!m.length) return;
     if (!dirty && !saving) setStatus('Brouillon : non enregistré', true);
     box.innerHTML = '';
-    box.appendChild(el('b', {text: 'Enregistrement impossible : '}));
-    box.appendChild(document.createTextNode('remplissez ' + m.map(o => o.label).join(', ') +
-      '. Votre saisie est gardée en brouillon et sera enregistrée dès que ces champs seront remplis.'));
+    const noms = m.map(o => o.label.replace(/ \(.*\)$/, '').toLowerCase().replace(/^id /, 'ID '));
+    const liste = noms.length > 1 ? noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1] : noms[0];
+    box.appendChild(el('b', {text: 'Pas encore enregistrée : '}));
+    box.appendChild(document.createTextNode('il manque ' + liste + '.'));
   }
 
   function renderMissing() {
@@ -386,8 +387,12 @@
     box.innerHTML = '';
     box.hidden = !CTRL.missing.length || RO;
     if (box.hidden) return;
-    box.appendChild(el('b', {text: 'À compléter (' + CTRL.missing.length + ') : '}));
-    box.appendChild(document.createTextNode(CTRL.missing.join(' • ')));
+    // éléments utiles au mapping complet : discret et replié (seuls les champs obligatoires sont en rouge)
+    box.classList.add('neutre');
+    const d = el('details');
+    d.appendChild(el('summary', {text: CTRL.missing.length + ' élément(s) à compléter pour un mapping complet'}));
+    d.appendChild(el('div', {text: CTRL.missing.join(' • '), style: 'margin-top:6px'}));
+    box.appendChild(d);
   }
   function renderSourceInfo() {
     const s = $('#srcInfo'), j = $('#j0Info'), fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
