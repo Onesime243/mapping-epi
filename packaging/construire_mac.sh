@@ -14,6 +14,7 @@ STAGE="$(mktemp -d)"
 cp -R "dist/Mapping Epi.app" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 cp packaging/LISEZMOI-installation.txt "$STAGE/LISEZMOI.txt"
+cp LICENSE "$STAGE/LICENCE (AGPL-3.0).txt"
 rm -f "$DMG"
 hdiutil create -volname "Mapping Épi $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"

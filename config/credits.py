@@ -3,6 +3,7 @@
 INSTITUTION = "Système de gestion de l’incident, SGI-RDC, avec l’appui de UMIE-INRB"
 EQUIPE = "Équipe de développement : Onesime Mbulayi et al."
 CONTACTS = ["mbonesime@gmail.com", "dav.ebengo@umie-inrb.org"]
+LICENCE = "Logiciel libre sous licence GNU AGPL v3"
 
 
 def texte() -> str:

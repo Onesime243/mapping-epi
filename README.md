@@ -260,3 +260,16 @@ Fonctions ajoutées sans toucher au mapping, aux comptes ni aux fiches existante
   (`config/geo/aires_nord-kivu.json`, 661 aires, GRID3 / CIESIN 2025, simplifiés à ≈ 150 m). Autres provinces :
   importer leur GeoPackage (.gpkg, colonnes Province, Zone, Aire) depuis la page Carte ou l'application de bureau
   (Riposte ▾ → Importer les contours) ; conversion par `core/geo.py`, sans bibliothèque externe.
+
+## Licence
+
+**GNU Affero General Public License v3 (AGPL-3.0)** : fichier `LICENSE`, mentions dans `NOTICE`.
+Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
+
+- Utilisation, copie, étude et modification libres et gratuites, y compris par les ministères, l'OMS et les ONG.
+- Toute version modifiée mise à disposition d'autres personnes (installée ou **sur un serveur web**) doit être
+  publiée avec son code source, sous la même licence : les améliorations restent disponibles pour toute la riposte.
+- Pour une autre licence (intégration dans un produit fermé) ou un appui à la mise en œuvre, contacter
+  l'équipe de développement.
+- Police Inter : SIL OFL 1.1. Contours des aires de santé : GRID3 / CIESIN (à citer). Les fiches de cas
+  saisies ne font pas partie du logiciel et ne sont jamais publiées.

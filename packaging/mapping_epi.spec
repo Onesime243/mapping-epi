@@ -18,7 +18,8 @@ for rel in ("config", "assets", "render/templates", "web/templates", "web/static
         if f.is_file() and f.suffix not in (".py", ".pyc") and "__pycache__" not in f.parts and f.name != ".DS_Store":
             datas.append((str(f), str(f.parent.relative_to(ROOT))))
 datas += collect_data_files("docx") + collect_data_files("pptx") + collect_data_files("certifi")
-datas.append((str(ROOT / "packaging" / "VERSION"), "packaging"))     # avertissement « nouvelle version »
+datas.append((str(ROOT / "packaging" / "VERSION"), "packaging"))
+datas += [(str(ROOT / "LICENSE"), "."), (str(ROOT / "NOTICE"), ".")]       # licence livrée avec l'application     # avertissement « nouvelle version »
 
 a = Analysis(
     [str(ROOT / "app.py")],

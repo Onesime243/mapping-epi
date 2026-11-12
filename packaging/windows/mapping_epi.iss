@@ -26,6 +26,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist
 OutputBaseFilename=MappingEpi-{#AppVersion}-Windows-Installation
 SetupIconFile=..\..\assets\icons\mapping_epi.ico
+; page « Contrat de licence » de l'assistant (AGPL v3)
+LicenseFile=..\..\LICENSE
 UninstallDisplayIcon={app}\{#AppExe}
 Compression=lzma2/ultra64
 SolidCompression=yes

@@ -1,0 +1,32 @@
+Mapping Épi : mapping du parcours épidémiologique des cas (MVE et autres maladies)
+Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi
+
+Développé dans le cadre de la riposte à la Maladie à Virus Ebola en RDC (2026),
+Système de gestion de l'incident (SGI-RDC), avec l'appui de UMIE-INRB.
+
+Ce programme est un logiciel libre : vous pouvez le redistribuer et/ou le modifier
+selon les termes de la GNU Affero General Public License (AGPL) version 3, publiée
+par la Free Software Foundation (texte complet : fichier LICENSE).
+
+Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE GARANTIE,
+sans même la garantie implicite de QUALITÉ MARCHANDE ou d'ADÉQUATION À UN USAGE
+PARTICULIER. Les calculs (J0 retenu, phases, risque, indicateurs) sont une aide à la
+décision et doivent être validés par l'équipe épidémiologique.
+
+Conséquence principale de l'AGPL : toute personne qui modifie l'outil et le met à
+disposition d'autres utilisateurs, y compris sur un serveur web, doit leur fournir le
+code source de sa version modifiée, sous la même licence.
+
+Autres conditions d'utilisation (licence commerciale, intégration dans un produit fermé,
+appui à la mise en œuvre) : contacter l'équipe de développement (mbonesime@gmail.com).
+
+Composants et données de tiers, avec leurs propres licences :
+- Police Inter (assets/fonts) : SIL Open Font License 1.1, voir assets/fonts/LICENSE-Inter.txt.
+- Contours des aires de santé du Nord-Kivu (config/geo/aires_nord-kivu.json) : dérivés du jeu
+  de données des aires de santé GRID3 / CIESIN (2025), simplifiés. Soumis aux conditions
+  d'utilisation de GRID3 (citer la source : GRID3, CIESIN, Columbia University).
+- Bibliothèques Python (PySide6 / Qt sous LGPL v3, Flask, waitress, pydantic, openpyxl,
+  python-docx, python-pptx, Jinja2, PyYAML, certifi) : chacune sous sa propre licence.
+
+Les données saisies dans l'outil (fiches de cas) ne font pas partie du logiciel :
+elles appartiennent aux autorités sanitaires et ne sont jamais publiées avec le code.
