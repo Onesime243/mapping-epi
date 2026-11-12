@@ -437,6 +437,86 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                provinces=provinces, ncas=len(cases_), cats=IND.config()["categories"],
                                seuil=IND.config().get("jours_foyer", 21))
 
+    # ------------------------------------------------- riposte : indicateurs, courbe, actions, échanges
+    def _filtres_riposte():
+        prov = request.args.get("province", "").strip()
+        per = request.args.get("periode", "21")
+        periode = int(per) if per.isdigit() and int(per) > 0 else None
+        try:
+            ref = date.fromisoformat(request.args.get("ref", "")) if request.args.get("ref") else date.today()
+        except ValueError:
+            ref = date.today()
+        allc = visible_cases()
+        provinces = sorted({c.province for c in allc if c.province}, key=pyramide.norm)
+        return allc, prov, periode, ref, provinces
+
+    @app.route("/riposte/indicateurs")
+    @login_required
+    def riposte_indicateurs():
+        """Indicateurs clés (OMS) et courbe épidémique, dans le périmètre du compte."""
+        from core import riposte as RIP
+        allc, prov, periode, ref, provinces = _filtres_riposte()
+        tous = RIP.filtrer(allc, None, ref, prov)
+        recents = RIP.filtrer(allc, periode, ref, prov)
+        cb = RIP.courbe(tous)
+        return render_template("riposte.html", frag=RIP.html_indicateurs(RIP.indicateurs(recents)),
+                               courbe=RIP.courbe_svg(cb), cb=cb, prov=prov, periode=periode, ref=ref,
+                               provinces=provinces, n_tous=len(tous), n_recents=len(recents))
+
+    @app.route("/riposte/actions")
+    @login_required
+    def riposte_actions():
+        """Actions proposées sur les fiches : responsable, échéance, retard."""
+        from core import riposte as RIP
+        allc, prov, _periode, ref, provinces = _filtres_riposte()
+        toutes = request.args.get("toutes") == "1"
+        items = RIP.actions_ouvertes(RIP.filtrer(allc, None, ref, prov), ref, toutes)
+        return render_template("actions.html", frag=RIP.html_actions(items, lambda c: url_for("editor", cid=c.id)),
+                               bilan=RIP.bilan_actions(items), prov=prov, provinces=provinces, toutes=toutes)
+
+    @app.route("/donnees", methods=["GET", "POST"])
+    @login_required
+    def donnees_page():
+        """Échanges : liste des cas, rapport de situation, paquet de fiches (synchronisation hors ligne)."""
+        from core import echanges as ECH
+        bilan = None
+        if request.method == "POST":
+            f = request.files.get("paquet")
+            if not f:
+                flash("Choisissez un paquet de fiches (.zip).", "err")
+            else:
+                acc = access()
+                try:
+                    bilan = ECH.importer_paquet(app.store, f.read(), g.user.username, g.user.username,
+                                                lambda c, own: acc.can_edit(c, own))
+                    flash("Paquet importé : " + bilan.texte(), "ok")
+                except ValueError as exc:
+                    flash(str(exc), "err")
+        _allc, _prov, _per, _ref, provinces = _filtres_riposte()
+        return render_template("donnees.html", provinces=provinces, n=len(_allc), bilan=bilan)
+
+    @app.route("/donnees/<quoi>")
+    @login_required
+    def donnees_export(quoi):
+        from core import echanges as ECH
+        allc, prov, periode, ref, _provinces = _filtres_riposte()
+        cases_ = [c for c in allc if not prov or pyramide.norm(c.province) == pyramide.norm(prov)]
+        suffixe = ("_" + "".join(ch for ch in prov if ch.isalnum() or ch in "-_")) if prov else ""
+        stamp = f"{ref:%Y-%m-%d}"
+        if quoi == "paquet.zip":
+            data = ECH.paquet_bytes(cases_, g.user.username, g.user.perimetre)
+            return send_file(io.BytesIO(data), as_attachment=True, mimetype="application/zip",
+                             download_name=f"Paquet_fiches_MappingEpi{suffixe}_{stamp}.zip")
+        if quoi == "liste-cas.xlsx":
+            out = data_dir() / "exports" / f"{secrets.token_hex(6)}.xlsx"
+            ECH.liste_cas_xlsx(cases_, out, g.user.perimetre + (f" · {prov}" if prov else ""))
+            return _send_and_delete(out, f"Liste_des_cas{suffixe}_{stamp}.xlsx")
+        if quoi == "rapport-situation.docx":
+            out = data_dir() / "exports" / f"{secrets.token_hex(6)}.docx"
+            ECH.rapport_docx(allc, out, g.user.perimetre, periode, ref, prov)
+            return _send_and_delete(out, f"Rapport_situation_MVE{suffixe}_{stamp}.docx")
+        abort(404)
+
     @app.route("/analyse/chaines")
     @login_required
     def chains_page():

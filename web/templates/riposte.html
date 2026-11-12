@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Indicateurs de la riposte · Mapping Épi{% endblock %}
+{% block content %}
+<h1>Indicateurs clés de la riposte et courbe épidémique</h1>
+<p class="hint">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %} · {{ n_tous }} cas au total,
+  {{ n_recents }} {% if periode %}notifiés dans les {{ periode }} derniers jours{% else %}sur toute la période{% endif %}.
+  Calculés à partir des fiches, sans rien modifier. Les cibles sont indicatives, à valider par la coordination.</p>
+<div class="card">
+  <form class="filters" method="get">
+    <select name="province" onchange="this.form.submit()"><option value="">Toutes les provinces</option>
+      {% for p in provinces %}<option{% if p == prov %} selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+    <select name="periode" onchange="this.form.submit()">
+      {% for v, l in [("7", "7 derniers jours"), ("21", "21 derniers jours"), ("42", "42 derniers jours"), ("0", "Depuis le début")] %}
+      <option value="{{ v }}"{% if (periode or 0)|string == v %} selected{% endif %}>Indicateurs : {{ l }}</option>{% endfor %}</select>
+    <label class="muted" style="align-self:center">Date de référence</label>
+    <input type="date" name="ref" value="{{ ref.isoformat() }}" style="max-width:180px">
+    <button class="btn">Afficher</button>
+  </form>
+  {{ frag|safe }}
+</div>
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Courbe épidémique : cas par semaine de début de la maladie</h2>
+  <p class="hint">Semaine du J0 retenu (date rapportée corrigée selon la phase des premiers signes), par zone de santé, depuis le début.
+    {% if cb.par_notification %}{{ cb.par_notification }} cas sans date de début placé(s) à la date de notification. {% endif %}
+    {% if cb.sans_date %}{{ cb.sans_date }} cas sans aucune date non représenté(s).{% endif %}</p>
+  {{ courbe|safe }}
+</div>
+<p class="hint" style="margin-top:12px">Pour un document à diffuser : menu <b>Données ▾ → Rapport de situation (Word)</b>.</p>
+{% endblock %}

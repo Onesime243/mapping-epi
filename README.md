@@ -208,3 +208,19 @@ Construction :
 
 La version est dans `packaging/VERSION`. Les installateurs ne sont pas signés : Windows (SmartScreen) et macOS
 (Gatekeeper) demandent une confirmation au premier lancement, expliquée dans le mode d'emploi.
+
+## Riposte et données (menus « Riposte ▾ » et « Données ▾ »)
+
+Fonctions ajoutées sans toucher au mapping, aux comptes ni aux fiches existantes (calculs en lecture seule).
+
+- **Indicateurs clés et courbe épidémique** (`/riposte/indicateurs`) : nouveaux cas déjà connus comme contacts,
+  cas sans lien épidémiologique, délai début des symptômes → isolement (1re hospitalisation de la chronologie),
+  décès communautaires, enterrements dignes et sécurisés, contacts suivis, agents de santé, vaccinés, complétude ;
+  courbe par semaine du J0 retenu et par ZS. Les valeurs non renseignées sont exclues et comptées à part ;
+  les cibles sont indicatives (`core/riposte.py`).
+- **Suivi des actions** (`/riposte/actions`) : actions de l'onglet Actions de toutes les fiches, en retard d'abord.
+- **Liste des cas (Excel)** et **rapport de situation (Word)** générés à partir des fiches du périmètre du compte.
+- **Paquet de fiches** (`/donnees`, et menu Riposte de l'application de bureau) : rassemble les fiches saisies
+  sans connexion. Un .zip ne contient que des fiches de cas (jamais de comptes). À l'import : nouvelles fiches
+  ajoutées ; une fiche connue n'est remplacée que par une version plus récente (l'ancienne reste dans l'historique) ;
+  un N° EPID déjà porté par une autre fiche est signalé sans rien écraser ; les fiches hors droits sont ignorées.

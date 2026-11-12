@@ -31,6 +31,21 @@
           <a href="{{ url_for('frequent_places', niveau='as') }}">Lieux fréquentés par aire de santé</a>
         </div>
       </div>
+      <div class="menu">
+        <button type="button" class="menu-btn" aria-haspopup="true">Riposte ▾</button>
+        <div class="menu-list">
+          <a href="{{ url_for('riposte_indicateurs') }}">Indicateurs clés et courbe épidémique</a>
+          <a href="{{ url_for('riposte_actions') }}">Suivi des actions</a>
+        </div>
+      </div>
+      <div class="menu">
+        <button type="button" class="menu-btn" aria-haspopup="true">Données ▾</button>
+        <div class="menu-list">
+          <a href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">Liste des cas (Excel)</a>
+          <a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">Rapport de situation (Word)</a>
+          <a href="{{ url_for('donnees_page') }}">Échanger des fiches (paquet hors ligne)</a>
+        </div>
+      </div>
       {% if me.is_admin or me.niveau == "national" %}
       <a href="{{ url_for('users_admin') }}">Utilisateurs</a>
       {% endif %}

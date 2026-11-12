@@ -99,9 +99,11 @@ class Store:
 
     # -- cas -------------------------------------------------------------
     def save(self, case: Case, version: bool = False, auteur: str = "", commentaire: str = "",
-             owner: Optional[str] = None) -> None:
-        case.modifie_le = datetime.now().replace(microsecond=0)
-        case.modifie_par = auteur or case.investigateur or current_user()
+             owner: Optional[str] = None, garder_date: bool = False) -> None:
+        # garder_date : import d'un paquet de fiches, la date et l'auteur de la dernière modification sont conservés
+        if not (garder_date and case.modifie_le):
+            case.modifie_le = datetime.now().replace(microsecond=0)
+            case.modifie_par = auteur or case.investigateur or current_user()
         data = case.model_dump_json()
         with self.lock:
             row = self.db.execute("SELECT owner FROM cases WHERE id=?", (case.id,)).fetchone()
@@ -124,6 +126,14 @@ class Store:
                 (self.mirror_dir / f"{case.id}.json").write_text(case.model_dump_json(indent=2), encoding="utf-8")
             except OSError:
                 pass
+
+    def archive_version(self, case: Case, auteur: str = "", commentaire: str = "") -> None:
+        """Garde une fiche telle quelle dans l'historique des versions (sans modifier la fiche active)."""
+        ts = (case.modifie_le or datetime.now()).replace(microsecond=0).isoformat()
+        with self.lock:
+            self.db.execute("INSERT INTO versions(case_id,ts,auteur,commentaire,data) VALUES(?,?,?,?,?)",
+                            (case.id, ts, auteur or case.modifie_par, commentaire, case.model_dump_json()))
+            self.db.commit()
 
     def load(self, case_id: str) -> Optional[Case]:
         row = self.db.execute("SELECT data FROM cases WHERE id=?", (case_id,)).fetchone()

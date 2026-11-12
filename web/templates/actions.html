@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Suivi des actions · Mapping Épi{% endblock %}
+{% block content %}
+<h1>Suivi des actions de la riposte</h1>
+<p class="hint">Actions inscrites dans les fiches de cas (onglet Actions) : qui fait quoi, pour quand. Les actions en retard
+  apparaissent en premier. Pour modifier une action (responsable, échéance, statut), ouvrez la fiche du cas.</p>
+<div class="card">
+  <form class="filters" method="get">
+    <select name="province" onchange="this.form.submit()"><option value="">Toutes les provinces</option>
+      {% for p in provinces %}<option{% if p == prov %} selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+    <label style="align-self:center"><input type="checkbox" name="toutes" value="1"{% if toutes %} checked{% endif %}
+      onchange="this.form.submit()"> afficher aussi les actions faites</label>
+  </form>
+  <div class="row" style="gap:8px; margin:4px 0 12px; flex-wrap:wrap">
+    <span class="pill">{{ bilan.ouvertes }} ouverte(s)</span>
+    <span class="pill" style="color: var(--danger)">{{ bilan.retard }} en retard</span>
+    <span class="pill">{{ bilan.urgentes }} urgente(s)</span>
+    <span class="pill">{{ bilan.sans_responsable }} sans responsable</span>
+    <span class="pill">{{ bilan.sans_echeance }} sans échéance</span>
+  </div>
+  {{ frag|safe }}
+</div>
+{% endblock %}

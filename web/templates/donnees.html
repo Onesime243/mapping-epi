@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Données · Mapping Épi{% endblock %}
+{% block content %}
+<h1>Données : listes, rapports et échange de fiches</h1>
+<p class="hint">Périmètre : {{ me.perimetre }} · {{ n }} cas visibles. Tous les fichiers ne contiennent que les fiches de votre périmètre.</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Liste des cas et rapport de situation</h2>
+  <form class="filters" method="get" id="f">
+    <select name="province"><option value="">Toutes les provinces</option>
+      {% for p in provinces %}<option>{{ p }}</option>{% endfor %}</select>
+    <select name="periode">
+      <option value="7">Indicateurs : 7 derniers jours</option><option value="21" selected>Indicateurs : 21 derniers jours</option>
+      <option value="42">Indicateurs : 42 derniers jours</option><option value="0">Indicateurs : depuis le début</option></select>
+  </form>
+  <div class="row" style="gap:10px; flex-wrap:wrap; margin-top:8px">
+    <button class="btn" onclick="dl('liste-cas.xlsx')">Liste des cas (Excel)</button>
+    <button class="btn" onclick="dl('rapport-situation.docx')">Rapport de situation (Word)</button>
+  </div>
+  <p class="hint" style="margin-top:8px">Liste des cas : une ligne par cas (N° EPID, lieux, dates clés, état, isolement, contacts, complétude), sans nom de patient.
+    Rapport : situation générale, courbe épidémique, catégories des ZS, indicateurs clés, alertes, actions et points d'attention. À relire avant diffusion.</p>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Échanger des fiches entre ordinateurs (sans connexion)</h2>
+  <p class="hint">Pour rassembler les fiches saisies sur les ordinateurs où l'application est installée : exportez un paquet,
+    transmettez-le (clé USB, e-mail, WhatsApp), puis importez-le ici ou dans l'application de bureau (menu Riposte ▾).
+    Seules les fiches de cas voyagent, jamais les comptes ni les mots de passe.</p>
+  <div class="row" style="gap:10px; flex-wrap:wrap">
+    <button class="btn" onclick="dl('paquet.zip')">Exporter un paquet de fiches (.zip)</button>
+  </div>
+  <form method="post" enctype="multipart/form-data" style="margin-top:14px" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="paquet" accept=".zip" required>
+    <button class="btn primary">Importer un paquet</button>
+  </form>
+  <p class="hint" style="margin-top:8px">À l'import : les nouvelles fiches sont ajoutées ; une fiche déjà présente n'est remplacée que par une version
+    plus récente (l'ancienne reste dans l'historique) ; un N° EPID déjà utilisé par une autre fiche est signalé et rien n'est écrasé ;
+    les fiches que votre compte n'a pas le droit de modifier sont ignorées.</p>
+  {% if bilan %}
+  <div class="alert ok" style="margin-top:10px">
+    <b>Bilan :</b> {{ bilan.texte() }}
+    {% if bilan.ajoutees %}<br>Ajoutées : {{ bilan.ajoutees|join(", ") }}{% endif %}
+    {% if bilan.mises_a_jour %}<br>Mises à jour : {{ bilan.mises_a_jour|join(", ") }}{% endif %}
+    {% if bilan.erreurs %}<br>Illisibles : {{ bilan.erreurs|join(" ; ") }}{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function dl(quoi) {
+  var f = document.getElementById('f');
+  var q = new URLSearchParams(new FormData(f)).toString();
+  window.location = '{{ url_for("donnees_page") }}/' + quoi + '?' + q;
+}
+</script>
+{% endblock %}

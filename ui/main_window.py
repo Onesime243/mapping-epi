@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QProcess, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QColor, QCursor, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QInputDialog,
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QInputDialog,
                                QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox,
                                QPushButton, QScrollArea, QSplitter, QTabWidget, QTextBrowser, QToolBar, QToolButton,
                                QVBoxLayout, QWidget)
@@ -278,6 +278,21 @@ class MainWindow(QMainWindow):
         _add(m2, "Rapport complet PowerPoint (4 visuels)", lambda: self.export_report("pptx"))
         exp.setMenu(m2)
         tb.addWidget(exp)
+        tb.addSeparator()
+        rip = QToolButton()
+        rip.setText("Riposte ▾")
+        rip.setPopupMode(QToolButton.InstantPopup)
+        m5 = QMenu(rip)
+        _add(m5, "Indicateurs clés et courbe épidémique…", self.show_indicateurs)
+        _add(m5, "Suivi des actions…", self.show_actions)
+        m5.addSeparator()
+        _add(m5, "Liste des cas (Excel)…", self.export_liste_cas)
+        _add(m5, "Rapport de situation (Word)…", self.export_rapport_situation)
+        m5.addSeparator()
+        _add(m5, "Exporter un paquet de fiches (.zip)…", self.export_paquet)
+        _add(m5, "Importer un paquet de fiches (.zip)…", self.import_paquet)
+        rip.setMenu(m5)
+        tb.addWidget(rip)
         tb.addSeparator()
         th = QToolButton()
         th.setText("Thème ▾")
@@ -817,6 +832,113 @@ class MainWindow(QMainWindow):
         self.settings.setValue("theme", name)
         applied = apply_theme(name)
         self.statusBar().showMessage(f"Thème : {applied}", 2500)
+
+    # ------------------------------------------------------------ riposte
+    def _cas_enregistres(self) -> List[Case]:
+        self.autosave_now()
+        return self.store.all_cases()
+
+    def _fenetre_html(self, titre: str, rendu, choix=None):
+        """Fenêtre affichant une page HTML ; `rendu(valeur du choix)` renvoie la page."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle(titre)
+        dlg.resize(1180, 820)
+        lay = QVBoxLayout(dlg)
+        view = QWebEngineView()
+        combo = None
+        if choix:
+            combo = QComboBox()
+            for lib, val in choix:
+                combo.addItem(lib, val)
+            combo.setCurrentIndex(1 if len(choix) > 1 else 0)
+            combo.currentIndexChanged.connect(lambda _i: view.setHtml(rendu(combo.currentData())))
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Indicateurs calculés sur :"))
+            row.addWidget(combo)
+            row.addStretch(1)
+            lay.addLayout(row)
+        lay.addWidget(view, 1)
+        view.setHtml(rendu(combo.currentData() if combo else None))
+        bb = QDialogButtonBox(QDialogButtonBox.Close)
+        bb.rejected.connect(dlg.reject)
+        lay.addWidget(bb)
+        dlg.exec()
+
+    def show_indicateurs(self):
+        from core import riposte as RIP
+        cases = self._cas_enregistres()
+        cb = RIP.courbe(cases)
+
+        def rendu(periode):
+            recents = RIP.filtrer(cases, periode, date.today())
+            corps = (f'<p class="hint">{len(cases)} cas au total ; indicateurs sur {len(recents)} cas '
+                     f'{"notifiés dans les " + str(periode) + " derniers jours" if periode else "(toute la période)"}. '
+                     "Cibles indicatives, à valider par la coordination.</p>"
+                     f'<div class="card">{RIP.html_indicateurs(RIP.indicateurs(recents))}</div>'
+                     '<div class="card"><h2 style="margin-top:0">Courbe épidémique : cas par semaine de début de la '
+                     f'maladie</h2>{RIP.courbe_svg(cb)}</div>')
+            return RIP.page_bureau("Indicateurs clés de la riposte", corps)
+        self._fenetre_html("Indicateurs clés et courbe épidémique", rendu,
+                           [("7 derniers jours", 7), ("21 derniers jours", 21), ("42 derniers jours", 42),
+                            ("toute la période", None)])
+
+    def show_actions(self):
+        from core import riposte as RIP
+        items = RIP.actions_ouvertes(self._cas_enregistres())
+        b = RIP.bilan_actions(items)
+        corps = (f'<p class="hint">{b["ouvertes"]} action(s) ouverte(s) · {b["retard"]} en retard · {b["urgentes"]} '
+                 f'urgente(s) · {b["sans_responsable"]} sans responsable · {b["sans_echeance"]} sans échéance. '
+                 "Pour modifier une action, ouvrez la fiche du cas (onglet Actions).</p>"
+                 f'<div class="card">{RIP.html_actions(items)}</div>')
+        self._fenetre_html("Suivi des actions", lambda _v: RIP.page_bureau("Suivi des actions", corps))
+
+    def export_liste_cas(self):
+        from core import echanges as ECH
+        path, _ = QFileDialog.getSaveFileName(self, "Liste des cas", str(Path.home() / f"Liste_des_cas_{date.today()}.xlsx"),
+                                              "Excel (*.xlsx)")
+        if path:
+            ECH.liste_cas_xlsx(self._cas_enregistres(), path, "application de bureau")
+            self._done(True, Path(path))
+
+    def export_rapport_situation(self):
+        from core import echanges as ECH
+        path, _ = QFileDialog.getSaveFileName(self, "Rapport de situation",
+                                              str(Path.home() / f"Rapport_situation_MVE_{date.today()}.docx"),
+                                              "Word (*.docx)")
+        if path:
+            ECH.rapport_docx(self._cas_enregistres(), path, "application de bureau", 21)
+            self._done(True, Path(path))
+
+    def export_paquet(self):
+        from core import echanges as ECH
+        path, _ = QFileDialog.getSaveFileName(self, "Paquet de fiches",
+                                              str(Path.home() / f"Paquet_fiches_MappingEpi_{date.today()}.zip"),
+                                              "Paquet de fiches (*.zip)")
+        if path:
+            cases = self._cas_enregistres()
+            Path(path).write_bytes(ECH.paquet_bytes(cases, storage.current_user(), "application de bureau"))
+            QMessageBox.information(self, "Paquet de fiches", (
+                f"{len(cases)} fiche(s) dans le paquet :\n{path}\n\nTransmettez ce fichier (clé USB, e-mail, WhatsApp) : "
+                "il s'importe dans un autre ordinateur ou sur le serveur (menu Données). Il contient des données de "
+                "santé : ne le partagez qu'avec l'équipe de la riposte."))
+
+    def import_paquet(self):
+        from core import echanges as ECH
+        path, _ = QFileDialog.getOpenFileName(self, "Importer un paquet de fiches", str(Path.home()),
+                                              "Paquet de fiches (*.zip)")
+        if not path:
+            return
+        self.autosave_now()
+        try:
+            b = ECH.importer_paquet(self.store, Path(path).read_bytes(), storage.current_user())
+        except ValueError as exc:
+            QMessageBox.warning(self, "Paquet de fiches", str(exc))
+            return
+        self.refresh_list()
+        cur = self.store.load(self.case.id)
+        if cur and cur.model_dump_json() != self.case.model_dump_json():
+            self.load_case(cur)
+        QMessageBox.information(self, "Paquet importé", b.texte())
 
     # ------------------------------------------------------- utilisateurs
     def manage_users(self):
