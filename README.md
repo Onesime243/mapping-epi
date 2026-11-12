@@ -247,3 +247,16 @@ Fonctions ajoutées sans toucher au mapping, aux comptes ni aux fiches existante
   **nombre de reproduction observé** (cas secondaires reliés par cas de plus de 42 jours).
 - **Téléphone** : menu repliable et pages adaptées aux petits écrans.
 - Fichiers d'automatisation GitHub (tests, installateurs) : `packaging/github/`.
+
+## Version 1.3 : champs obligatoires et carte sur les contours réels
+
+- **Champs obligatoires** (`config/champs_obligatoires.yaml`, modifiable) : ID du cas, province, zone et aire de santé,
+  sexe, âge, début des symptômes, date de confirmation, état du cas. Sans eux, une fiche n'est **pas enregistrée** :
+  la saisie est gardée en **brouillon** (table `brouillons`), hors de la liste des cas, des analyses et de la
+  synchronisation, et le formulaire montre les champs manquants en rouge. Une fiche déjà enregistrée qu'on vide d'un
+  champ obligatoire garde sa dernière version complète. « Nouveau cas » et les imports incomplets créent un brouillon.
+- **Carte** : contours réels des aires de santé et limites des zones de santé, aires touchées colorées selon le
+  dernier cas notifié, zoom (molette, pincement) et déplacement. Contours du Nord-Kivu livrés
+  (`config/geo/aires_nord-kivu.json`, 661 aires, GRID3 / CIESIN 2025, simplifiés à ≈ 150 m). Autres provinces :
+  importer leur GeoPackage (.gpkg, colonnes Province, Zone, Aire) depuis la page Carte ou l'application de bureau
+  (Riposte ▾ → Importer les contours) ; conversion par `core/geo.py`, sans bibliothèque externe.

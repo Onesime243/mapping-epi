@@ -1,6 +1,6 @@
 """Niveaux des comptes (national / province / zone / aire), chaînes de transmission, lieux communs."""
 import re
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -15,8 +15,10 @@ PWD = "Secret2026"
 
 
 def _case(code, prov, zs, aire, j0=None, events=(), source="", contact="Inconnu"):
+    # champs obligatoires remplis (sinon la fiche modifiée resterait en brouillon)
     return Case(code_cas=code, province=prov, zs=zs, aire_sante=aire, debut_symptomes=j0, events=list(events),
-                id_cas_source=source, contact_connu=contact)
+                id_cas_source=source, contact_connu=contact, sexe="M", age=30, issue="En traitement",
+                date_confirmation=(j0 + timedelta(days=3)) if j0 else date(2026, 11, 1))
 
 
 @pytest.fixture

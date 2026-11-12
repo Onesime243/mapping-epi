@@ -22,6 +22,7 @@
 </div>
 
 {% if readonly %}<div class="alert info">Fiche créée par <b>{{ owner_label }}</b> : votre niveau ({{ me.niveau_label }}) permet de la consulter et de télécharger les visuels, pas de la modifier.</div>{% endif %}
+<div class="missing obligatoires" id="obligatoires" hidden></div>
 <div class="missing" id="missing" hidden></div>
 <div class="editor{% if readonly %} readonly{% endif %}">
   <section class="card">

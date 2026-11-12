@@ -228,7 +228,10 @@ class MainWindow(QMainWindow):
             self.refresh_list()
         last = self.settings.value("last_case")
         first = self.store.list()
-        if last and self.store.load(last):
+        br = self.store.load_brouillon(last) if last else None
+        if br:
+            self.load_case(br[0])
+        elif last and self.store.load(last):
             self.load_case(self.store.load(last))
         elif first:
             self.load_case(self.store.load(first[0][0]))
@@ -316,6 +319,7 @@ class MainWindow(QMainWindow):
         _add(m5, "Synchroniser maintenant", lambda: self.synchroniser(silencieux=False))
         _add(m5, "Doublons possibles…", self.show_doublons)
         _add(m5, "Carte des cas…", self.show_carte)
+        _add(m5, "Importer les contours des aires de santé (.gpkg)…", self.importer_contours)
         rip.setMenu(m5)
         tb.addWidget(rip)
         sec = QToolButton()
@@ -355,8 +359,29 @@ class MainWindow(QMainWindow):
         act("Aide", self.show_help, "F1")
 
     # ------------------------------------------------------------------ cas
+    def _enregistrer(self, case: Optional[Case] = None, version: bool = False, commentaire: str = "") -> bool:
+        """Enregistre la fiche si les champs obligatoires sont remplis ; sinon la garde en brouillon."""
+        from core import obligatoires as OBL
+        c = case or self.case
+        manque = OBL.manquants(c)
+        if manque:
+            self.store.save_brouillon(c, "bureau")
+            self.statusBar().showMessage("Brouillon (non enregistré) : manque " + ", ".join(manque), 15000)
+            return False
+        self.store.save(c, version=version, commentaire=commentaire)
+        return True
+
     def refresh_list(self):
         self.case_list.clear()
+        from core import obligatoires as OBL
+        for cid, _upd, _own, c in self.store.brouillons():
+            it = QListWidgetItem("✎ Brouillon : " + (c.code_cas or "nouvelle fiche") + (f" ({c.zs})" if c.zs else ""))
+            it.setData(Qt.UserRole, cid)
+            it.setForeground(QColor(theme.RED))
+            it.setToolTip("Non enregistrée : manque " + ", ".join(OBL.manquants(c)))
+            self.case_list.addItem(it)
+            if cid == self.case.id:
+                it.setSelected(True)
         for cid, titre, updated in self.store.list(self.search.text().strip()):
             it = QListWidgetItem(titre)
             it.setData(Qt.UserRole, cid)
@@ -371,8 +396,9 @@ class MainWindow(QMainWindow):
             return
         self.collect()
         if self.dirty:
-            self.store.save(self.case)
-        c = self.store.load(cid)
+            self._enregistrer()
+        br = self.store.load_brouillon(cid)
+        c = br[0] if br else self.store.load(cid)
         if c:
             self.load_case(c)
 
@@ -412,10 +438,10 @@ class MainWindow(QMainWindow):
     def new_case(self):
         self.collect()
         if self.dirty:
-            self.store.save(self.case)
+            self._enregistrer()
         c = Case(investigateur=self.case.investigateur, zs=self.case.zs, province=self.case.province,
                  maladie=self.case.maladie)
-        self.store.save(c)
+        self.store.save_brouillon(c, "bureau")
         self.load_case(c)
         self.refresh_list()
         self.form.setCurrentIndex(0)
@@ -425,7 +451,7 @@ class MainWindow(QMainWindow):
         import uuid
         c.id = uuid.uuid4().hex
         c.rang = None
-        self.store.save(c, version=True, commentaire="Copie")
+        self._enregistrer(c, version=True, commentaire="Copie")
         self.load_case(c)
         self.refresh_list()
 
@@ -445,7 +471,12 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         self.identity.remember_new()
-        self.store.save(self.case, version=True, commentaire=comment)
+        if not self._enregistrer(version=True, commentaire=comment):
+            from core import obligatoires as OBL
+            self.dirty = False
+            self.refresh_list()
+            QMessageBox.warning(self, "Enregistrement impossible", OBL.message(OBL.manquants(self.case)))
+            return
         self.dirty = False
         self.refresh_list()
         msg = "Version enregistrée."
@@ -457,10 +488,11 @@ class MainWindow(QMainWindow):
         if self.dirty:
             try:
                 self.collect()
-                self.store.save(self.case)
+                ok = self._enregistrer()
                 self.dirty = False
                 self.refresh_list()
-                self.statusBar().showMessage(f"Sauvegarde automatique {datetime.now():%H:%M:%S}", 3000)
+                if ok:
+                    self.statusBar().showMessage(f"Sauvegarde automatique {datetime.now():%H:%M:%S}", 3000)
             except Exception:
                 log.exception("Échec de la sauvegarde automatique")
 
@@ -650,8 +682,14 @@ class MainWindow(QMainWindow):
         self.actions_tab.show_suggestions(rules.suggest_actions(c))
         self.checks.update_from(c, self.table_errors())
         manquants = rules.completeness(c)[1]
-        self.missing_label.setText(f"À compléter ({len(manquants)}) : " + " • ".join(manquants))
-        self.missing_label.setVisible(bool(manquants))
+        from core import obligatoires as OBL
+        obl = OBL.manquants(c)
+        txt = (("<b>Enregistrement impossible : remplissez " + ", ".join(obl) + ".</b> La saisie est gardée en "
+                "brouillon.<br>") if obl else "")
+        if manquants:
+            txt += f"À compléter ({len(manquants)}) : " + " • ".join(manquants)
+        self.missing_label.setText(txt)
+        self.missing_label.setVisible(bool(txt))
         key = self.current_key()
         view = self.previews[key]
         try:
@@ -803,7 +841,7 @@ class MainWindow(QMainWindow):
                 self, "Ouvrir", "Cette fiche existe déjà. L'importer comme une copie ?") == QMessageBox.Yes:
             import uuid
             c.id = uuid.uuid4().hex
-        self.store.save(c, version=True, commentaire=f"Import {Path(path).name}")
+        self._enregistrer(c, version=True, commentaire=f"Import {Path(path).name}")
         self.load_case(c)
         self.refresh_list()
 
@@ -826,7 +864,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Import Excel", f"Lecture impossible : {exc}")
             return
-        self.store.save(c, version=True, commentaire=f"Import {Path(path).name}")
+        self._enregistrer(c, version=True, commentaire=f"Import {Path(path).name}")
         self.load_case(c)
         self.refresh_list()
 
@@ -842,7 +880,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Import du narratif", f"Lecture impossible : {exc}")
             return
         c = res.case
-        self.store.save(c, version=True, commentaire=f"Import narratif {Path(path).name}")
+        self._enregistrer(c, version=True, commentaire=f"Import narratif {Path(path).name}")
         self.load_case(c)
         self.refresh_list()
         msg = "Trouvé : " + ", ".join(res.trouves) + "."
@@ -1006,6 +1044,22 @@ class MainWindow(QMainWindow):
             return RIP.page_bureau("Carte des cas", corps)
         self._fenetre_html("Carte des cas", rendu, [("21 derniers jours", 21), ("42 derniers jours", 42),
                                                     ("toute la période", None)])
+
+    def importer_contours(self):
+        from core import geo as GEO
+        path, _ = QFileDialog.getOpenFileName(self, "Contours des aires de santé", str(Path.home()),
+                                              "GeoPackage (*.gpkg)")
+        if not path:
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            out, n = GEO.importer_gpkg(path)
+        except Exception as exc:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, "Contours", f"GeoPackage illisible : {exc}")
+            return
+        QApplication.restoreOverrideCursor()
+        QMessageBox.information(self, "Contours", f"{n} aires de santé importées ({out.name}). La carte les utilise.")
 
     # ---------------------------------------------------- synchronisation
     def reglage_sync(self):
@@ -1241,7 +1295,7 @@ class MainWindow(QMainWindow):
         try:
             self.collect()
             if self.dirty:
-                self.store.save(self.case)
+                self._enregistrer()
         except Exception:
             log.exception("Sauvegarde à la fermeture")
         try:

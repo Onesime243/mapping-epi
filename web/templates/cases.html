@@ -17,6 +17,20 @@
     <form method="post" action="{{ url_for('demo_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" title="Cas fictif complet pour s'entraîner">Exemple fictif</button></form>
   </div>
 </div>
+{% if brouillons %}
+<div class="card" style="margin-bottom:14px; border-color: var(--warn)">
+  <h2 style="margin-top:0">Brouillons non enregistrés ({{ brouillons|length }})</h2>
+  <p class="hint">Ces fiches n'apparaissent pas dans la liste des cas ni dans les analyses tant que les champs obligatoires
+    ne sont pas remplis. Ouvrez-les pour les compléter.</p>
+  <table class="list">
+    <tr><th>Fiche</th><th>Modifiée le</th><th>Champs obligatoires manquants</th></tr>
+    {% for cid, upd, c, m in brouillons %}
+    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Nouvelle fiche" }}</a>{% if c.zs %} <span class="muted">({{ c.zs }})</span>{% endif %}</td>
+      <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="color: var(--danger)">{{ m|join(", ") or "aucun (sera enregistrée à la prochaine modification)" }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
 <div class="card">
   <form class="filters" method="get">
     <input type="hidden" name="tri" value="{{ tri }}"><input type="hidden" name="ordre" value="{{ 'desc' if desc else 'asc' }}">

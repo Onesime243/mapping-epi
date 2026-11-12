@@ -1,0 +1,14 @@
+# Champs obligatoires : une fiche n'est ENREGISTRÉE (liste des cas, analyses, synchronisation) que s'ils sont remplis.
+# Tant qu'il en manque, la saisie est gardée en brouillon (rien n'est perdu) et le formulaire les montre en rouge.
+# « Inconnu » / « Inconnue » ne compte pas comme une réponse pour les champs à choix.
+# Modifier cette liste avec la coordination ; l'outil la relit au redémarrage.
+champs:
+  - {cle: code_cas, libelle: "ID du cas (N° EPID)"}
+  - {cle: province, libelle: "Province"}
+  - {cle: zs, libelle: "Zone de santé"}
+  - {cle: aire_sante, libelle: "Aire de santé"}
+  - {cle: sexe, libelle: "Sexe"}
+  - {cle: age, libelle: "Âge"}
+  - {cle: debut_symptomes, libelle: "Début des symptômes"}
+  - {cle: date_confirmation, libelle: "Date de confirmation"}
+  - {cle: issue, libelle: "État du cas"}

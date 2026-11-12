@@ -4,8 +4,8 @@
 <h1>Carte des cas</h1>
 <p class="hint">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %} · {{ n }} cas
   {% if periode %}notifiés dans les {{ periode }} derniers jours{% else %}depuis le début{% endif %}.
-  Position : GPS saisi dans la fiche, sinon coordonnées de l'aire de santé, sinon centre de la zone de santé.
-  Fonctionne sans internet (pas de fond de carte).</p>
+  Chaque cas est placé dans son aire de santé (contours réels{% if geo_provinces %} : {{ geo_provinces|join(", ") }}{% endif %}),
+  ou au point GPS de la fiche. Fonctionne sans internet.</p>
 <div class="card">
   <form class="filters" method="get">
     <select name="province" onchange="this.form.submit()"><option value="">Toutes les provinces</option>
@@ -13,6 +13,10 @@
     <select name="periode" onchange="this.form.submit()">
       {% for v, l in [("21", "21 derniers jours"), ("42", "42 derniers jours"), ("0", "Depuis le début")] %}
       <option value="{{ v }}"{% if (periode or 0)|string == v %} selected{% endif %}>Cas : {{ l }}</option>{% endfor %}</select>
+    <select name="vue" onchange="this.form.submit()">
+      <option value="cas"{% if vue == "cas" %} selected{% endif %}>Vue : autour des cas</option>
+      <option value="province"{% if vue == "province" %} selected{% endif %}>Vue : province entière</option></select>
+    <button type="button" class="btn" onclick="carteReset()">Recentrer</button>
   </form>
   {{ svg|safe }}
 </div>
@@ -24,7 +28,20 @@
 </div>
 {% endif %}
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">Coordonnées des aires de santé</h2>
+  <h2 style="margin-top:0">Contours des aires de santé</h2>
+  <p class="hint">{{ n_aires }} aires de santé avec contours{% if geo_provinces %} ({{ geo_provinces|join(", ") }}){% endif %}.
+    Pour une autre province (Ituri, Haut-Uélé…), importez le fichier GeoPackage (.gpkg) des aires de santé GRID3 :
+    colonnes Province, Zone, Aire. Il est simplifié et gardé sur le serveur.</p>
+  {% if me.is_admin or me.niveau == "national" %}
+  <form method="post" enctype="multipart/form-data" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="contours" accept=".gpkg" required>
+    <button class="btn primary">Importer les contours (.gpkg)</button>
+  </form>
+  {% endif %}
+</div>
+<div class="card" style="margin-top:14px">
+  <h2 style="margin-top:0">Coordonnées des aires de santé (sans contours)</h2>
   <p class="hint">{{ carte.n_coord }} aire(s) de santé avec coordonnées. Fichier CSV avec les colonnes
     <code>province;zone_sante;aire_sante;latitude;longitude</code> (par exemple les centres des aires de santé GRID3 / OCHA).
     Les lignes hors de la RDC ou sans nombre valide sont ignorées.</p>
@@ -36,4 +53,38 @@
   </form>
   {% else %}<p class="muted">Import réservé aux administrateurs et au niveau national.</p>{% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+/* zoom (molette, pincement) et déplacement (glisser) sur la carte ; double-clic : recentrer */
+(function () {
+  var svg = document.querySelector('.carte-svg'); if (!svg) return;
+  var g = svg.querySelector('.carte-zoom'), z = 1, tx = 0, ty = 0, pts = {};
+  var fixes = svg.querySelectorAll('.fixe');
+  function apply() {
+    g.setAttribute('transform', 'translate(' + tx + ' ' + ty + ') scale(' + z + ')');
+    fixes.forEach(function (f) { var x = f.dataset.x, y = f.dataset.y;    /* ronds et noms : taille constante */
+      f.setAttribute('transform', 'translate(' + x + ' ' + y + ') scale(' + (1 / z) + ') translate(' + (-x) + ' ' + (-y) + ')'); });
+  }
+  function local(ev) { var r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    return [(ev.clientX - r.left) * vb.width / r.width, (ev.clientY - r.top) * vb.height / r.height]; }
+  function zoomAt(p, f) { var nz = Math.max(1, Math.min(40, z * f)); tx = p[0] - (p[0] - tx) * nz / z; ty = p[1] - (p[1] - ty) * nz / z; z = nz; apply(); }
+  svg.addEventListener('wheel', function (ev) { ev.preventDefault(); zoomAt(local(ev), ev.deltaY < 0 ? 1.25 : 0.8); }, {passive: false});
+  svg.addEventListener('pointerdown', function (ev) { svg.setPointerCapture(ev.pointerId); pts[ev.pointerId] = local(ev); });
+  svg.addEventListener('pointermove', function (ev) {
+    if (!(ev.pointerId in pts)) return;
+    var p = local(ev), ids = Object.keys(pts);
+    if (ids.length === 1) { tx += p[0] - pts[ev.pointerId][0]; ty += p[1] - pts[ev.pointerId][1]; pts[ev.pointerId] = p; apply(); }
+    else if (ids.length === 2) {
+      var o = pts[ids[0] == ev.pointerId ? ids[1] : ids[0]], a = pts[ev.pointerId];
+      var d0 = Math.hypot(a[0] - o[0], a[1] - o[1]), d1 = Math.hypot(p[0] - o[0], p[1] - o[1]);
+      if (d0 > 0) zoomAt([(p[0] + o[0]) / 2, (p[1] + o[1]) / 2], d1 / d0);
+      pts[ev.pointerId] = p;
+    }
+  });
+  ['pointerup', 'pointercancel'].forEach(function (t) { svg.addEventListener(t, function (ev) { delete pts[ev.pointerId]; }); });
+  window.carteReset = function () { z = 1; tx = 0; ty = 0; apply(); };
+  svg.addEventListener('dblclick', window.carteReset);
+})();
+</script>
 {% endblock %}

@@ -167,3 +167,41 @@ def test_pages_nouvelles(app):
            content_type="multipart/form-data")
     assert "<circle" in c.get("/riposte/carte?periode=0").get_data(as_text=True)
     assert "☰ Menu" in c.get("/cas").get_data(as_text=True)
+
+
+def test_champs_obligatoires(app):
+    """Sans les champs obligatoires, la fiche reste en brouillon : ni liste des cas, ni analyses."""
+    from core import obligatoires as OBL
+    c = app.test_client()
+    tok = _login(c, "admin", "Secret123")
+    cid = c.post("/cas/nouveau", data={"csrf": tok}).headers["Location"].rsplit("/", 1)[1]
+    assert app.store.load(cid) is None and app.store.load_brouillon(cid)
+    hdr = {"X-CSRF": tok, "Content-Type": "application/json"}
+    d = c.get(f"/api/cas/{cid}").get_json()["case"]
+    d.update(code_cas="RDC-NOK-KAT-26-900", province="Nord-Kivu", zs="Katwa")
+    j = c.put(f"/api/cas/{cid}", data=json.dumps(d), headers=hdr).get_json()
+    assert j["brouillon"] and "Aire de santé" in j["obligatoires"] and app.store.load(cid) is None
+    assert "Brouillons non enregistrés" in c.get("/cas").get_data(as_text=True)
+    d.update(aire_sante="Vighole", sexe="F", age=24, debut_symptomes="2026-11-01", date_confirmation="2026-11-05",
+             issue="En traitement")
+    j = c.put(f"/api/cas/{cid}", data=json.dumps(d), headers=hdr).get_json()
+    assert not j["brouillon"] and app.store.load(cid).aire_sante == "Vighole"
+    assert app.store.load_brouillon(cid) is None and app.store.owner_of(cid) == "admin"
+    # une fiche enregistrée qu'on vide d'un champ obligatoire garde sa version enregistrée
+    d["zs"] = ""
+    j = c.put(f"/api/cas/{cid}", data=json.dumps(d), headers=hdr).get_json()
+    assert j["brouillon"] and app.store.load(cid).zs == "Katwa"
+    assert OBL.manquants(Case()) and len(OBL.champs()) == 9
+
+
+def test_carte_contours():
+    from core import geo
+    g = geo.charger()
+    assert len(g["aires"]) == 661 and g["limites_zs"] and "Nord-Kivu" in g["provinces"]
+    assert geo.trouver_aire("Nord-Kivu", "Katwa", "vighole")
+    c = _cas("RDC-NOK-KAT-26-001", zs="Katwa")
+    c.province, c.aire_sante = "Nord-Kivu", "Vighole"
+    ct = CARTE.construire([c], {})
+    assert ct.points[0].source == "aire de santé"
+    s = CARTE.svg(ct, REF)
+    assert "<path" in s and "KATWA" in s and "GRID3" in s

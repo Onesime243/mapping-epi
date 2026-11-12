@@ -27,6 +27,7 @@ from core import narratif, pyramide, rules, schema, storage
 from core.access import Access
 from core.models import Action, Case, Event
 from core.paths import data_dir
+from core import obligatoires as OBL
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
 from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
@@ -129,6 +130,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
         # synchronisation du bureau : authentifiée par jeton personnel (en-tête), jamais par cookie de session
         if request.path.startswith("/api/sync/"):
             return
+        if request.path == "/riposte/carte":
+            request.max_content_length = 80 * 1024 * 1024      # contours des aires (GeoPackage)
         if request.method in ("POST", "PUT", "DELETE"):
             sent = request.headers.get("X-CSRF") or request.form.get("csrf")
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
@@ -155,6 +158,17 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     def get_case(cid: str, edit: bool = False) -> Case:
         c = app.store.load(cid)
+        g.brouillon = False
+        br = app.store.load_brouillon(cid)
+        if br and (not c or br[1] == g.user.username):
+            # brouillon (champs obligatoires manquants) : visible par son auteur et les administrateurs
+            if not c and br[1] != g.user.username and not g.user.is_admin:
+                abort(403)
+            g.brouillon = True
+            if not c:
+                g.case_owner = br[1]
+                return br[0]
+            c = br[0]
         if not c:
             abort(404)
         owner = app.store.owner_of(cid) or ""
@@ -399,8 +413,10 @@ def create_app(store: storage.Store | None = None) -> Flask:
         items = known + [i for i in items if key(i)[0] == 1]
         opts = {k: sorted(v, key=str.lower) for k, v in opts.items()}
         args = {k: f[k] for k in ("q", "agent", "province", "zs", "as") if f[k]}
+        brouillons = [(cid, upd, c, OBL.manquants(c)) for cid, upd, own, c in
+                      app.store.brouillons(None if g.user.is_admin else g.user.username)]
         return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows),
-                               tri=tri, desc=desc, sorts=SORTS, args=args)
+                               tri=tri, desc=desc, sorts=SORTS, args=args, brouillons=brouillons)
 
     # ------------------------------------------------- analyses multi-cas (limitées au périmètre du compte)
     def _selection(niveau: str):
@@ -526,6 +542,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if request.method == "POST":
             if not (g.user.is_admin or g.user.niveau == "national"):
                 abort(403)
+            gp = request.files.get("contours")
+            if gp and gp.filename:
+                from core import geo as GEO
+                tmp = data_dir() / "exports" / f"contours_{secrets.token_hex(4)}.gpkg"
+                gp.save(str(tmp))
+                try:
+                    out, n = GEO.importer_gpkg(tmp)
+                    flash(f"Contours importés : {n} aires de santé ({out.name}).", "ok")
+                except Exception as exc:
+                    flash(f"GeoPackage illisible : {exc}", "err")
+                finally:
+                    tmp.unlink(missing_ok=True)
+                return redirect(url_for("riposte_carte"))
             f = request.files.get("coordonnees")
             n = CARTE.enregistrer(f.read().decode("utf-8", "replace")) if f else 0
             flash(f"{n} aire(s) de santé avec coordonnées enregistrée(s)." if n else
@@ -535,9 +564,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
         allc, prov, periode, ref, provinces = _filtres_riposte()
         from core import riposte as RIP
         cases_ = RIP.filtrer(allc, periode, ref, prov)
+        from core import geo as GEO
+        vue = "province" if request.args.get("vue") == "province" else "cas"
         ct = CARTE.construire(cases_)
-        return render_template("carte.html", svg=CARTE.svg(ct, ref), carte=ct, prov=prov, periode=periode,
-                               ref=ref, provinces=provinces, n=len(cases_))
+        return render_template("carte.html", svg=CARTE.svg(ct, ref, vue=vue), carte=ct, prov=prov, periode=periode,
+                               ref=ref, provinces=provinces, n=len(cases_), vue=vue,
+                               geo_provinces=GEO.charger()["provinces"], n_aires=len(GEO.charger()["aires"]))
 
     @app.route("/riposte/reunion")
     @login_required
@@ -660,7 +692,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
         p = pyramide.get().province_of(u.zs) if u.zs and not c.province else None
         if p:
             c.province = p
-        app.store.save(c, version=True, auteur=g.user.username, commentaire="Création (web)", owner=g.user.username)
+        # pas encore dans la liste des cas : enregistré quand les champs obligatoires seront remplis
+        app.store.save_brouillon(c, g.user.username)
         return redirect(url_for("editor", cid=c.id))
 
     @app.route("/cas/demo", methods=["POST"])
@@ -708,7 +741,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return redirect(url_for("cases"))
         import uuid
         c.id = uuid.uuid4().hex
-        app.store.save(c, version=True, auteur=g.user.username, commentaire=f"Import {f.filename}", owner=g.user.username)
+        manque = OBL.manquants(c)
+        if manque:
+            app.store.save_brouillon(c, g.user.username)
+            flash("Fiche gardée en brouillon : complétez " + ", ".join(manque) + " pour l'enregistrer.", "err")
+        else:
+            app.store.save(c, version=True, auteur=g.user.username, commentaire=f"Import {f.filename}",
+                           owner=g.user.username)
         return redirect(url_for("editor", cid=c.id))
 
     @app.route("/cas/<cid>")
@@ -726,6 +765,10 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @login_required
     def delete_case(cid):
         c = get_case(cid)
+        if g.brouillon and not app.store.load(cid):
+            app.store.delete_brouillon(cid)
+            flash("Brouillon supprimé.", "ok")
+            return redirect(url_for("cases"))
         if not access().can_delete(c, g.case_owner):
             abort(403)
         app.store.delete(cid)
@@ -747,7 +790,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                      "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS, "symptom_groups": [[k, v] for k, v in theme.SYMPTOM_GROUPS.items()],
                      "hemorrhagic": sorted(theme.HEMORRHAGIC), "phase_dds": theme.PHASE_DDS_CHOICES,
                      "oui_non": theme.OUI_NON},
-            annee_min=theme.ANNEE_MIN,
+            annee_min=theme.ANNEE_MIN, obligatoires=[{"key": k, "label": l} for k, l in OBL.champs()],
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})
 
     @app.route("/api/pyramide")
@@ -776,10 +819,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
         new.province, new.zs, new.aire_sante = pyr.canonical(new.province, new.zs, new.aire_sante)
         pyr.remember(new.province, new.zs, new.aire_sante)
         version = request.args.get("version") == "1"
-        app.store.save(new, version=version, auteur=g.user.username,
-                       commentaire=request.args.get("commentaire", "")[:200])
-        return jsonify(ok=True, saved_at=new.modifie_le.isoformat(), controls=controls(new),
-                       case=new.model_dump(mode="json") if request.args.get("echo") else None)
+        manque = OBL.manquants(new)
+        if manque:
+            # enregistrement refusé : la saisie est gardée en brouillon (la fiche officielle ne change pas)
+            app.store.save_brouillon(new, g.case_owner if not app.store.load(cid) else g.user.username)
+            return jsonify(ok=True, brouillon=True, obligatoires=manque, message=OBL.message(manque),
+                           saved_at=new.modifie_le.isoformat(), controls=controls(new),
+                           case=new.model_dump(mode="json") if request.args.get("echo") else None)
+        premiere = app.store.load(cid) is None
+        app.store.save(new, version=version or premiere, auteur=g.user.username,
+                       commentaire=(request.args.get("commentaire", "")[:200] or ("Création (web)" if premiere else "")),
+                       owner=(g.case_owner or g.user.username) if premiere else None)
+        return jsonify(ok=True, brouillon=False, obligatoires=[], saved_at=new.modifie_le.isoformat(),
+                       controls=controls(new), case=new.model_dump(mode="json") if request.args.get("echo") else None)
 
     def controls(c: Case) -> dict:
         try:

@@ -25,7 +25,7 @@
 
   function changed() {
     if (RO) return;
-    markRequired();
+    markRequired(); renderObligatoires();
     dirty = true; setStatus('Modifications non enregistrées…');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -37,7 +37,13 @@
     saving = api('/api/cas/' + ID + q, {method: 'PUT', body: JSON.stringify(C)}).then(j => {
       CTRL = j.controls; updateComputed(); renderControls(); renderSuggestions(); refreshPreview();
       const t = new Date(j.saved_at);
-      setStatus((version ? 'Version enregistrée' : 'Enregistré') + ' à ' + t.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}));
+      OBLIG = j.obligatoires || []; renderObligatoires();
+      if (j.brouillon) {
+        setStatus('Non enregistré : ' + OBLIG.length + ' champ(s) obligatoire(s) manquant(s) (brouillon gardé)', true);
+        if (version) toast(j.message, 6000);
+      } else {
+        setStatus((version ? 'Version enregistrée' : 'Enregistré') + ' à ' + t.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}));
+      }
       updateTitle();
     }).catch(e => { dirty = true; setStatus('Échec : ' + e.message, true); });
     return saving;
@@ -84,6 +90,7 @@
     return el('div', {style: wide ? 'grid-column: 1 / -1' : null}, [el('label', {class: 'f', text: label}), input]);
   }
   function bindInput(inp, key, kind) {
+    inp.dataset.k = key;
     inp.addEventListener(kind === 'select' ? 'change' : 'input', () => {
       let v = inp.value;
       if (kind === 'int') v = v === '' ? null : parseInt(v, 10);
@@ -356,6 +363,24 @@
       x.classList.toggle('req-missing', v === null || v === undefined || v === '' || v === 'Inconnu' || v === 'Inconnue');
     });
   }
+  // champs obligatoires : sans eux, la fiche reste en brouillon (enregistrement refusé par le serveur)
+  let OBLIG = null;
+  function obligManquants() {
+    return (S.obligatoires || []).filter(o => { const v = C[o.key]; return v === null || v === undefined || String(v).trim() === '' || v === 'Inconnu' || v === 'Inconnue'; });
+  }
+  function renderObligatoires() {
+    const box = $('#obligatoires'); if (!box || RO) return;
+    const m = obligManquants();
+    $$('[data-k]').forEach(x => x.classList.toggle('obl-missing', m.some(o => o.key === x.dataset.k)));
+    box.hidden = !m.length;
+    if (!m.length) return;
+    if (!dirty && !saving) setStatus('Brouillon : non enregistré', true);
+    box.innerHTML = '';
+    box.appendChild(el('b', {text: 'Enregistrement impossible : '}));
+    box.appendChild(document.createTextNode('remplissez ' + m.map(o => o.label).join(', ') +
+      '. Votre saisie est gardée en brouillon et sera enregistrée dès que ces champs seront remplis.'));
+  }
+
   function renderMissing() {
     const box = $('#missing'); if (!box || !CTRL) return;
     box.innerHTML = '';
@@ -380,7 +405,7 @@
   }
 
   function renderControls() {
-    markRequired(); renderMissing(); renderSourceInfo();
+    markRequired(); renderMissing(); renderSourceInfo(); renderObligatoires();
     const p = $('#p-controles'); if (!CTRL) return; p.innerHTML = '';
     const fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
     p.appendChild(el('div', {class: 'row'}, [el('b', {text: 'Complétude : ' + CTRL.score + ' %'})]));

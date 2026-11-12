@@ -91,6 +91,9 @@ class Store:
         self.db.execute("""CREATE TABLE IF NOT EXISTS comptes_supprimes(
             id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, auteur TEXT, username TEXT, nom TEXT, role TEXT,
             niveau TEXT, perimetre TEXT, fiches INTEGER, motif TEXT)""")
+        # brouillons : fiches dont des champs obligatoires manquent (hors liste des cas, rien n'est perdu)
+        self.db.execute("""CREATE TABLE IF NOT EXISTS brouillons(
+            id TEXT PRIMARY KEY, owner TEXT DEFAULT '', updated TEXT, data TEXT NOT NULL)""")
         ucols = [r[1] for r in self.db.execute("PRAGMA table_info(users)")]
         for col in ("niveau", "province", "aire"):      # niveaux de la pyramide sanitaire (comptes)
             if col not in ucols:
@@ -114,6 +117,7 @@ class Store:
                 "maladie=excluded.maladie, updated=excluded.updated, data=excluded.data, owner=excluded.owner",
                 (case.id, case.titre_court(), case.zs, case.maladie, case.modifie_le.isoformat(), data, own or ""),
             )
+            self.db.execute("DELETE FROM brouillons WHERE id=?", (case.id,))
             if version:
                 self.db.execute(
                     "INSERT INTO versions(case_id,ts,auteur,commentaire,data) VALUES(?,?,?,?,?)",
@@ -126,6 +130,37 @@ class Store:
                 (self.mirror_dir / f"{case.id}.json").write_text(case.model_dump_json(indent=2), encoding="utf-8")
             except OSError:
                 pass
+
+    # -- brouillons (champs obligatoires manquants) -----------------------------------------------
+    def save_brouillon(self, case: Case, owner: str = "") -> None:
+        case.modifie_le = datetime.now().replace(microsecond=0)
+        with self.lock:
+            self.db.execute("INSERT INTO brouillons(id, owner, updated, data) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE "
+                            "SET owner=excluded.owner, updated=excluded.updated, data=excluded.data",
+                            (case.id, owner or "", case.modifie_le.isoformat(), case.model_dump_json()))
+            self.db.commit()
+
+    def load_brouillon(self, case_id: str) -> Optional[Tuple[Case, str]]:
+        row = self.db.execute("SELECT data, owner FROM brouillons WHERE id=?", (case_id,)).fetchone()
+        return (Case.model_validate_json(row[0]), row[1] or "") if row else None
+
+    def delete_brouillon(self, case_id: str) -> None:
+        with self.lock:
+            self.db.execute("DELETE FROM brouillons WHERE id=?", (case_id,))
+            self.db.commit()
+
+    def brouillons(self, owner: Optional[str] = None):
+        """(id, modifié le, compte, fiche) des brouillons."""
+        q, args = "SELECT id, updated, owner, data FROM brouillons", ()
+        if owner is not None:
+            q, args = q + " WHERE owner=?", (owner,)
+        out = []
+        for cid, upd, own, data in self.db.execute(q + " ORDER BY updated DESC", args).fetchall():
+            try:
+                out.append((cid, upd, own or "", Case.model_validate_json(data)))
+            except Exception:
+                continue
+        return out
 
     def archive_version(self, case: Case, auteur: str = "", commentaire: str = "") -> None:
         """Garde une fiche telle quelle dans l'historique des versions (sans modifier la fiche active)."""
@@ -192,6 +227,7 @@ class Store:
         # la fiche reste récupérable dans l'historique des versions
         with self.lock:
             self.db.execute("DELETE FROM cases WHERE id=?", (case_id,))
+            self.db.execute("DELETE FROM brouillons WHERE id=?", (case_id,))
             self.db.commit()
         if self.mirror_dir:
             f = self.mirror_dir / f"{case_id}.json"

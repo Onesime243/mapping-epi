@@ -6,7 +6,7 @@
   "age": 41,
   "age_unite": "ans",
   "profession": "",
-  "province": "",
+  "province": "Province fictive",
   "zs": "Tumba",
   "aire_sante": "Nzala",
   "village": "Monzombo",
@@ -532,5 +532,6 @@
   "phase_dds": "Phase sèche",
   "date_notification": "2026-07-28",
   "vaccine": "Non",
-  "agent_sante": "Non"
+  "agent_sante": "Non",
+  "code_cas": "FICTIF-TUM-26-003"
 }
