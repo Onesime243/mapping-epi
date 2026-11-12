@@ -1,0 +1,33 @@
+MAPPING ÉPI : INSTALLATION SUR ORDINATEUR (SANS CONNEXION)
+
+L'application fonctionne entièrement sans internet : saisie des fiches, mapping,
+exports PNG / PDF / PowerPoint / Excel, import des modèles Word, PowerPoint et Excel,
+chaînes de transmission et lieux communs.
+
+WINDOWS (10 ou 11, 64 bits)
+  1. Double-cliquer sur MappingEpi-<version>-Windows-Installation.exe.
+  2. Si Windows affiche « Windows a protégé votre ordinateur » :
+     cliquer sur « Informations complémentaires », puis « Exécuter quand même ».
+  3. Suivre l'assistant (aucun droit administrateur n'est nécessaire).
+  4. Lancer « Mapping Épi » depuis le menu Démarrer ou l'icône du Bureau.
+  Données : %LOCALAPPDATA%\Mapping Epi\donnees
+
+MAC (macOS 13 ou plus)
+  1. Ouvrir le fichier .dmg et glisser « Mapping Epi » dans le dossier Applications.
+     Prendre le fichier « Mac-arm64 » pour les Mac Apple (M1 à M4),
+     « Mac-x86_64 » pour les Mac Intel.
+  2. Premier lancement : clic droit (ou Ctrl + clic) sur l'application, puis « Ouvrir »,
+     puis « Ouvrir » à nouveau. Si macOS refuse : Réglages Système > Confidentialité et
+     sécurité > « Ouvrir quand même ».
+     En dernier recours, dans le Terminal :
+       xattr -dr com.apple.quarantine "/Applications/Mapping Epi.app"
+  Données : ~/Library/Application Support/Mapping Epi/donnees
+
+MISE À JOUR
+  Installer la nouvelle version par-dessus l'ancienne : les fiches et les comptes sont conservés.
+  La désinstallation ne supprime pas non plus les données.
+
+SAUVEGARDE
+  Copier régulièrement le dossier « donnees » indiqué ci-dessus sur une clé USB ou un disque.
+  Ces données contiennent des informations de santé : les garder sur un ordinateur protégé
+  par mot de passe.

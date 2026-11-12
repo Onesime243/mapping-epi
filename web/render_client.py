@@ -42,7 +42,8 @@ def render(case: dict, visual: str, fmt: str, out: Path, others: List[dict] | No
         env.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu --no-sandbox")
     try:
         with _lock:
-            p = subprocess.run([sys.executable, "-m", "web.render_worker", job_path], cwd=str(ROOT), env=env,
+            from core.paths import commande
+            p = subprocess.run(commande("rendu", job_path), cwd=str(ROOT), env=env,
                                capture_output=True, text=True, timeout=timeout)
         if p.returncode == 0 and out.exists() and out.stat().st_size > 0:
             return True, ""

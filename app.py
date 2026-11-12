@@ -14,8 +14,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-LOG_DIR = ROOT / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+# version installée sans console (Windows) : sorties standard absentes
+for _n in ("stdout", "stderr"):
+    if getattr(sys, _n) is None:
+        setattr(sys, _n, open(os.devnull, "w", encoding="utf-8"))
+
+# version installée : le même exécutable sert aussi de serveur web et de processus de rendu
+if len(sys.argv) > 1 and sys.argv[1] in ("--serveur-web", "--rendu"):
+    _role = sys.argv.pop(1)
+    if _role == "--serveur-web":
+        import serveur_web
+        sys.exit(serveur_web.main())
+    from web import render_worker
+    sys.exit(render_worker.main())
+
+from core.paths import logs_dir  # noqa: E402
+
+LOG_DIR = logs_dir()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s : %(message)s",
@@ -39,7 +54,7 @@ def _excepthook(exc_type, exc, tb):
     text = "".join(traceback.format_exception(exc_type, exc, tb))
     log.error("Erreur non gérée :\n%s", text)
     try:
-        QMessageBox.critical(None, "Erreur", f"Une erreur est survenue (détails dans logs/app.log) :\n\n{exc}")
+        QMessageBox.critical(None, "Erreur", f"Une erreur est survenue (détails dans {LOG_DIR / 'app.log'}) :\n\n{exc}")
     except Exception:
         pass
 
@@ -50,6 +65,10 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Mapping Épi")
     app.setOrganizationName("MappingEpi")
+    from PySide6.QtGui import QIcon
+    icon = ROOT / "assets" / "icons" / "mapping_epi.png"
+    if icon.exists():
+        app.setWindowIcon(QIcon(str(icon)))
     for f in (ROOT / "assets" / "fonts").glob("Inter-*.otf"):
         QFontDatabase.addApplicationFont(str(f))
     if "Inter" in QFontDatabase.families():

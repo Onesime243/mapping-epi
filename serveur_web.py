@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from core.netinfo import WEB_PORT, lan_urls  # noqa: E402
-from core.paths import data_dir  # noqa: E402
+from core.paths import data_dir, logs_dir  # noqa: E402
 
 
 def main() -> int:
@@ -28,9 +28,8 @@ def main() -> int:
     ap.add_argument("--public", action="store_true",
                     help="mode serveur internet : écoute 127.0.0.1 derrière Caddy (HTTPS), cookies sécurisés")
     args = ap.parse_args()
-    (ROOT / "logs").mkdir(exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s : %(message)s",
-                        handlers=[RotatingFileHandler(ROOT / "logs" / "web.log", maxBytes=2_000_000, backupCount=3,
+                        handlers=[RotatingFileHandler(logs_dir() / "web.log", maxBytes=2_000_000, backupCount=3,
                                                       encoding="utf-8"), logging.StreamHandler()])
     import os
     if args.public:

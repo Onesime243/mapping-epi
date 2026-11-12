@@ -187,3 +187,24 @@ Système de gestion de l’incident, **SGI-RDC**, avec l’appui de **UMIE-INRB*
 Pour tout contact : [mbonesime@gmail.com](mailto:mbonesime@gmail.com), [dav.ebengo@umie-inrb.org](mailto:dav.ebengo@umie-inrb.org)
 
 Police : Inter (SIL Open Font License). Données géographiques : GRID3 / HDX.
+
+## Installateurs Windows et Mac (sans connexion)
+
+L'application de bureau s'installe comme un logiciel ordinaire et fonctionne sans internet.
+
+- **Windows** : `MappingEpi-<version>-Windows-Installation.exe` (assistant d'installation, menu Démarrer,
+  icône du Bureau, désinstallation ; aucun droit administrateur nécessaire).
+- **Mac** : `MappingEpi-<version>-Mac-arm64.dmg` (Apple M1 à M4) ou `Mac-x86_64.dmg` (Intel).
+
+Les données de la version installée sont dans `%LOCALAPPDATA%\Mapping Epi\donnees` (Windows) ou
+`~/Library/Application Support/Mapping Epi/donnees` (Mac) ; mises à jour et désinstallation ne les touchent pas.
+Mode d'emploi pour les utilisateurs : `packaging/LISEZMOI-installation.txt`.
+
+Construction :
+- **sur GitHub** (Windows et Mac) : onglet *Actions* > *Installateurs* > *Run workflow*, ou étiquette
+  `git tag v1.0.0 && git push origin v1.0.0` (publie une *Release* avec les installateurs) ;
+- **sur un Mac** : `bash packaging/construire_mac.sh` ;
+- **sur un PC Windows** : `packaging\construire_windows.bat` (Python et Inno Setup 6 installés).
+
+La version est dans `packaging/VERSION`. Les installateurs ne sont pas signés : Windows (SmartScreen) et macOS
+(Gatekeeper) demandent une confirmation au premier lancement, expliquée dans le mode d'emploi.

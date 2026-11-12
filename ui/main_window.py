@@ -838,9 +838,11 @@ class MainWindow(QMainWindow):
         self.web_proc.setWorkingDirectory(str(ROOT))
         self.web_proc.readyReadStandardOutput.connect(
             lambda: log.info("web: %s", bytes(self.web_proc.readAllStandardOutput()).decode("utf-8", "replace").strip()))
-        self.web_proc.start(sys.executable, [str(ROOT / "serveur_web.py"), "--port", str(WEB_PORT)])
+        from core.paths import commande
+        cmd = commande("serveur-web", "--port", str(WEB_PORT))
+        self.web_proc.start(cmd[0], cmd[1:])
         if not self.web_proc.waitForStarted(5000):
-            QMessageBox.critical(self, "Version web", "Le serveur n'a pas pu démarrer (voir logs/app.log).")
+            QMessageBox.critical(self, "Version web", "Le serveur n'a pas pu démarrer (voir le journal web.log).")
             return
         QTimer.singleShot(1500, self._show_web_urls)
 
