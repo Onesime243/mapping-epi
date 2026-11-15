@@ -87,7 +87,7 @@ EN = {
     "Sceau de la Présidence de la République démocratique du Congo":
         "Seal of the Presidency of the Democratic Republic of the Congo",
     "Task Force Présidentielle Ebola 17": "Presidential Ebola Task Force 17",
-    "Système de Gestion de l’Incident MVE 17": "EVD 17 Incident Management System",
+    "Système de Gestion de l’Incident MVE 17 : MAPPING EPI": "EVD 17 Incident Management System: MAPPING EPI",
     "Un autre utilisateur vient de se connecter avec votre compte sur un autre appareil. Vous avez été déconnecté. "
     "Si ce n'est pas vous, changez votre mot de passe.":
         "Another user has just signed in with your account on another device. You have been signed out. "
