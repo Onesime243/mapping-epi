@@ -330,3 +330,42 @@ def test_rapports_piliers(app, tmp_path):
     for fmt in ("docx", "pptx"):
         res = c.get(f"/rapports/generer?debut=2026-09-01&fin=2026-11-12&pilier=pci&pilier=actions&format={fmt}")
         assert res.status_code == 200 and len(res.data) > 5000
+
+
+def test_tableau_de_bord(app):
+    from datetime import date
+    from core import tableau_bord as TB
+    from core.models import Action, ContactGroup
+    # catégories d'actions : vérifiée, sans preuve, à vérifier, bloquée, en retard
+    ref = date(2026, 11, 15)
+    assert TB.categorie_action(Action(texte="x", statut="Fait", valide_par="Sup"), ref)[0] == "verifiee"
+    assert TB.categorie_action(Action(texte="x", statut="Fait"), ref)[0] == "sans_preuve"
+    assert TB.categorie_action(Action(texte="x", statut="Fait", preuve="photo"), ref)[0] == "a_verifier"
+    assert TB.categorie_action(Action(texte="x", obstacle="Sécurité ou accès", echeance=date(2026, 11, 1)), ref)[0] == "bloquee"
+    assert TB.categorie_action(Action(texte="x", echeance=date(2026, 11, 1)), ref) == ("retard", 14)
+    # contacts à haut risque sans suivi : alerte critique ; suivi absent : jamais compté comme 0
+    c = jeu()[0]
+    c.contacts = [ContactGroup(categorie="Famille", nombre=12, suivis=0, risque="Haut")]
+    lc = TB.ligne_cas(c, ref)
+    assert lc.statut == "Critique" and any("aucun en suivi" in a.texte for a in lc.alertes)
+    c.contacts = [ContactGroup(categorie="Famille", nombre=12, risque="Haut")]
+    lc = TB.ligne_cas(c, ref)
+    assert lc.suivis is None and any("non renseigné" in a.texte for a in lc.alertes)
+    tb = TB.construire(jeu(), date(2026, 9, 1), date(2026, 11, 12))
+    assert tb.n and len(tb.tuiles) == 4 and tb.semaines
+    assert "<svg" in TB.svg_semaines(tb.semaines)
+    # accès : super-administrateur seulement
+    c = app.test_client()
+    _login(c, "admin", "Secret123")
+    for o in ("", "?debut=2026-09-01&fin=2026-11-12&onglet=actions", "?province=Ituri&pilier=PCI", "?debut=abc"):
+        r = c.get("/tableau-de-bord" + o)
+        assert r.status_code == 200, o
+    page = c.get("/tableau-de-bord?debut=2026-09-01&fin=2026-11-12").get_data(as_text=True)
+    assert "Tableau de bord de la riposte" in page and "armoiries_rdc.svg" in page and "Matrice des questions" in page
+    us = app.users
+    us.create("chef.nat2", "Secret123", role="admin")
+    for u in ("chef.nat2", "agent.bunia"):
+        c2 = app.test_client()
+        _login(c2, u, "Secret123" if u == "chef.nat2" else "Agent2026x")
+        assert c2.get("/tableau-de-bord").status_code == 403
+        assert "tableau-de-bord" not in c2.get("/").get_data(as_text=True)

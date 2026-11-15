@@ -433,6 +433,13 @@ def _actions(cases: List[Case], ref: date) -> Section:
     q.append(("Combien d'actions critiques (urgentes) sont ouvertes, et combien sans responsable ?",
               f"{len(crit)} ouvertes, dont {crit_sans} sans responsable."))
     q.append(("Combien de cas présentent au moins une action critique non résolue ?", _pct(cas_crit, len(cases))))
+    sans_preuve = sum(1 for _c, a in acts if a.statut == "Fait" and not a.preuve.strip())
+    verif = sum(1 for _c, a in acts if a.statut == "Fait" and a.valide_par.strip())
+    bloq = Counter(a.obstacle for _c, a in acts if a.statut != "Fait" and a.obstacle)
+    q.append(("Combien d'actions réalisées ont été vérifiées par un superviseur ?", _pct(verif, faites)))
+    q.append(("Combien d'actions sont déclarées réalisées sans preuve ?", f"{sans_preuve} sur {faites} réalisées."))
+    q.append(("Quels obstacles bloquent ou retardent les actions (sécurité, communauté, intrants…) ?",
+              ", ".join(f"{k} : {v}" for k, v in bloq.most_common()) or "Aucun obstacle signalé."))
     piliers = [p for p in theme.PILIERS if p in par_p]
     if piliers:
         s.graphiques.append(Graphique("Actions par pilier et par statut", piliers,
@@ -503,8 +510,6 @@ NON_COUVERTS = [
     ("J. Communauté", "Résistances communautaires, motifs, résolution", "Registre des incidents communautaires"),
     ("K. Vaccination", "Éligibilité, refus, indisponibilité du vaccin", "Données nominatives de vaccination"),
     ("L. Coordination", "Notifications interzones émises, reçues, traitées", "Registre des notifications interzones"),
-    ("M. Sécurité", "Actions retardées pour raisons de sécurité ou d'accès", "Motif de blocage des actions"),
-    ("N. Actions", "Actions vérifiées, preuves examinées, actions rouvertes", "Statut « vérifié », preuve et valideur"),
     ("S. Impact", "Coût par investigation, par action PCI, par contact suivi", "Données de coût"),
 ]
 

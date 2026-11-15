@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}{{ t("Tableau de bord") }} · Mapping Épi{% endblock %}
+{% block mainclass %}tb-main{% endblock %}
+{% block content %}
+{% set qs = "debut=" ~ tb.debut.isoformat() ~ "&fin=" ~ tb.fin.isoformat() ~ "&province=" ~ (tb.province|urlencode) %}
+<div class="tb-tete">
+  <div>
+    <h1>{{ t("Tableau de bord de la riposte") }}</h1>
+    <div class="hint" style="margin:0">Fiches enregistrées · cas notifiés du {{ tb.debut.strftime("%d/%m/%Y") }} au {{ tb.fin.strftime("%d/%m/%Y") }}
+      · <b>{{ tb.n }}</b> cas sur la période{% if tb.province or tb.zs %} ({{ tb.zs or tb.province }}){% endif %}
+      · {{ tb.n_total }} cas au total dans le périmètre</div>
+  </div>
+</div>
+
+<form method="get" class="tb-filtres card" id="tb-form">
+  <label>Province<select name="province" onchange="this.form.zs.value='';this.form.submit()"><option value="">Toutes les provinces</option>
+    {% for p in provinces %}<option {{ 'selected' if p == tb.province }}>{{ p }}</option>{% endfor %}</select></label>
+  <label>Zone de santé<select name="zs" onchange="this.form.submit()"><option value="">Toutes les zones de santé</option>
+    {% for z in zones %}<option {{ 'selected' if z == tb.zs }}>{{ z }}</option>{% endfor %}</select></label>
+  <label>Du<input type="date" name="debut" value="{{ tb.debut.isoformat() }}"></label>
+  <label>Au<input type="date" name="fin" value="{{ tb.fin.isoformat() }}"></label>
+  <label>Pilier (actions)<select name="pilier" onchange="this.form.submit()"><option value="">Tous les piliers</option>
+    {% for p in piliers %}<option {{ 'selected' if p == tb.pilier }}>{{ p }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="onglet" id="tb-onglet-champ" value="{{ request.args.get('onglet', 'synthese') }}">
+  <div class="tb-boutons">
+    <button class="btn small primary" type="submit">Appliquer</button>
+    <a class="btn small" href="{{ url_for('tableau_bord') }}">Réinitialiser</a>
+    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=docx">Rapport Word</a>
+    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=pptx">PowerPoint</a>
+  </div>
+</form>
+
+{% if tb.alertes %}
+{% set n_crit = tb.alertes|selectattr("niveau", "equalto", "crit")|list|length %}
+<div class="tb-alertes {{ 'crit' if n_crit else '' }}">
+  <div class="tb-alertes-ic" aria-hidden="true">!</div>
+  <div style="flex:1;min-width:0">
+    <b>{{ tb.alertes|length }} alerte(s) calculée(s) automatiquement</b>{% if n_crit %} · <span class="tb-crit-txt">{{ n_crit }} critique(s)</span>{% endif %}
+    <ul>
+      {% for a in tb.alertes[:6] %}
+      <li><span class="tb-point {{ a.niveau }}"></span>{% if a.code %}Cas <b>{{ a.code }}</b> : {% endif %}{{ a.texte }}
+        {% if a.cid %} <a href="{{ url_for('editor', cid=a.cid) }}">Ouvrir la fiche</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% if tb.alertes|length > 6 %}
+    <details><summary>Voir les {{ tb.alertes|length - 6 }} autres alertes</summary><ul>
+      {% for a in tb.alertes[6:] %}<li><span class="tb-point {{ a.niveau }}"></span>{% if a.code %}Cas <b>{{ a.code }}</b> : {% endif %}{{ a.texte }}
+        {% if a.cid %} <a href="{{ url_for('editor', cid=a.cid) }}">Ouvrir la fiche</a>{% endif %}</li>{% endfor %}
+    </ul></details>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="tb-alertes ok"><div class="tb-alertes-ic" aria-hidden="true">✓</div><div><b>Aucune alerte</b> sur la période et le périmètre choisis.</div></div>
+{% endif %}
+
+<div class="tb-onglets" role="tablist">
+  {% for k, lib in [("synthese", "Synthèse"), ("actions", "Actions"), ("contacts", "Contacts, PCI et vaccination"),
+                    ("transmission", "Parcours et transmission"), ("qualite", "Qualité des données"), ("matrice", "Matrice des questions")] %}
+  <button type="button" role="tab" data-onglet="{{ k }}">{{ lib }}</button>
+  {% endfor %}
+</div>
+
+{# ---------------------------------------------------------------- Synthèse #}
+<section class="tb-panneau" data-panneau="synthese">
+  <div class="tb-kpis">
+    {% for k in tb.tuiles %}
+    <button type="button" class="tb-kpi" data-aller="{{ k.onglet }}" title="Voir le détail">
+      <span class="n">{{ k.titre }}</span><span class="src">{{ k.axes }}</span>
+      <span class="v">{{ k.valeur }}{% if k.delta %}<span class="delta {{ k.delta_ton }}">{{ k.delta }}</span>{% endif %}</span>
+      <span class="d">{{ k.detail }}</span>
+      <span class="tb-jauge"><i class="{{ k.ton }}" style="width:{{ k.pct if k.pct is not none else 0 }}%"></i></span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <div class="tb-grille">
+    <div class="card"><h3>Cas notifiés par semaine et délai de confirmation</h3>
+      <p class="hint">Barres : cas notifiés · ligne : délai médian entre début des symptômes et confirmation · pointillés : seuil</p>
+      {{ svg_semaines|safe }}
+      <div class="tb-legende"><span><i class="l-cas"></i>Cas notifiés</span><span><i class="l-delai"></i>Délai médian (j)</span><span><i class="l-seuil"></i>Seuil</span></div>
+    </div>
+    <div class="card"><h3>Exécution des actions par pilier</h3>
+      <p class="hint">{{ tb.actions|length }} action(s){% if tb.pilier %} · pilier {{ tb.pilier }}{% endif %}</p>
+      {% if tb.par_pilier %}
+      <table class="tb-piles">{% for p, cpt in tb.par_pilier %}
+        <tr><td>{{ p }}</td><td>{{ TB.barre_empilee(cpt)|safe }}</td><td class="num">{{ cpt.values()|sum }}</td></tr>{% endfor %}
+      </table>
+      <div class="tb-legende">{% for k, lib, cl in TB.CATEGORIES %}<span><i class="{{ cl }}"></i>{{ lib }}</span>{% endfor %}</div>
+      {% else %}<p class="muted">Aucune action prescrite sur la période.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="tb-ligne"><div><h3>Cas du périmètre</h3><p class="hint">Cliquez sur un cas pour ouvrir son mapping · cliquez sur un titre de colonne pour trier</p></div>
+      <a class="btn small" style="margin-left:auto" href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">Liste des cas (Excel)</a></div>
+    {% if tb.cas %}
+    <div class="tb-defil"><table class="list tb-table tri">
+      <thead><tr><th>ID cas</th><th>ZS (province)</th><th>Notification</th><th>Complétude</th><th>Délai sympt. → conf.</th>
+        <th>Contacts listés / suivis</th><th>Lieux PCI (décontaminés)</th><th>Actions faites</th><th>Statut</th></tr></thead>
+      <tbody>
+      {% for x in tb.cas %}
+      <tr class="clic" onclick="location.href='{{ url_for('editor', cid=x.case.id) }}'">
+        <td><b>{{ x.code }}</b></td><td>{{ x.case.zs or "?" }} ({{ x.case.province or "?" }})</td>
+        <td data-v="{{ x.notif.isoformat() if x.notif else '' }}">{{ x.notif.strftime("%d/%m/%Y") if x.notif else "non renseigné" }}</td>
+        <td data-v="{{ x.completude }}"><span class="tb-mini"><i style="width:{{ x.completude }}%"></i></span>{{ x.completude }} %</td>
+        <td data-v="{{ x.delai if x.delai is not none else -1 }}">{% if x.delai is none %}<span class="pill nd">non renseigné</span>{% else %}<span class="{{ 'tb-crit-txt' if x.delai > TB.SEUILS.delai_conf else '' }}">{{ x.delai }} j</span>{% endif %}</td>
+        <td>{{ x.contacts if x.contacts is not none else "?" }} / {{ x.suivis if x.suivis is not none else "?" }}</td>
+        <td>{{ x.lieux }} ({{ x.lieux_ok }})</td><td>{{ x.actions_faites }} / {{ x.actions }}</td>
+        <td><span class="pill {{ {'Critique': 'cr', 'À surveiller': 'al'}.get(x.statut, 'ok') }}">{{ x.statut }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody></table></div>
+    {% else %}<p class="muted">Aucun cas notifié sur la période dans ce périmètre.</p>{% endif %}
+    <p class="hint" style="margin-top:10px">Les exemples fictifs ne sont jamais comptés. Seuls les identifiants des cas sont affichés.</p>
+  </div>
+</section>
+
+{# ---------------------------------------------------------------- Actions #}
+<section class="tb-panneau" data-panneau="actions" hidden>
+  <div class="tb-kpis six">
+    {% for k, lib, cl in TB.CATEGORIES %}
+    <button type="button" class="tb-kpi petit" data-filtre-cat="{{ k }}"><span class="n"><i class="pastille {{ cl }}"></i>{{ lib }}</span>
+      <span class="v">{{ tb.bilan_actions.get(k, 0) }}</span></button>
+    {% endfor %}
+  </div>
+  <div class="tb-grille">
+    <div class="card"><h3>Obstacles signalés</h3><p class="hint">Causes de blocage ou de retard des actions non réalisées (champ « Blocage » des actions)</p>
+      {% if tb.obstacles %}{% set omax = tb.obstacles[0][1] %}
+      <table class="tb-piles">{% for o, n in tb.obstacles %}
+        <tr><td>{{ o }}</td><td><div class="tb-pile"><i class="c-bl" style="width:{{ 100 * n / omax }}%"></i></div></td><td class="num">{{ n }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="muted">Aucun obstacle signalé.</p>{% endif %}
+    </div>
+    <div class="card"><h3>À retenir</h3>
+      <ul class="tb-liste">
+        <li><b>{{ tb.bilan_actions.get("sans_preuve", 0) }}</b> action(s) déclarée(s) réalisée(s) sans preuve : demander le justificatif.</li>
+        <li><b>{{ tb.bilan_actions.get("a_verifier", 0) }}</b> action(s) avec preuve en attente de vérification par un superviseur.</li>
+        <li><b>{{ tb.bilan_actions.get("retard", 0) }}</b> action(s) en retard sans obstacle signalé : relancer le responsable.</li>
+        <li><b>{{ tb.actions|rejectattr("action.responsable")|selectattr("categorie", "ne", "verifiee")|list|length }}</b> action(s) non vérifiée(s) sans responsable.</li>
+      </ul>
+      <p class="hint">Preuve, blocage et vérificateur se renseignent dans la partie « Actions » de chaque fiche.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="tb-ligne"><div><h3>Registre des actions</h3><p class="hint">Les plus urgentes en premier</p></div>
+      <select id="tb-filtre-cat" style="margin-left:auto;width:auto"><option value="">Toutes les catégories</option>
+        {% for k, lib, cl in TB.CATEGORIES %}<option value="{{ k }}">{{ lib }}</option>{% endfor %}</select></div>
+    {% if tb.actions %}
+    <div class="tb-defil"><table class="list tb-table tri" id="tb-actions">
+      <thead><tr><th>Cas (ZS)</th><th>Pilier</th><th>Action</th><th>Priorité</th><th>Responsable</th><th>Échéance</th><th>Catégorie</th><th>Preuve</th><th>Vérifiée par</th><th>Blocage</th></tr></thead>
+      <tbody>{% for x in tb.actions %}
+        <tr data-cat="{{ x.categorie }}" class="clic" onclick="location.href='{{ url_for('editor', cid=x.case.id) }}'">
+          <td><b>{{ x.code }}</b><br><span class="muted">{{ x.case.zs }}</span></td><td>{{ x.pilier }}</td><td>{{ x.action.texte }}</td>
+          <td>{{ x.action.priorite }}</td><td>{{ x.action.responsable or "à désigner" }}</td>
+          <td data-v="{{ x.action.echeance.isoformat() if x.action.echeance else '' }}">{{ x.action.echeance.strftime("%d/%m/%Y") if x.action.echeance else "?" }}{% if x.retard %}<br><span class="tb-crit-txt">{{ x.retard }} j de retard</span>{% endif %}</td>
+          <td><span class="pill cat {{ TB.CLS_CAT[x.categorie] }}">{{ TB.LIB_CAT[x.categorie] }}</span></td>
+          <td>{{ x.action.preuve or "" }}</td><td>{{ x.action.valide_par or "" }}</td><td>{{ x.action.obstacle or "" }}</td>
+        </tr>{% endfor %}
+      </tbody></table></div>
+    {% else %}<p class="muted">Aucune action.</p>{% endif %}
+  </div>
+</section>
+
+{# ---------------------------------------------------------------- Contacts, PCI, vaccination #}
+<section class="tb-panneau" data-panneau="contacts" hidden>
+  <div class="card">
+    <h3>Par zone de santé</h3><p class="hint">« ? » : non renseigné dans les fiches (jamais compté comme 0)</p>
+    {% if tb.par_zs %}
+    <div class="tb-defil"><table class="list tb-table tri">
+      <thead><tr><th>Zone de santé</th><th>Cas</th><th>Contacts listés</th><th>dont haut risque</th><th>Suivis</th><th>% suivis</th>
+        <th>Contacts vaccinés</th><th>Cas vaccinés</th><th>Lieux PCI</th><th>Décontaminés</th><th>Partiel</th><th>Non</th><th>Inconnu</th></tr></thead>
+      <tbody>{% for z in tb.par_zs %}
+        <tr><td><b>{{ z.zs }}</b> <span class="muted">({{ z.province or "?" }})</span></td><td>{{ z.cas }}</td>
+          <td>{{ z.contacts if z.contacts is not none else "?" }}</td><td>{{ z.hr }}</td>
+          <td>{{ z.suivis if z.suivis is not none else "?" }}</td>
+          <td>{% if z.suivis is not none and z.contacts %}{% set ps = (100 * z.suivis / z.contacts)|round|int %}<span class="{{ 'tb-crit-txt' if ps < TB.SEUILS.suivi_min else '' }}">{{ ps }} %</span>{% else %}?{% endif %}</td>
+          <td>{{ z.vaccines if z.vaccines is not none else "?" }}</td><td>{{ z.cas_vaccines }}</td>
+          <td>{{ z.ipc_total }}</td><td>{{ z.ipc["Décontaminé"] }}</td><td>{{ z.ipc["Partiel"] }}</td>
+          <td class="{{ 'tb-crit-txt' if z.ipc['Non'] else '' }}">{{ z.ipc["Non"] }}</td><td>{{ z.ipc["Inconnu"] }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    {% else %}<p class="muted">Aucun cas sur la période.</p>{% endif %}
+  </div>
+  {% for s in matrice.sections if s.cle in ("contacts", "pci") %}
+  <div class="card" style="margin-top:14px"><h3>{{ s.titre }}</h3>
+    <div class="tb-kpis">{% for lib, v in s.kpis %}<div class="tb-kpi statique"><span class="n">{{ lib }}</span><span class="v petit">{{ v }}</span></div>{% endfor %}</div>
+    {% if s.attention %}<ul class="tb-liste">{% for a in s.attention %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{# ---------------------------------------------------------------- Parcours et transmission #}
+<section class="tb-panneau" data-panneau="transmission" hidden>
+  <div class="tb-grille">
+    <div class="card"><h3>Lien avec un cas connu</h3><p class="hint">Les cas « non contact » ou de lien inconnu signalent une transmission non maîtrisée.</p>
+      {% if tb.transmission.lien %}{% set lmax = tb.transmission.lien|map(attribute=1)|max %}
+      <table class="tb-piles">{% for k, n in tb.transmission.lien %}
+        <tr><td>{{ k }}</td><td><div class="tb-pile"><i class="{{ 'c-ok' if k == 'Contact connu suivi' else ('c-ec' if k == 'Contact connu' else 'c-re') }}" style="width:{{ 100 * n / lmax }}%"></i></div></td><td class="num">{{ n }}</td></tr>{% endfor %}
+      </table>{% else %}<p class="muted">Aucun cas.</p>{% endif %}
+      <ul class="tb-liste">
+        <li><b>{{ tb.transmission.avec_source }}</b> cas sur {{ tb.n }} reliés à un cas source identifié (ID).</li>
+        <li><b>{{ tb.transmission.deces_communautaires }}</b> décès communautaire(s) (sans hospitalisation avant le décès).</li>
+        <li><b>{{ tb.transmission.agents_sante }}</b> agent(s) de santé parmi les cas.</li>
+      </ul>
+    </div>
+    <div class="card"><h3>Expositions à risque et mobilité</h3><p class="hint">Étapes de la chronologie des cas, toutes fiches confondues</p>
+      {% if tb.transmission.expositions %}{% set emax = tb.transmission.expositions[0][1] %}
+      <table class="tb-piles">{% for k, n in tb.transmission.expositions %}
+        <tr><td>{{ k }}</td><td><div class="tb-pile"><i class="c-sp" style="width:{{ 100 * n / emax }}%"></i></div></td><td class="num">{{ n }}</td></tr>{% endfor %}
+      </table>{% else %}<p class="muted">Aucune exposition à risque renseignée.</p>{% endif %}
+      <p style="margin-top:12px"><a class="btn small" href="{{ url_for('chains_page') }}">Chaînes de transmission</a>
+        <a class="btn small" href="{{ url_for('riposte_carte') }}">Carte des cas</a></p>
+    </div>
+  </div>
+  {% for s in matrice.sections if s.cle in ("surveillance", "labo") %}
+  <div class="card" style="margin-top:14px"><h3>{{ s.titre }}</h3>
+    <div class="tb-kpis">{% for lib, v in s.kpis %}<div class="tb-kpi statique"><span class="n">{{ lib }}</span><span class="v petit">{{ v }}</span></div>{% endfor %}</div>
+    {% if s.attention %}<ul class="tb-liste">{% for a in s.attention %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{# ---------------------------------------------------------------- Qualité #}
+<section class="tb-panneau" data-panneau="qualite" hidden>
+  <div class="tb-grille">
+    <div class="card"><h3>Complétude moyenne par zone de santé</h3><p class="hint">Seuil de vigilance : {{ TB.SEUILS.completude }} %</p>
+      {% if tb.qualite.par_zs %}
+      <table class="tb-piles">{% for z, p in tb.qualite.par_zs %}
+        <tr><td>{{ z }}</td><td><div class="tb-pile"><i class="{{ 'c-ok' if p >= 90 else ('c-re' if p >= TB.SEUILS.completude else 'c-bl') }}" style="width:{{ p }}%"></i></div></td><td class="num">{{ p }} %</td></tr>{% endfor %}
+      </table>{% else %}<p class="muted">Aucun cas.</p>{% endif %}
+    </div>
+    <div class="card"><h3>Éléments le plus souvent manquants</h3><p class="hint">Nombre de fiches concernées</p>
+      {% if tb.qualite.manquants %}{% set mmax = tb.qualite.manquants[0][1] %}
+      <table class="tb-piles">{% for k, n in tb.qualite.manquants %}
+        <tr><td>{{ k }}</td><td><div class="tb-pile"><i class="c-ec" style="width:{{ 100 * n / mmax }}%"></i></div></td><td class="num">{{ n }}</td></tr>{% endfor %}
+      </table>{% else %}<p class="muted">Rien ne manque.</p>{% endif %}
+      <ul class="tb-liste"><li><b>{{ tb.qualite.incoherences }}</b> fiche(s) avec des dates incohérentes.</li>
+        <li><b>{{ tb.qualite.brouillons }}</b> brouillon(s) non enregistré(s) dans le périmètre.</li></ul>
+    </div>
+  </div>
+</section>
+
+{# ---------------------------------------------------------------- Matrice #}
+<section class="tb-panneau" data-panneau="matrice" hidden>
+  <div class="card"><h3>Questions du cadre d'analyse des mappings MVE</h3>
+    <p class="hint">Réponses calculées sur la période et le périmètre choisis. Les mêmes réponses figurent dans le rapport Word.</p>
+    <div class="tb-defil"><table class="list tb-table">
+      <thead><tr><th style="width:22%">Pilier</th><th style="width:40%">Question</th><th>Réponse</th></tr></thead>
+      <tbody>
+      {% for s in matrice.sections %}{% for q, r in s.questions %}
+        <tr><td>{% if loop.first %}<b>{{ s.titre }}</b>{% endif %}</td><td>{{ q }}</td><td>{{ r }}</td></tr>
+      {% endfor %}{% endfor %}
+      {% for axe, q, manque in matrice.non_couverts %}
+        <tr class="nc"><td>{% if loop.first %}<b>Non couvert</b>{% endif %}<br><span class="muted">{{ axe }}</span></td><td>{{ q }}</td>
+          <td><span class="pill nd">non collecté</span> <span class="muted">manque : {{ manque }}</span></td></tr>
+      {% endfor %}
+      </tbody></table></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var champ = document.getElementById('tb-onglet-champ');
+  function ouvrir(k) {
+    document.querySelectorAll('.tb-panneau').forEach(function (p) { p.hidden = p.dataset.panneau !== k; });
+    document.querySelectorAll('.tb-onglets button').forEach(function (b) {
+      var on = b.dataset.onglet === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+    champ.value = k;
+    try { history.replaceState(null, '', location.pathname + '?' + new URLSearchParams(new FormData(document.getElementById('tb-form'))).toString()); } catch (e) {}
+  }
+  document.querySelectorAll('.tb-onglets button').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.onglet); }; });
+  document.querySelectorAll('[data-aller]').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.aller); window.scrollTo({top: document.querySelector('.tb-onglets').offsetTop - 60, behavior: 'smooth'}); }; });
+  var valides = ['synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
+  ouvrir(valides.indexOf(champ.value) >= 0 ? champ.value : 'synthese');
+  // filtre des actions par catégorie
+  var sel = document.getElementById('tb-filtre-cat');
+  function filtrer(v) { sel.value = v; document.querySelectorAll('#tb-actions tbody tr').forEach(function (tr) { tr.hidden = v && tr.dataset.cat !== v; }); }
+  if (sel) sel.onchange = function () { filtrer(sel.value); };
+  document.querySelectorAll('[data-filtre-cat]').forEach(function (b) { b.onclick = function () { filtrer(sel.value === b.dataset.filtreCat ? '' : b.dataset.filtreCat); }; });
+  // tri des colonnes
+  document.querySelectorAll('table.tri').forEach(function (tab) {
+    tab.querySelectorAll('th').forEach(function (th, i) {
+      th.style.cursor = 'pointer';
+      th.onclick = function () {
+        var asc = th.dataset.ordre !== 'asc'; th.dataset.ordre = asc ? 'asc' : 'desc';
+        var rows = Array.prototype.slice.call(tab.tBodies[0].rows);
+        function v(r) { var c = r.cells[i]; var x = c.dataset.v !== undefined ? c.dataset.v : c.innerText.trim();
+          var n = parseFloat(String(x).replace(',', '.')); return isNaN(n) || /^\d{4}-/.test(x) ? x.toLowerCase() : n; }
+        rows.sort(function (a, b) { var x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * (asc ? 1 : -1); });
+        rows.forEach(function (r) { tab.tBodies[0].appendChild(r); });
+      };
+    });
+  });
+})();
+</script>
+{% endblock %}

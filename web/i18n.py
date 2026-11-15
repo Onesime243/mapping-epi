@@ -81,6 +81,13 @@ EN = {
     "Importer une fiche": "Import a record", "Importer": "Import",
     "Réservé aux administrateurs": "Administrators only", "réservé aux administrateurs": "administrators only",
     "Exports réservés aux administrateurs": "Exports are for administrators only", "Rapports": "Reports",
+    "Tableau de bord": "Dashboard", "Tableau de bord de la riposte": "Response dashboard",
+    "Super-administrateur": "Super administrator", "Administrateur national": "National administrator",
+    "Administrateur provincial": "Provincial administrator",
+    "Armoiries de la République démocratique du Congo": "Coat of arms of the Democratic Republic of the Congo",
+    "SGI-RDC · Riposte Ebola 2026": "IMS-DRC · Ebola response 2026",
+    "Documentation du parcours épidémiologique des cas confirmés · avec l’appui de l’UMIE-INRB":
+        "Documenting the epidemiological pathway of confirmed cases · with support from UMIE-INRB",
     "Un autre utilisateur vient de se connecter avec votre compte sur un autre appareil. Vous avez été déconnecté. "
     "Si ce n'est pas vous, changez votre mot de passe.":
         "Another user has just signed in with your account on another device. You have been signed out. "

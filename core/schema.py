@@ -75,4 +75,7 @@ ACTION_COLS = [
     Col("pilier", "Pilier", "choice", [""] + theme.PILIERS, width=170, tip="vide = déduit du texte de l'action"),
     Col("responsable", "Responsable", width=182), Col("echeance", "Échéance", "date", width=130),
     Col("statut", "Statut", "choice", theme.ACTION_STATUS_CHOICES, width=117),
+    Col("obstacle", "Blocage", "choice", [""] + theme.OBSTACLES, width=190, tip="cause de blocage ou de retard ; vide = aucun"),
+    Col("preuve", "Preuve", width=180, tip="preuve de réalisation : photo, fiche, rapport, référence"),
+    Col("valide_par", "Vérifiée par", width=150, tip="superviseur qui a vérifié la réalisation"),
     Col("auto", "Suggérée", "bool", width=91)]

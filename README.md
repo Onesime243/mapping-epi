@@ -293,6 +293,18 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
 - **Thème clair par défaut** ; le bouton Thème reste disponible (choix gardé sur le navigateur).
 - **Message de bienvenue** sur l'accueil (champs obligatoires, enregistrement) et **pied de page** collé en bas.
 
+## Version 1.7 : bandeau officiel et tableau de bord de la riposte
+
+- **Bandeau du site** : armoiries de la RDC (vectorielles, domaine public), titres et bande bleu, rouge, jaune. Les textes
+  se modifient dans `config/credits.py` (BANDEAU_SUR, BANDEAU_TITRE, BANDEAU_SOUS).
+- **Tableau de bord** (menu « Tableau de bord », super-administrateurs seulement) : filtres province, zone de santé,
+  période et pilier ; alertes calculées par règles fixes (`core/tableau_bord.py`, SEUILS), chacune liée à sa fiche ;
+  4 indicateurs cliquables avec comparaison à la période précédente ; cas par semaine et délai de confirmation ;
+  actions par pilier et par catégorie ; onglets Actions, Contacts PCI et vaccination, Parcours et transmission,
+  Qualité des données, Matrice des questions. Une donnée absente s'affiche « non renseigné », jamais 0.
+- **Actions** : trois nouveaux champs, « Blocage » (cause du retard), « Preuve » et « Vérifiée par ». Une action est
+  vérifiée quand elle est faite et qu'un superviseur est indiqué. Le modèle Excel d'import n'a pas changé.
+
 ## Version 1.6 : droits par compte, session unique, rapports par pilier
 
 - **Super-administrateurs** (`MAPPING_EPI_SUPERADMINS`, par défaut `adminone,john,steve.ahuka`) : seuls à voir le menu

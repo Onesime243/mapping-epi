@@ -96,6 +96,9 @@ class Action(BaseModel):
     statut: str = "À faire"
     auto: bool = False              # issue d'une suggestion automatique
     pilier: str = ""                # vide = déduit du texte (core/piliers.py)
+    obstacle: str = ""              # cause de blocage ou de retard (config.theme.OBSTACLES) ; vide = aucun
+    preuve: str = ""                # preuve ou justificatif de réalisation (photo, fiche, rapport, référence)
+    valide_par: str = ""            # superviseur qui a vérifié la réalisation
 
 
 class Case(BaseModel):

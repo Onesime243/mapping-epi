@@ -18,11 +18,31 @@
 </script>
 </head>
 <body>
+<header class="bandeau">
+  <a class="bandeau-id" href="/">
+    <img src="{{ url_for('static', filename='armoiries_rdc.svg') }}" alt="{{ t('Armoiries de la République démocratique du Congo') }}" width="70" height="64">
+    <span class="bandeau-titres">
+      <span class="bandeau-sur">{{ t(credits.BANDEAU_SUR) }}</span>
+      <span class="bandeau-titre">{{ t(credits.BANDEAU_TITRE) }}</span>
+      <span class="bandeau-sous">{{ t(credits.BANDEAU_SOUS) }}</span>
+    </span>
+  </a>
+  {% if me %}
+  <div class="bandeau-compte">
+    <span class="avatar" aria-hidden="true">{{ (me.nom or me.username)[:1]|upper }}</span>
+    <span class="bandeau-qui" title="{{ me.perimetre }}"><b>{{ me.nom or me.username }}</b>
+      <small>{% if droits.super %}{{ t("Super-administrateur") }}{% elif me.is_admin and me.niveau == "province" %}{{ t("Administrateur provincial") }}{% elif me.is_admin %}{{ t("Administrateur national") }}{% else %}{{ t(me.niveau_label) }}{% endif %} · {{ t(me.perimetre) }}</small></span>
+    <a class="btn small" href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
+  </div>
+  {% endif %}
+</header>
+<div class="tricolore" aria-hidden="true"></div>
 <header class="topbar">
-  <a class="brand" href="/">Mapping Épi <small>{{ t("parcours épidémiologique") }}</small></a>
   <button type="button" class="nav-toggle" aria-label="Menu" onclick="this.parentNode.classList.toggle('open')">☰ {{ t("Menu") }}</button>
   <nav>
     {% if me %}
+      <a href="/" class="{{ 'on' if request.path == '/' }}">{{ t("Accueil") }}</a>
+      {% if droits.super %}<a href="{{ url_for('tableau_bord') }}" class="{{ 'on' if request.path.startswith('/tableau-de-bord') }}">{{ t("Tableau de bord") }}</a>{% endif %}
       <a href="{{ url_for('cases') }}">{{ t("Mes cas") if me.niveau == "aire" and not me.is_admin else t("Cas") }}</a>
       {% if droits.admin %}
       <div class="menu">
@@ -61,12 +81,11 @@
       {% if me.is_admin or me.niveau == "national" %}
       <a href="{{ url_for('users_admin') }}">{{ t("Utilisateurs") }}</a>
       {% endif %}
-      <a href="/tutoriel/" target="_blank" rel="noopener">{{ t("Tutoriel") }}</a>
+      <a class="push" href="/tutoriel/" target="_blank" rel="noopener">{{ t("Tutoriel") }}</a>
       <a href="{{ url_for('account') }}">{{ t("Mon compte") }}</a>
-      <span class="who" title="{{ me.perimetre }}">{{ me.nom or me.username }} · {{ t(me.niveau_label) }}{% if me.is_admin %} · admin{% endif %}</span>
-      <a href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
+      <a class="nav-deco" href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
     {% endif %}
-    <div class="menu">
+    <div class="menu{% if not me %} push{% endif %}">
       <button type="button" class="menu-btn" aria-haspopup="true" title="{{ t('Langue') }}">{{ lang|upper }} ▾</button>
       <div class="menu-list">
         {% for code, nom in langues.items() %}<a href="{{ url_for('choisir_langue', code=code) }}">{{ nom }}{% if code == lang %} ✓{% endif %}</a>{% endfor %}

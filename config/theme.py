@@ -74,6 +74,9 @@ ACTION_STATUS_CHOICES = ["À faire", "En cours", "Fait"]
 # piliers de la riposte (actions) ; vide = classé automatiquement d'après le texte de l'action
 PILIERS = ["Surveillance", "Suivi des contacts", "Vaccination", "PCI", "Laboratoire", "Prise en charge",
            "Engagement communautaire", "Coordination"]
+# causes de blocage ou de retard d'une action (tableau de bord : « obstacles »)
+OBSTACLES = ["Réticence communautaire", "Sécurité ou accès", "Rupture d'intrants ou de vaccins",
+             "Coordination interzones", "Logistique ou transport", "Ressources humaines", "Fiche non synchronisée", "Autre"]
 
 # Lien épidémiologique : le cas était-il un contact connu (listé) avant sa confirmation ?
 CONTACT_STATUS_CHOICES = ["Inconnu", "Contact connu", "Contact connu suivi", "Non contact"]

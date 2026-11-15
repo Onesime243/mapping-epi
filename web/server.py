@@ -133,7 +133,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.before_request
     def controle_acces():
         p = request.path
-        reserve_super = p.startswith("/riposte/") or p.startswith("/rapports") or p == "/donnees/rapport-situation.docx"
+        reserve_super = (p.startswith("/riposte/") or p.startswith("/rapports") or p.startswith("/tableau-de-bord")
+                         or p == "/donnees/rapport-situation.docx")
         reserve_admin = p.startswith("/analyse/") or p.startswith("/donnees") or "/telecharger/" in p
         if "/apercu/" in p and p.startswith("/cas/"):
             reserve_admin = p.rsplit("/", 1)[-1] not in VUES_AGENT
@@ -688,6 +689,42 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return render_template("reunion.html", nouveaux=nouveaux, ind=ind, alertes=al, actions=acts, zones=zones,
                                courbe=RIP.courbe_svg(RIP.courbe(tous)), ref=ref, jours=jours, prov=prov,
                                n_tous=len(tous), n_deces=sum(1 for c in tous if c.issue == "Décès"))
+
+    @app.route("/tableau-de-bord")
+    @login_required
+    def tableau_bord():
+        """Tableau de bord de la riposte (super-administrateurs) : indicateurs, alertes, actions, contacts, qualité."""
+        from core import piliers as PIL
+        from core import tableau_bord as TB
+        from core.access import _same
+        allc = visible_cases()
+        fin = date.today()
+        try:
+            fin = date.fromisoformat(request.args.get("fin", "")) if request.args.get("fin") else fin
+            debut = (date.fromisoformat(request.args["debut"]) if request.args.get("debut")
+                     else fin - timedelta(days=27))
+        except ValueError:
+            flash("Dates invalides : la période par défaut (4 dernières semaines) est affichée.", "err")
+            fin = date.today()
+            debut = fin - timedelta(days=27)
+        if fin < debut:
+            debut, fin = fin, debut
+        prov = request.args.get("province", "").strip()
+        zs = request.args.get("zs", "").strip()
+        pil = request.args.get("pilier", "").strip()
+        pil = pil if pil in theme.PILIERS else ""
+        provinces = sorted({c.province for c in allc if c.province}, key=pyramide.norm)
+        zones = sorted({c.zs for c in allc if c.zs and (not prov or _same(c.province, prov))}, key=pyramide.norm)
+        if zs and zs not in zones:
+            zs = ""
+        n_brouillons = sum(1 for _i, _u, _o, c in app.store.brouillons()
+                           if not c.exemple() and (not prov or _same(c.province, prov)))
+        tb = TB.construire(allc, debut, fin, prov, zs, pil, n_brouillons)
+        base = [c for c in allc if not zs or _same(c.zs, zs)]
+        matrice = PIL.construire(base, debut, fin, prov, None, g.user.perimetre, app.store.created_dates(), n_brouillons)
+        return render_template("tableau_bord.html", tb=tb, TB=TB, matrice=matrice, provinces=provinces, zones=zones,
+                               piliers=theme.PILIERS, piliers_rapport=PIL.PILIERS_RAPPORT,
+                               svg_semaines=TB.svg_semaines(tb.semaines))
 
     @app.route("/rapports")
     @login_required
