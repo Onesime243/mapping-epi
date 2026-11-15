@@ -28,8 +28,8 @@ EN = {
     "Échanger des fiches (paquet hors ligne)": "Exchange records (offline package)",
     "Doublons possibles": "Possible duplicates", "Mode clair / sombre": "Light / dark mode",
     "Changer de thème": "Change theme", "Logiciel libre sous licence GNU AGPL v3": "Free software under the GNU AGPL v3",
-    "Pour tout contact :": "Contact:", "Équipe de développement : Onesime Mbulayi et al.":
-        "Development team: Onesime Mbulayi et al.",
+    "Pour tout contact :": "Contact:", "Équipe de développement : Onesime Mbulayi, John Kombe et al.":
+        "Development team: Onesime Mbulayi, John Kombe et al.",
     "Système de gestion de l’incident, SGI-RDC, avec l’appui de UMIE-INRB":
         "Incident Management System, SGI-RDC, with support from UMIE-INRB",
     # niveaux et périmètres
@@ -84,10 +84,10 @@ EN = {
     "Tableau de bord": "Dashboard", "Tableau de bord de la riposte": "Response dashboard",
     "Super-administrateur": "Super administrator", "Administrateur national": "National administrator",
     "Administrateur provincial": "Provincial administrator",
-    "Armoiries de la République démocratique du Congo": "Coat of arms of the Democratic Republic of the Congo",
-    "SGI-RDC · Riposte Ebola 2026": "IMS-DRC · Ebola response 2026",
-    "Documentation du parcours épidémiologique des cas confirmés · avec l’appui de l’UMIE-INRB":
-        "Documenting the epidemiological pathway of confirmed cases · with support from UMIE-INRB",
+    "Sceau de la Présidence de la République démocratique du Congo":
+        "Seal of the Presidency of the Democratic Republic of the Congo",
+    "Task Force Présidentielle Ebola 17": "Presidential Ebola Task Force 17",
+    "Système de Gestion de l’Incident MVE 17": "EVD 17 Incident Management System",
     "Un autre utilisateur vient de se connecter avec votre compte sur un autre appareil. Vous avez été déconnecté. "
     "Si ce n'est pas vous, changez votre mot de passe.":
         "Another user has just signed in with your account on another device. You have been signed out. "

@@ -361,7 +361,7 @@ def test_tableau_de_bord(app):
         r = c.get("/tableau-de-bord" + o)
         assert r.status_code == 200, o
     page = c.get("/tableau-de-bord?debut=2026-09-01&fin=2026-11-12").get_data(as_text=True)
-    assert "Tableau de bord de la riposte" in page and "armoiries_rdc.svg" in page and "Matrice des questions" in page
+    assert "Tableau de bord de la riposte" in page and "sceau_presidence.png" in page and "Task Force Présidentielle Ebola 17" in page and "Matrice des questions" in page
     us = app.users
     us.create("chef.nat2", "Secret123", role="admin")
     for u in ("chef.nat2", "agent.bunia"):

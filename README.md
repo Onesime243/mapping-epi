@@ -183,7 +183,7 @@ tests/                 pytest
 ## Crédits
 
 Système de gestion de l’incident, **SGI-RDC**, avec l’appui de **UMIE-INRB**.
-Équipe de développement : Onesime Mbulayi et al.
+Équipe de développement : Onesime Mbulayi, John Kombe et al.
 Pour tout contact : [mbonesime@gmail.com](mailto:mbonesime@gmail.com), [dav.ebengo@umie-inrb.org](mailto:dav.ebengo@umie-inrb.org)
 
 Police : Inter (SIL Open Font License). Données géographiques : GRID3 / HDX.
@@ -295,7 +295,7 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
 
 ## Version 1.7 : bandeau officiel et tableau de bord de la riposte
 
-- **Bandeau du site** : armoiries de la RDC (vectorielles, domaine public), titres et bande bleu, rouge, jaune. Les textes
+- **Bandeau du site** : sceau de la Présidence de la République, titres de la Task Force Présidentielle Ebola 17 et bande bleu, rouge, jaune. Les textes
   se modifient dans `config/credits.py` (BANDEAU_SUR, BANDEAU_TITRE, BANDEAU_SOUS).
 - **Tableau de bord** (menu « Tableau de bord », super-administrateurs seulement) : filtres province, zone de santé,
   période et pilier ; alertes calculées par règles fixes (`core/tableau_bord.py`, SEUILS), chacune liée à sa fiche ;
