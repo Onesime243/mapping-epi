@@ -254,3 +254,79 @@ def test_langue_bienvenue_theme(app):
     assert "Welcome to Mapping Épi" in c2.get("/").get_data(as_text=True)
     c2.get("/langue/fr")
     assert "Bienvenue" in c2.get("/").get_data(as_text=True)
+
+
+def test_droits_super_admin_provincial_session_unique(app):
+    """Riposte et rapports : super-admins ; admin provincial limité à sa province ; une session par compte."""
+    from core.models import Action
+    us = app.users
+    us.create("chef.nat", "Secret123", role="admin")                                  # admin national, pas super
+    us.create("chef.itu", "Secret123", role="admin", niveau="province", province="Ituri")
+    c = app.test_client()
+    tok = _login(c, "chef.nat", "Secret123")
+    page = c.get("/").get_data(as_text=True)
+    assert "Riposte ▾" not in page and "Données ▾" in page and "Analyses ▾" in page
+    assert c.get("/riposte/indicateurs").status_code == 403 and c.get("/rapports").status_code == 403
+    assert c.get("/donnees/rapport-situation.docx").status_code == 403
+    assert c.get("/donnees/liste-cas.xlsx").status_code == 200
+    # admin provincial : comptes de zone / aire de SA province seulement
+    p = app.test_client()
+    tp = _login(p, "chef.itu", "Secret123")
+    r = p.post("/utilisateurs", data={"csrf": tp, "action": "create", "username": "zs.bunia", "nom": "ZS Bunia",
+                                      "role": "agent", "niveau": "zone", "province": "Ituri", "zs": "Bunia",
+                                      "password": "Secret123"})
+    assert us.get("zs.bunia") and us.get("zs.bunia").zs == "Bunia"
+    r = p.post("/utilisateurs", data={"csrf": tp, "action": "create", "username": "zs.beni", "nom": "ZS Beni",
+                                      "role": "agent", "niveau": "zone", "province": "Nord-Kivu", "zs": "Beni",
+                                      "password": "Secret123"})
+    assert us.get("zs.beni") is None and "province Ituri" in r.get_data(as_text=True)
+    r = p.post("/utilisateurs", data={"csrf": tp, "action": "create", "username": "adm.x", "nom": "X", "role": "admin",
+                                      "niveau": "province", "province": "Ituri", "password": "Secret123"})
+    assert us.get("adm.x") is None
+    liste = p.get("/utilisateurs").get_data(as_text=True)
+    assert "zs.bunia" in liste and "chef.nat" not in liste            # comptes de sa province seulement
+    # vue d'un agent : mapping et réseau seulement, pas d'export, pas d'analyse ; saisie et import permis
+    a = app.test_client()
+    ta = _login(a, "zs.bunia", "Secret123")
+    cid = a.post("/cas/nouveau", data={"csrf": ta}).headers["Location"].rsplit("/", 1)[1]
+    assert a.get(f"/cas/{cid}/apercu/mapping").status_code == 200
+    assert a.get(f"/cas/{cid}/apercu/network").status_code == 200
+    assert a.get(f"/cas/{cid}/apercu/gantt").status_code == 403
+    assert a.get(f"/cas/{cid}/telecharger/png").status_code == 403
+    page = a.get(f"/cas/{cid}").get_data(as_text=True)
+    assert "Réservé aux administrateurs" in page and "Analyses ▾" not in page
+    assert "Importer une fiche" in a.get("/cas").get_data(as_text=True)
+    # session unique : la 2e connexion déconnecte la 1re
+    b = app.test_client()
+    _login(b, "zs.bunia", "Secret123")
+    r = a.get("/cas")
+    assert r.status_code == 302 and "/connexion" in r.headers["Location"]
+    assert "Un autre utilisateur vient de se connecter" in a.get("/connexion").get_data(as_text=True)
+    assert b.get("/cas").status_code == 200
+    assert Action(texte="Décontaminer le CS Vighole").pilier == ""
+
+
+def test_rapports_piliers(app, tmp_path):
+    from datetime import date
+    from docx import Document
+    from pptx import Presentation
+    from core import piliers as P
+    from core import rapport_rendu as RR
+    from core.models import Action
+    assert P.pilier_action(Action(texte="Décontaminer le CS")) == "PCI"
+    assert P.pilier_action(Action(texte="Boucler les contacts")) == "Suivi des contacts"
+    assert P.pilier_action(Action(texte="Réunion", pilier="Laboratoire")) == "Laboratoire"
+    r = P.construire(jeu(), date(2026, 9, 1), date(2026, 11, 12), perimetre="Toute la RDC")
+    assert [s.cle for s in r.sections] == ["surveillance", "contacts", "pci", "labo", "actions", "qualite"]
+    assert all(s.questions and s.kpis for s in r.sections) and r.non_couverts
+    RR.rapport_docx(r, tmp_path / "r.docx")
+    RR.rapport_pptx(r, tmp_path / "r.pptx")
+    txt = "\n".join(p.text for p in Document(tmp_path / "r.docx").paragraphs)
+    assert "RAPPORT D'ANALYSE PAR PILIER" in txt and "Questions d'analyse" in txt and "Annexe" in txt
+    assert len(Presentation(tmp_path / "r.pptx").slides) == 2 + 6 + 1
+    c = app.test_client()
+    _login(c, "admin", "Secret123")
+    assert c.get("/rapports").status_code == 200
+    for fmt in ("docx", "pptx"):
+        res = c.get(f"/rapports/generer?debut=2026-09-01&fin=2026-11-12&pilier=pci&pilier=actions&format={fmt}")
+        assert res.status_code == 200 and len(res.data) > 5000

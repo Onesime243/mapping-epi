@@ -72,6 +72,7 @@ LAB_COLS = [
 
 ACTION_COLS = [
     Col("texte", "Action", width=416), Col("priorite", "Priorité", "choice", theme.ACTION_PRIORITY_CHOICES, width=130),
+    Col("pilier", "Pilier", "choice", [""] + theme.PILIERS, width=170, tip="vide = déduit du texte de l'action"),
     Col("responsable", "Responsable", width=182), Col("echeance", "Échéance", "date", width=130),
     Col("statut", "Statut", "choice", theme.ACTION_STATUS_CHOICES, width=117),
     Col("auto", "Suggérée", "bool", width=91)]

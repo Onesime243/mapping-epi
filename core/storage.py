@@ -95,7 +95,7 @@ class Store:
         self.db.execute("""CREATE TABLE IF NOT EXISTS brouillons(
             id TEXT PRIMARY KEY, owner TEXT DEFAULT '', updated TEXT, data TEXT NOT NULL)""")
         ucols = [r[1] for r in self.db.execute("PRAGMA table_info(users)")]
-        for col in ("niveau", "province", "aire"):      # niveaux de la pyramide sanitaire (comptes)
+        for col in ("niveau", "province", "aire", "session_jeton"):   # pyramide sanitaire ; session unique (web)
             if col not in ucols:
                 self.db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT ''")
         self.db.commit()

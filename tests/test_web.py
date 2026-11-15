@@ -115,9 +115,8 @@ def test_admin_voit_tout_et_lieux_frequentes(app):
     _login(c, "agent.a", "Secret123")
     html = c.get("/cas").get_data(as_text=True)
     assert "HUE-WAM-001" in html and "HUE-WAM-002" not in html          # un agent ne voit que ses fiches
-    # un compte d'aire de santé n'analyse que ses propres fiches : aucun lieu commun avec les autres comptes
-    html = c.get("/analyse/lieux/zs?province=Haut-Uele&zs=Wamba").get_data(as_text=True)
-    assert ": 1 cas," in html and "HUE-WAM-002" not in html and "HUE-WAM-003" not in html
+    # un compte non administrateur n'a pas accès aux analyses (vue limitée au mapping et au réseau)
+    assert c.get("/analyse/lieux/zs?province=Haut-Uele&zs=Wamba").status_code == 403
     c.get("/deconnexion")
     _login(c, "chef", "Secret123")
     html = c.get("/cas?agent=agent.b").get_data(as_text=True)

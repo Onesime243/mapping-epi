@@ -292,3 +292,21 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
   et les visuels produits restent en français pour l'instant.
 - **Thème clair par défaut** ; le bouton Thème reste disponible (choix gardé sur le navigateur).
 - **Message de bienvenue** sur l'accueil (champs obligatoires, enregistrement) et **pied de page** collé en bas.
+
+## Version 1.6 : droits par compte, session unique, rapports par pilier
+
+- **Super-administrateurs** (`MAPPING_EPI_SUPERADMINS`, par défaut `adminone,john,steve.ahuka`) : seuls à voir le menu
+  **Riposte**, la page **Rapports** et le rapport de situation.
+- **Deux niveaux d'administrateur** : national (tous les comptes, toutes les provinces) et provincial (rôle Administrateur,
+  niveau Provincial) qui ne crée et ne gère que des comptes de zone ou d'aire de santé de sa province, et ne voit que
+  les cas de sa province.
+- **Comptes non administrateurs** : la fiche se limite aux vues Mapping et Réseau de contacts ; les autres vues, les
+  exports, les menus Analyses et Données sont réservés aux administrateurs. Tout le monde peut créer des mappings par
+  saisie ou par import (Excel, Word, PowerPoint).
+- **Une session par compte** : une nouvelle connexion ferme la précédente, qui affiche « Un autre utilisateur vient de
+  se connecter avec votre compte… ».
+- **Rapports par pilier** (`/rapports`) : période, province et piliers au choix (surveillance, contacts et vaccination,
+  PCI, laboratoire et prise en charge, actions et coordination, qualité des données) ; rapport détaillé Word
+  (indicateurs, graphiques, questions du cadre d'analyse des mappings MVE et réponses, points d'attention, annexe des
+  questions non couvertes) ou présentation PowerPoint (graphiques natifs modifiables). Calculs : `core/piliers.py` ;
+  mise en forme : `core/rapport_rendu.py`. Les actions ont un champ **Pilier** (déduit du texte s'il est vide).

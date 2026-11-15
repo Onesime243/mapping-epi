@@ -71,6 +71,9 @@ IPC_CHOICES = ["Non", "Partiel", "Décontaminé", "Inconnu"]
 ACTION_PRIORITY = {"Urgent": RED, "Important": ORANGE, "Normal": BLUE}
 ACTION_PRIORITY_CHOICES = ["Urgent", "Important", "Normal"]
 ACTION_STATUS_CHOICES = ["À faire", "En cours", "Fait"]
+# piliers de la riposte (actions) ; vide = classé automatiquement d'après le texte de l'action
+PILIERS = ["Surveillance", "Suivi des contacts", "Vaccination", "PCI", "Laboratoire", "Prise en charge",
+           "Engagement communautaire", "Coordination"]
 
 # Lien épidémiologique : le cas était-il un contact connu (listé) avant sa confirmation ?
 CONTACT_STATUS_CHOICES = ["Inconnu", "Contact connu", "Contact connu suivi", "Non contact"]

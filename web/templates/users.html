@@ -3,10 +3,10 @@
 {% macro scope_fields(u=None) %}
   <div><label class="f">Niveau</label>
     <select name="niveau" data-role="niveau">
-      {% for k, label in niveaux.items() %}<option value="{{ k }}"{% if (u and u.niveau == k) or (not u and k == "aire") %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      {% for k, label in niveaux.items() %}{% if not provincial or k in ("zone", "aire") %}<option value="{{ k }}"{% if (u and u.niveau == k) or (not u and k == "aire") %} selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
     </select></div>
   <div data-need="province zone aire"><label class="f">Province</label>
-    <select name="province" data-role="province" data-value="{{ u.province if u else '' }}"><option value="">Province…</option></select></div>
+    <select name="province" data-role="province" data-value="{{ (u.province if u else '') or (me.province if provincial else '') }}"><option value="">Province…</option></select></div>
   <div data-need="zone aire"><label class="f">Zone de santé</label>
     <select name="zs" data-role="zs" data-value="{{ u.zs if u else '' }}"><option value="">Zone de santé…</option></select></div>
   <div data-need="aire"><label class="f">Aire de santé</label>
@@ -22,12 +22,15 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
 {% if me.is_admin %}
 <div class="card">
   <h2 style="margin-top:0">Nouveau compte</h2>
+  {% if provincial %}<p class="hint">Administrateur provincial : vous créez des comptes de zone de santé ou d'aire de santé de la province {{ me.province }}.
+    Un administrateur provincial se crée avec le niveau « Provincial » et le rôle Administrateur (réservé à l'administration nationale).</p>{% endif %}
   <form method="post" class="grid scope-form">
     <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="create">
     <div><label class="f">Identifiant</label><input name="username" placeholder="ex. agent.ganga" pattern="[a-z0-9._\-]{3,32}" required></div>
     <div><label class="f">Nom complet</label><input name="nom" required></div>
     {{ scope_fields() }}
-    <div><label class="f">Rôle</label><select name="role"><option value="agent">Utilisateur</option><option value="admin">Administrateur (gère les comptes)</option></select></div>
+    {% if provincial %}<input type="hidden" name="role" value="agent">
+    {% else %}<div><label class="f">Rôle</label><select name="role"><option value="agent">Utilisateur</option><option value="admin">Administrateur (gère les comptes)</option></select></div>{% endif %}
     <div><label class="f">Mot de passe</label><input name="password" value="{{ suggested }}" minlength="8"></div>
     <div style="align-self:end"><button class="btn primary" style="width:100%">Créer le compte</button></div>
   </form>
@@ -37,7 +40,8 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
     <tr><td>Zone de santé</td><td>tous les cas de sa ZS (dont ceux de ses aires de santé)</td><td>ses cas et ceux des comptes AS / ZS de sa zone</td></tr>
     <tr><td>Provincial</td><td>tous les cas de sa province (toutes ZS et AS)</td><td>ses propres cas</td></tr>
     <tr><td>National</td><td>tous les cas de toutes les provinces</td><td>ses propres cas</td></tr>
-    <tr><td>Administrateur</td><td>tout</td><td>tout, plus la gestion des comptes</td></tr>
+    <tr><td>Administrateur provincial</td><td>tous les cas de sa province</td><td>les cas de sa province, et les comptes de ses zones de santé</td></tr>
+    <tr><td>Administrateur national</td><td>tout</td><td>tout, plus la gestion de tous les comptes</td></tr>
   </table>
 </div>
 {% else %}
@@ -54,8 +58,9 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
       <td class="muted">{{ (u.derniere_connexion or "jamais").replace("T", " ") }}</td>
       <td class="row" style="justify-content:flex-end">
         {% set protege = u.username == super_admin and me.username != super_admin %}
-        {% if me.is_admin and not protege %}
-        {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer"), ("role", "Rendre agent" if u.is_admin else "Rendre admin")] %}
+        {% set hors = provincial and (u.is_admin or u.province != me.province) %}
+        {% if me.is_admin and not protege and not hors %}
+        {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer")] + ([] if provincial else [("role", "Rendre agent" if u.is_admin else "Rendre admin")]) %}
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}">
           <input type="hidden" name="username" value="{{ u.username }}"><button class="btn small">{{ label }}</button></form>
         {% endfor %}
@@ -69,7 +74,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
         {% if protege %}<span class="muted" title="Seul {{ super_admin }} peut modifier ce compte">compte principal</span>{% endif %}
       </td>
     </tr>
-    {% if not u.is_admin and me.is_admin %}
+    {% if (not u.is_admin or not provincial) and me.is_admin and not hors %}
     <tr class="sub"><td colspan="8">
       <details><summary>Changer le niveau / le périmètre</summary>
         <form method="post" class="grid scope-form" style="margin-top:10px">
@@ -120,14 +125,15 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
       dl.innerHTML = ''; (zk ? PYR[pk][zk] : []).forEach(a => { const o = document.createElement('option'); o.value = a; dl.appendChild(o); });
     };
     const fillZs = v => { const pk = find(PYR, prov.value); fill(zs, pk ? Object.keys(PYR[pk]) : [], v, 'Zone de santé…'); fillAs(); };
+    const PROV_FIXE = {{ (me.province if provincial else '')|tojson }};
     const show = () => form.querySelectorAll('[data-need]').forEach(d => { d.style.display = d.dataset.need.split(' ').includes(niv.value) ? '' : 'none'; });
-    fill(prov, Object.keys(PYR), prov.dataset.value, 'Province…');
+    fill(prov, PROV_FIXE ? Object.keys(PYR).filter(p => norm(p) === norm(PROV_FIXE)) : Object.keys(PYR), prov.dataset.value, 'Province…');
     fillZs(zs.dataset.value);
     prov.addEventListener('change', () => { fillZs(''); as.value = ''; });
     zs.addEventListener('change', () => { fillAs(); as.value = ''; });
     niv.addEventListener('change', show); show();
     const role = form.querySelector('[name=role]');
-    if (role) role.addEventListener('change', () => { if (role.value === 'admin') { niv.value = 'national'; show(); } });
+    if (role && role.tagName === 'SELECT') role.addEventListener('change', () => { if (role.value === 'admin' && !['national', 'province'].includes(niv.value)) { niv.value = 'national'; show(); } });
   });
 })();
 </script>

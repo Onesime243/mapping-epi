@@ -8,6 +8,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("MAPPING_EPI_DONNEES", tempfile.mkdtemp(prefix="mapping_epi_tests_"))
+# « admin » des tests = super-administrateur (menu Riposte, rapports) ; les restrictions sont testées à part
+os.environ.setdefault("MAPPING_EPI_SUPERADMINS", "adminone,john,steve.ahuka,admin")
 
 from core.storage import load_json  # noqa: E402
 

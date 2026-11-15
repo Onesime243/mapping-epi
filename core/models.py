@@ -95,6 +95,7 @@ class Action(BaseModel):
     echeance: Optional[date] = None
     statut: str = "À faire"
     auto: bool = False              # issue d'une suggestion automatique
+    pilier: str = ""                # vide = déduit du texte (core/piliers.py)
 
 
 class Case(BaseModel):

@@ -40,7 +40,8 @@ class Access:
 
     @property
     def sees_all(self) -> bool:
-        return self.user.is_admin or self.user.niveau == "national"
+        # un administrateur provincial ne voit que sa province (niveau « province »)
+        return self.user.niveau == "national" or (self.user.is_admin and self.user.niveau != "province")
 
     def _owner(self, owner: str) -> Optional[User]:
         return self.users.get(owner) if owner else None
@@ -68,8 +69,10 @@ class Access:
         return False
 
     def can_edit(self, c: Case, owner: str) -> bool:
-        if self.user.is_admin or owner == self.user.username:
+        if owner == self.user.username:
             return True
+        if self.user.is_admin:
+            return self.user.niveau != "province" or self._in_province(c, owner)
         if self.user.niveau == "zone" and self._in_zone(c, owner):
             o = self._owner(owner)
             # la ZS corrige les fiches de ses AS (et de ses collègues ZS), pas celles des niveaux supérieurs
@@ -77,4 +80,6 @@ class Access:
         return False
 
     def can_delete(self, c: Case, owner: str) -> bool:
-        return self.user.is_admin or owner == self.user.username
+        if owner == self.user.username:
+            return True
+        return self.user.is_admin and (self.user.niveau != "province" or self._in_province(c, owner))

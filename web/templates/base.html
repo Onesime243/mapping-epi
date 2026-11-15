@@ -24,6 +24,7 @@
   <nav>
     {% if me %}
       <a href="{{ url_for('cases') }}">{{ t("Mes cas") if me.niveau == "aire" and not me.is_admin else t("Cas") }}</a>
+      {% if droits.admin %}
       <div class="menu">
         <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Analyses") }} ▾</button>
         <div class="menu-list">
@@ -33,6 +34,8 @@
           <a href="{{ url_for('frequent_places', niveau='as') }}">{{ t("Lieux fréquentés par aire de santé") }}</a>
         </div>
       </div>
+      {% endif %}
+      {% if droits.super %}
       <div class="menu">
         <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Riposte") }} ▾</button>
         <div class="menu-list">
@@ -42,15 +45,19 @@
           <a href="{{ url_for('riposte_reunion') }}" target="_blank" rel="noopener">{{ t("Mode réunion (diaporama)") }}</a>
         </div>
       </div>
+      <a href="{{ url_for('rapports_page') }}">{{ t("Rapports") }}</a>
+      {% endif %}
+      {% if droits.admin %}
       <div class="menu">
         <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Données") }} ▾</button>
         <div class="menu-list">
           <a href="{{ url_for('donnees_export', quoi='liste-cas.xlsx') }}">{{ t("Liste des cas (Excel)") }}</a>
-          <a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">{{ t("Rapport de situation (Word)") }}</a>
+          {% if droits.super %}<a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">{{ t("Rapport de situation (Word)") }}</a>{% endif %}
           <a href="{{ url_for('donnees_page') }}">{{ t("Échanger des fiches (paquet hors ligne)") }}</a>
           <a href="{{ url_for('donnees_doublons') }}">{{ t("Doublons possibles") }}</a>
         </div>
       </div>
+      {% endif %}
       {% if me.is_admin or me.niveau == "national" %}
       <a href="{{ url_for('users_admin') }}">{{ t("Utilisateurs") }}</a>
       {% endif %}

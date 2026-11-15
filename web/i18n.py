@@ -79,6 +79,12 @@ EN = {
         "map, synchronisation).",
     "Cliquez sur un titre de colonne pour trier.": "Click a column title to sort.",
     "Importer une fiche": "Import a record", "Importer": "Import",
+    "Réservé aux administrateurs": "Administrators only", "réservé aux administrateurs": "administrators only",
+    "Exports réservés aux administrateurs": "Exports are for administrators only", "Rapports": "Reports",
+    "Un autre utilisateur vient de se connecter avec votre compte sur un autre appareil. Vous avez été déconnecté. "
+    "Si ce n'est pas vous, changez votre mot de passe.":
+        "Another user has just signed in with your account on another device. You have been signed out. "
+        "If this was not you, change your password.",
     "En tant qu'administrateur, vous voyez et corrigez les mappings de tous les comptes.":
         "As an administrator, you can view and edit the mappings of all accounts.",
     "Vous voyez et corrigez les cas de votre zone de santé, dont ceux de ses aires de santé.":

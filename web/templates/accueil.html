@@ -15,7 +15,8 @@
       <button class="tuile primaire"><span class="ic">＋</span>{{ t("Nouveau cas") }}</button></form>
     <a class="tuile" href="{{ url_for('cases') }}"><span class="ic">☰</span>{{ t("Voir mes cas") if me.niveau == "aire" and not me.is_admin else t("Voir les cas") }}
       <small>{{ n_cas }} {{ t("enregistrés" if n_cas > 1 else "enregistré") }}{% if n_brouillons %} · {{ n_brouillons }} {{ t("brouillons" if n_brouillons > 1 else "brouillon") }}{% endif %}</small></a>
-    <a class="tuile" href="{{ url_for('chains_page') }}"><span class="ic">⤳</span>{{ t("Chaînes de transmission") }}</a>
+    {% if droits.admin %}<a class="tuile" href="{{ url_for('chains_page') }}"><span class="ic">⤳</span>{{ t("Chaînes de transmission") }}</a>
+    {% else %}<span class="tuile vt-off" title="{{ t('Réservé aux administrateurs') }}"><span class="ic">⤳</span>{{ t("Chaînes de transmission") }}<small>{{ t("réservé aux administrateurs") }}</small></span>{% endif %}
     {% if exemple %}
     <a class="tuile" href="{{ url_for('editor', cid=exemple) }}"><span class="ic">✎</span>{{ t("Exemple fictif") }}<small>{{ t("reprendre mon exemple") }}</small></a>
     {% else %}

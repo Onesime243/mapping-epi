@@ -228,3 +228,7 @@ body > footer.credits { flex-shrink: 0; }
 .bienvenue h2 { font-size: 18px; margin: 0; }
 .bienvenue .sous-titre { color: var(--muted); font-size: 13.5px; margin: 2px 0 10px; }
 .bienvenue p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.6; }
+
+/* ---------- vues réservées aux administrateurs (grisées) ---------- */
+.vtabs button.vt-off, .btn.vt-off, .tuile.vt-off { opacity: .45; cursor: not-allowed; }
+.tuile.vt-off:hover { border-color: var(--border); background: var(--panel); }

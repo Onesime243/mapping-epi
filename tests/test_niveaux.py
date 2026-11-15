@@ -151,15 +151,22 @@ def test_web_levels(world):
     assert put(prov, tp, k["a"]).status_code == 403
     assert prov.get(f"/cas/{k['d'].id}").status_code == 403            # autre province
     assert "BU-BON-001" in prov.get("/cas?zs=Bondo").get_data(as_text=True)
-    html = prov.get("/analyse/lieux/zs?province=Bas-Uele&zs=Ganga").get_data(as_text=True)
+    assert prov.get("/analyse/lieux/zs?province=Bas-Uele&zs=Ganga").status_code == 403   # non admin
+    _us.create("adm.bu", PWD, "Admin provincial", role="admin", niveau="province", province="Bas-Uele")
+    adm, _ = _login(app, "adm.bu")
+    html = adm.get("/analyse/lieux/zs?province=Bas-Uele&zs=Ganga").get_data(as_text=True)
     assert "HGR Ganga" in html
-    r = prov.get("/analyse/lieux/zs/communs?province=Bas-Uele&zs=Ganga")
+    r = adm.get("/analyse/lieux/zs/communs?province=Bas-Uele&zs=Ganga")
     assert r.status_code == 200 and "Transmission possible" in r.get_data(as_text=True)
 
     asd, _ = _login(app, "as.dingila")
     assert asd.get(f"/cas/{k['b'].id}").status_code == 403
 
     nat, _ = _login(app, "nat")
+    assert nat.get("/analyse/chaines").status_code == 403                # national non admin : fiche seulement
+    assert nat.get(f"/cas/{k['b'].id}/apercu/network").status_code == 200
+    assert nat.get(f"/cas/{k['b'].id}/apercu/gantt").status_code == 403
+    nat, _ = _login(app, "admin")
     assert nat.get("/analyse/chaines").status_code == 200
     svg = nat.get("/analyse/chaines/apercu?province=Bas-Uele").get_data(as_text=True)
     assert "BU-GAN-002" in svg and "IT-MAN-001" not in svg

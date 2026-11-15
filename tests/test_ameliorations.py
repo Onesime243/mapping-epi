@@ -117,7 +117,8 @@ def test_web_suppression_et_zones(tmp_path, monkeypatch):
     assert app.users.get("as.y") is None
     html = n.get("/utilisateurs").get_data(as_text=True)
     assert "Historique des suppressions" in html and "as.y" in html
-    html = n.get("/analyse/zones?ref=2026-11-11").get_data(as_text=True)
-    assert "Bunia" in html and "Cat. 1" in html and "premier cas notifié" in html
+    assert n.get("/analyse/zones?ref=2026-11-11").status_code == 403      # national non admin : vue fiche seulement
     a1, _ = _login(app, "adminone")
+    html = a1.get("/analyse/zones?ref=2026-11-11").get_data(as_text=True)
+    assert "Bunia" in html and "Cat. 1" in html and "premier cas notifié" in html
     assert a1.get("/utilisateurs").status_code == 200

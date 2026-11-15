@@ -28,6 +28,9 @@ import os
 ROLES = ("agent", "admin")
 # compte principal : seul lui peut se modifier ou être supprimé par lui-même ; il peut supprimer tout compte
 SUPER_ADMIN = os.environ.get("MAPPING_EPI_SUPERADMIN", "adminone").strip().lower()
+# super-administrateurs : seuls à voir le menu Riposte et les rapports détaillés (rapports par pilier)
+SUPER_ADMINS = {x.strip().lower() for x in os.environ.get("MAPPING_EPI_SUPERADMINS", "adminone,john,steve.ahuka")
+                .split(",") if x.strip()} | {SUPER_ADMIN}
 NIVEAUX = {"national": "National", "province": "Provincial", "zone": "Zone de santé", "aire": "Aire de santé"}
 
 
@@ -47,6 +50,20 @@ class User:
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+    @property
+    def is_super(self) -> bool:
+        """Super-administrateur (menu Riposte, rapports détaillés)."""
+        return self.username in SUPER_ADMINS
+
+    @property
+    def is_admin_national(self) -> bool:
+        return self.is_admin and self.niveau == "national"
+
+    @property
+    def is_admin_provincial(self) -> bool:
+        """Administrateur provincial : gère les comptes des zones de santé de sa province seulement."""
+        return self.is_admin and self.niveau == "province"
 
     @property
     def niveau_label(self) -> str:
@@ -147,6 +164,19 @@ class Users:
             self.db.commit()
         return self.get(username)
 
+    # -- session unique : un compte connecté sur un seul appareil à la fois (version web) -----------------
+    def nouvelle_session(self, username: str) -> str:
+        """Jeton de la nouvelle connexion ; toute connexion précédente du compte devient invalide."""
+        jeton = secrets.token_urlsafe(24)
+        with self.store.lock:
+            self.db.execute("UPDATE users SET session_jeton=? WHERE username=?", (jeton, username))
+            self.db.commit()
+        return jeton
+
+    def jeton_session(self, username: str) -> str:
+        r = self.db.execute("SELECT session_jeton FROM users WHERE username=?", (username,)).fetchone()
+        return (r[0] or "") if r else ""
+
     def set_password(self, username: str, password: str) -> None:
         err = validate_password(password)
         if err:
@@ -187,6 +217,28 @@ class Users:
         """Message d'erreur si `actor` ne peut pas modifier le compte `username` (compte principal)."""
         if username == SUPER_ADMIN and actor.username != SUPER_ADMIN:
             return f"Seul le compte « {SUPER_ADMIN} » peut modifier ou supprimer ce compte."
+        return None
+
+    @staticmethod
+    def peut_gerer(actor: "User", role: str = "agent", niveau: str = "", province: str = "",
+                   cible: Optional["User"] = None) -> Optional[str]:
+        """Message d'erreur si `actor` ne peut pas créer / modifier ce compte, sinon None.
+        Admin national (et super-admin) : tous les comptes. Admin provincial : comptes de zone de santé ou
+        d'aire de santé de SA province, jamais un administrateur."""
+        from core.access import _same
+        if actor.is_super or actor.is_admin_national:
+            return None
+        if not actor.is_admin_provincial:
+            return "Action réservée aux administrateurs."
+        hors = f"Un administrateur provincial ne gère que les comptes de la province {actor.province}."
+        if cible is not None and (cible.is_admin or not _same(cible.province, actor.province)):
+            return hors
+        if role == "admin":
+            return "Un administrateur provincial ne peut pas créer ni nommer d'administrateur."
+        if niveau and niveau not in ("zone", "aire"):
+            return "Un administrateur provincial crée des comptes de zone de santé ou d'aire de santé."
+        if niveau and not _same(province, actor.province):
+            return hors
         return None
 
     @staticmethod
@@ -231,12 +283,12 @@ class Users:
 def normalize_scope(role: str, niveau: str, province: str, zs: str, aire: str) -> tuple:
     """Vérifie et met à l'orthographe de référence le périmètre d'un compte.
 
-    Un administrateur est toujours de niveau national. Sans niveau précisé, un agent
-    est de niveau « aire » (il ne voit que ses propres cas), comme avant la v1.2.
+    Un administrateur est national ou provincial (provincial : sa province est obligatoire).
+    Sans niveau précisé, un agent est de niveau « aire » (il ne voit que ses propres cas).
     """
     from core import pyramide
     province, zs, aire = (province or "").strip(), (zs or "").strip(), (aire or "").strip()
-    if role == "admin":
+    if role == "admin" and niveau not in ("national", "province"):
         niveau = "national"
     niveau = niveau or "aire"
     if niveau not in NIVEAUX:

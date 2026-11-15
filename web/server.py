@@ -97,6 +97,16 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if not user or not user.actif:
             session.clear()
             return None
+        actuel = app.users.jeton_session(u)
+        if actuel and session.get("sid") != actuel:
+            # le compte vient de se connecter sur un autre appareil : cette session-ci est fermée
+            lg = session.get("lang")
+            session.clear()
+            if lg:
+                session["lang"] = lg
+            flash(I18N.t("Un autre utilisateur vient de se connecter avec votre compte sur un autre appareil. Vous avez "
+                         "été déconnecté. Si ce n'est pas vous, changez votre mot de passe.", lg), "err")
+            return None
         return user
 
     def login_required(fn):
@@ -111,6 +121,31 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 return redirect(url_for("login", next=request.path))
             return fn(*a, **kw)
         return wrapper
+
+    VUES_AGENT = ("mapping", "network")      # vues permises à un compte non administrateur
+
+    def droits(u) -> dict:
+        """Ce que le compte voit : super-admin (Riposte, rapports), admin (analyses, données), agent (fiche)."""
+        sup = bool(u and u.is_super)
+        adm = bool(u and (u.is_admin or sup))
+        return {"super": sup, "admin": adm}
+
+    @app.before_request
+    def controle_acces():
+        p = request.path
+        reserve_super = p.startswith("/riposte/") or p.startswith("/rapports") or p == "/donnees/rapport-situation.docx"
+        reserve_admin = p.startswith("/analyse/") or p.startswith("/donnees") or "/telecharger/" in p
+        if "/apercu/" in p and p.startswith("/cas/"):
+            reserve_admin = p.rsplit("/", 1)[-1] not in VUES_AGENT
+        if not (reserve_super or reserve_admin):
+            return None
+        u = current_user()
+        if not u:
+            return None                     # login_required redirige vers la connexion
+        d = droits(u)
+        if (reserve_super and not d["super"]) or (reserve_admin and not d["admin"]):
+            abort(403)
+        return None
 
     def admin_required(fn):
         @wraps(fn)
@@ -151,7 +186,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
     def inject():
         lg = langue()
         return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": _static_version(),
-                "credits": credits, "lang": lg, "langues": I18N.LANGUES, "t": lambda s: I18N.t(s, lg)}
+                "credits": credits, "lang": lg, "langues": I18N.LANGUES, "t": lambda s: I18N.t(s, lg),
+                "droits": droits(getattr(g, "user", None) or current_user())}
 
     @app.route("/langue/<code>")
     def choisir_langue(code):
@@ -263,6 +299,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     session.clear()
                     session.permanent = True
                     session["user"] = user.username
+                    session["sid"] = app.users.nouvelle_session(user.username)
                     csrf_token()
                     nxt = request.args.get("next", "")
                     return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("home"))
@@ -356,6 +393,21 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     e = Users.protege(g.user, uname)
                     if e:
                         raise ValueError(e)
+                cible = app.users.get(uname) if action != "create" else None
+                if action == "create":
+                    e = Users.peut_gerer(g.user, request.form.get("role", "agent"), request.form.get("niveau", "aire"),
+                                         request.form.get("province", ""))
+                elif action == "scope":
+                    e = Users.peut_gerer(g.user, "agent", request.form.get("niveau", ""),
+                                         request.form.get("province", ""), cible)
+                elif action == "role":
+                    e = Users.peut_gerer(g.user, "admin", cible=cible)
+                elif g.user.is_admin and cible is not None:
+                    e = Users.peut_gerer(g.user, cible=cible)
+                else:
+                    e = None
+                if e:
+                    raise ValueError(e)
                 if action == "delete":
                     n = sum(1 for _c, _t, _u, owner in app.store.list_full() if owner == uname)
                     app.users.delete(g.user, uname, request.form.get("motif", ""), n)
@@ -388,9 +440,14 @@ def create_app(store: storage.Store | None = None) -> Flask:
         counts = {}
         for _cid, _t, _u, owner in app.store.list_full():
             counts[owner] = counts.get(owner, 0) + 1
-        return render_template("users.html", users=app.users.list(), new_pwd=new_pwd, err=err, counts=counts,
+        from core.access import _same
+        comptes = app.users.list()
+        if g.user.is_admin_provincial and not g.user.is_super:
+            comptes = [u for u in comptes if u.username == g.user.username or
+                       (not u.is_admin and _same(u.province, g.user.province))]
+        return render_template("users.html", users=comptes, new_pwd=new_pwd, err=err, counts=counts,
                                suggested=generate_password(), niveaux=NIVEAUX, suppressions=app.users.suppressions(),
-                               super_admin=SUPER_ADMIN)
+                               super_admin=SUPER_ADMIN, provincial=g.user.is_admin_provincial and not g.user.is_super)
 
     # ------------------------------------------------------------------ cas
     @app.route("/")
@@ -631,6 +688,47 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return render_template("reunion.html", nouveaux=nouveaux, ind=ind, alertes=al, actions=acts, zones=zones,
                                courbe=RIP.courbe_svg(RIP.courbe(tous)), ref=ref, jours=jours, prov=prov,
                                n_tous=len(tous), n_deces=sum(1 for c in tous if c.issue == "Décès"))
+
+    @app.route("/rapports")
+    @login_required
+    def rapports_page():
+        """Rapports par pilier (super-administrateurs) : période, province, piliers, Word ou PowerPoint."""
+        from core import piliers as PIL
+        allc = visible_cases()
+        provinces = sorted({c.province for c in allc if c.province}, key=pyramide.norm)
+        fin = date.today()
+        return render_template("rapports.html", provinces=provinces, piliers=PIL.PILIERS_RAPPORT,
+                               debut=(fin - timedelta(days=13)).isoformat(), fin=fin.isoformat())
+
+    @app.route("/rapports/generer")
+    @login_required
+    def rapports_generer():
+        from core import piliers as PIL
+        from core import rapport_rendu as RR
+        try:
+            debut = date.fromisoformat(request.args.get("debut", ""))
+            fin = date.fromisoformat(request.args.get("fin", ""))
+        except ValueError:
+            flash("Choisissez une date de début et une date de fin.", "err")
+            return redirect(url_for("rapports_page"))
+        if fin < debut:
+            debut, fin = fin, debut
+        prov = request.args.get("province", "").strip()
+        choix = [k for k in request.args.getlist("pilier") if k in dict(PIL.PILIERS_RAPPORT)]
+        if not choix:
+            flash("Cochez au moins un pilier.", "err")
+            return redirect(url_for("rapports_page"))
+        allc = visible_cases()
+        from core.access import _same
+        n_brouillons = sum(1 for _i, _u, _o, c in app.store.brouillons()
+                           if not c.exemple() and (not prov or _same(c.province, prov)))
+        rap = PIL.construire(allc, debut, fin, prov, choix, g.user.perimetre, app.store.created_dates(), n_brouillons)
+        fmt = "pptx" if request.args.get("format") == "pptx" else "docx"
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.{fmt}"
+        (RR.rapport_pptx if fmt == "pptx" else RR.rapport_docx)(rap, out)
+        suffixe = ("_" + "".join(ch for ch in prov if ch.isalnum() or ch in "-_")) if prov else ""
+        nom = f"Rapport_piliers_MVE{suffixe}_{debut:%Y-%m-%d}_au_{fin:%Y-%m-%d}.{fmt}"
+        return _send_and_delete(out, nom)
 
     @app.route("/donnees/doublons")
     @login_required
