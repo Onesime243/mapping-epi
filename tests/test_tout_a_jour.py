@@ -285,16 +285,22 @@ def test_droits_super_admin_provincial_session_unique(app):
     assert us.get("adm.x") is None
     liste = p.get("/utilisateurs").get_data(as_text=True)
     assert "zs.bunia" in liste and "chef.nat" not in liste            # comptes de sa province seulement
-    # vue d'un agent : mapping et réseau seulement, pas d'export, pas d'analyse ; saisie et import permis
+    # vue d'un agent : mapping et réseau seulement, pas d'analyse ; saisie, import et téléchargement du mapping permis
     a = app.test_client()
     ta = _login(a, "zs.bunia", "Secret123")
     cid = a.post("/cas/nouveau", data={"csrf": ta}).headers["Location"].rsplit("/", 1)[1]
     assert a.get(f"/cas/{cid}/apercu/mapping").status_code == 200
     assert a.get(f"/cas/{cid}/apercu/network").status_code == 200
     assert a.get(f"/cas/{cid}/apercu/gantt").status_code == 403
-    assert a.get(f"/cas/{cid}/telecharger/png").status_code == 403
+    # téléchargement du mapping et du réseau permis à tout compte ; autres vues et données brutes : non
+    assert a.get(f"/cas/{cid}/telecharger/svg?visuel=mapping").status_code == 200
+    assert a.get(f"/cas/{cid}/telecharger/svg?visuel=network").status_code == 200
+    assert a.get(f"/cas/{cid}/telecharger/png?visuel=gantt").status_code == 403
+    assert a.get(f"/cas/{cid}/telecharger/xlsx").status_code == 403
+    assert a.get(f"/cas/{cid}/telecharger/json").status_code == 403
     page = a.get(f"/cas/{cid}").get_data(as_text=True)
     assert "Réservé aux administrateurs" in page and "Analyses ▾" not in page
+    assert 'data-fmt="png"' in page and 'data-fmt="xlsx"' not in page
     assert "Importer une fiche" in a.get("/cas").get_data(as_text=True)
     # session unique : la 2e connexion déconnecte la 1re
     b = app.test_client()

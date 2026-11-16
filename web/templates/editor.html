@@ -78,7 +78,6 @@
       {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% else %}<button type="button" class="vt-off" disabled title="{{ t('Réservé aux administrateurs') }}">{{ label }}</button>{% endif %}{% endfor %}
     </div>
     <div class="frame" id="frame"><iframe id="pv" title="Aperçu" loading="eager"></iframe></div>
-{% if droits.admin %}
     <div class="dl" id="dl">
       <a class="btn small primary" data-fmt="png">⬇ PNG HD</a>
       <a class="btn small" data-fmt="png4k">PNG 4K</a>
@@ -88,13 +87,10 @@
       <a class="btn small" data-fmt="pptx" data-only="mapping">PowerPoint</a>
       <a class="btn small" data-fmt="rapport-pdf" data-any="1">Rapport PDF</a>
       <a class="btn small" data-fmt="rapport-pptx" data-any="1">Rapport PowerPoint</a>
-      <a class="btn small" data-fmt="xlsx" data-any="1">Excel</a>
-      <a class="btn small" data-fmt="json" data-any="1">JSON</a>
+      {% if droits.admin %}<a class="btn small" data-fmt="xlsx" data-any="1">Excel</a>
+      <a class="btn small" data-fmt="json" data-any="1">JSON</a>{% endif %}
     </div>
-{% else %}
-    <div class="dl"><span class="btn small vt-off" title="{{ t('Réservé aux administrateurs') }}">⬇ {{ t('Exports réservés aux administrateurs') }}</span></div>
-{% endif %}
-    {% if droits.admin %}<p class="hint" style="margin-top:8px">Les fichiers sont générés par le serveur au moment du clic (quelques secondes pour PNG / PDF).</p>{% endif %}
+    <p class="hint" style="margin-top:8px">Les fichiers sont générés par le serveur au moment du clic (quelques secondes pour PNG / PDF).</p>
   </section>
 </div>
 <div class="toast" id="toast"></div>

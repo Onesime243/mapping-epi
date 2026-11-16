@@ -123,6 +123,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return wrapper
 
     VUES_AGENT = ("mapping", "network")      # vues permises à un compte non administrateur
+    EXPORTS_DONNEES = ("xlsx", "json")      # exports de la fiche complète : administrateurs seulement
 
     def droits(u) -> dict:
         """Ce que le compte voit : super-admin (Riposte, rapports), admin (analyses, données), agent (fiche)."""
@@ -138,6 +139,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
         reserve_admin = p.startswith("/analyse/") or p.startswith("/donnees") or "/telecharger/" in p
         if "/apercu/" in p and p.startswith("/cas/"):
             reserve_admin = p.rsplit("/", 1)[-1] not in VUES_AGENT
+        if "/telecharger/" in p and p.startswith("/cas/"):
+            # tout compte peut télécharger le mapping et le réseau de contacts d'une fiche qu'il voit (images, PDF,
+            # PowerPoint, rapports) ; les exports de données brutes (Excel, JSON) restent aux administrateurs
+            fmt = p.rsplit("/", 1)[-1]
+            reserve_admin = (request.args.get("visuel", "mapping") not in VUES_AGENT
+                             or fmt in EXPORTS_DONNEES)
         if not (reserve_super or reserve_admin):
             return None
         u = current_user()
