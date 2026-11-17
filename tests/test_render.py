@@ -47,9 +47,9 @@ def test_pptx_is_native_and_editable(demo, tmp_path):
     assert len(prs.slides) == 1
     shapes = prs.slides[0].shapes
     texts = " ".join(s.text_frame.text for s in shapes if s.has_text_frame)
-    assert "Hospitalisation" in texts and "Minimum documenté : 41" in texts
+    assert "Hospitalisation" in texts and "41 à haut risque" in texts and "11 jours" in texts and "? à dénombrer" in texts
     assert not any(s.shape_type == 13 for s in shapes)        # aucune image : 100 % formes éditables
-    assert len(shapes) > 150
+    assert len(shapes) > 100
 
 
 CHROME = next((p for p in [shutil.which("chromium"), shutil.which("google-chrome"), shutil.which("chrome"),

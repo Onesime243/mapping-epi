@@ -386,8 +386,9 @@ def new_presentation() -> Presentation:
 
 
 def export_mapping_pptx(case: Case, path: Path | str) -> None:
+    from render.pptx_v2 import add_mapping_slide_v2     # mapping repensé (v1.8) ; add_mapping_slide = ancienne mise en page
     prs = new_presentation()
-    add_mapping_slide(prs, case)
+    add_mapping_slide_v2(prs, case)
     prs.save(str(path))
 
 
@@ -398,8 +399,9 @@ def add_image_slide(prs: Presentation, png_path: Path | str) -> None:
 
 def export_report_pptx(case: Case, images: List[Path], path: Path | str) -> None:
     """Rapport : mapping natif (modifiable) + visuels complémentaires en images HD."""
+    from render.pptx_v2 import add_mapping_slide_v2
     prs = new_presentation()
-    add_mapping_slide(prs, case)
+    add_mapping_slide_v2(prs, case)
     for img in images:
         add_image_slide(prs, img)
     prs.save(str(path))
