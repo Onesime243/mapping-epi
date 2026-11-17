@@ -17,6 +17,9 @@ manage() { sudo -u "$SVC_USER" env MAPPING_EPI_DONNEES="$DATA_DIR" "$PY" "$APP_D
 case "${1:-aide}" in
   creer-admin|creer-utilisateur|utilisateurs|mot-de-passe|desactiver|activer|niveau)
     manage "$@" ;;
+  renommer-action)
+    case " $* " in *" --appliquer "*) "$0" sauvegarde ;; esac      # sauvegarde complète avant de modifier les fiches
+    manage "$@" ;;
   sauvegarde)
     out="$(manage sauvegarde /tmp)"
     mv "$out" "$BACKUP_DIR/" && chmod 600 "$BACKUP_DIR/$(basename "$out")"
@@ -236,6 +239,8 @@ Mapping Épi : commandes
   sauvegarde             sauvegarde immédiate (les sauvegardes quotidiennes sont automatiques)
   restaurer FICHIER      revenir à une sauvegarde
   mise-a-jour            installer la dernière version publiée sur GitHub
+  renommer-action "ANCIEN" "NOUVEAU" [--appliquer]
+                         renommer une action dans toutes les fiches (essai sans --appliquer)
   etat | journal | redemarrer
 Autres sites (statiques) sur ce serveur :
   ajouter-site NOM DEPOT [SOUS-DOMAINE]   ex. ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site outbreak

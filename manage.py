@@ -8,6 +8,9 @@
     python manage.py desactiver IDENT       désactiver un compte
     python manage.py activer IDENT          réactiver un compte
     python manage.py sauvegarde DOSSIER     copie cohérente de la base + fiches JSON (archive .tar.gz)
+    python manage.py renommer-action "ANCIEN" "NOUVEAU" [--appliquer]
+                                            renommer une action dans toutes les fiches (sans --appliquer : essai,
+                                            rien n'est modifié ; avec --appliquer : sauvegarde de la base d'abord)
 """
 from __future__ import annotations
 
@@ -92,6 +95,55 @@ def backup(dest: str) -> int:
     return 0
 
 
+def renommer_action(ancien: str, nouveau: str, appliquer: bool) -> int:
+    """Remplace le texte d'une action (texte exact, sans tenir compte des espaces autour) dans les fiches
+    enregistrées et les brouillons. Les exemples fictifs sont compris. Chaque fiche modifiée garde sa date de
+    dernière modification et reçoit une version dans son historique."""
+    ancien, nouveau = ancien.strip(), nouveau.strip()
+    if not ancien or not nouveau or ancien == nouveau:
+        print("Erreur : donner l'ancien et le nouveau texte, différents.")
+        return 1
+    st = Store()
+    fiches = []
+    for cid, _maj, owner, c in st.rows_full(None):
+        n = sum(1 for a in c.actions if a.texte.strip() == ancien)
+        if n:
+            fiches.append(("fiche", cid, owner, c, n))
+    for cid, _maj, owner, c in st.brouillons():
+        n = sum(1 for a in c.actions if a.texte.strip() == ancien)
+        if n:
+            fiches.append(("brouillon", cid, owner, c, n))
+    total = sum(f[4] for f in fiches)
+    print(f"« {ancien} » → « {nouveau} » : {total} action(s) dans {len(fiches)} fiche(s) "
+          f"({sum(1 for f in fiches if f[0] == 'fiche')} enregistrée(s), {sum(1 for f in fiches if f[0] == 'brouillon')} brouillon(s)).")
+    for genre, _cid, owner, c, n in fiches[:50]:
+        print(f"  - {genre:9} {(c.code_cas or c.titre_court())[:40]:40} compte {owner or '?':20} {n} action(s)")
+    if len(fiches) > 50:
+        print(f"  … et {len(fiches) - 50} autre(s).")
+    if not appliquer:
+        print("Essai seulement : rien n'a été modifié. Relancer avec --appliquer pour faire le remplacement.")
+        return 0
+    if not fiches:
+        return 0
+    print("Sauvegarde de la base avant modification :")
+    try:
+        backup(str(data_dir() / "sauvegardes"))            # dans le dossier des données : toujours accessible
+    except OSError as exc:
+        print(f"Sauvegarde impossible ({exc}) : rien n'a été modifié.")
+        return 1
+    for genre, _cid, owner, c, _n in fiches:
+        for a in c.actions:
+            if a.texte.strip() == ancien:
+                a.texte = nouveau
+        if genre == "fiche":
+            st.save(c, version=True, auteur="renommage", commentaire=f"Action renommée : « {ancien} » → « {nouveau} »",
+                    owner=owner, garder_date=True)
+        else:
+            st.save_brouillon(c, owner or "")
+    print(f"Fait : {total} action(s) renommée(s) dans {len(fiches)} fiche(s).")
+    return 0
+
+
 def main(argv) -> int:
     if not argv or argv[0] in ("-h", "--help", "aide"):
         print(__doc__)
@@ -103,6 +155,12 @@ def main(argv) -> int:
         return create("agent")
     if cmd == "sauvegarde":
         return backup(args[0] if args else str(data_dir().parent / "sauvegardes"))
+    if cmd == "renommer-action":
+        pos = [x for x in args if x != "--appliquer"]
+        if len(pos) != 2:
+            print('Usage : manage.py renommer-action "ANCIEN" "NOUVEAU" [--appliquer]')
+            return 1
+        return renommer_action(pos[0], pos[1], "--appliquer" in args)
     us = Users(Store())
     if cmd == "utilisateurs":
         for u in us.list():
