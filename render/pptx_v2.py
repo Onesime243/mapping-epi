@@ -116,7 +116,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     pill_h = 16 if two else 18
 
     def lignes(c):
-        out = [(c["date"] + (f"  {c['rel']}" if c["rel"] else ""), 0.92), (c["lieu"], 1.0), (c["titre"], 0.92)]
+        out = [(c["date"] + (f"  {c['rel']}" if c["rel"] else ""), 0.92), (c["lieu"], 1.0), (c["titre"], 1.05)]
         if c["desc"] and not two:
             out.append((c["desc"], 0.82))
         out += [(("⚠ " if ch_.get("warn") else "") + ch_["t"], 0.78) for ch_ in c["chips"]]
@@ -133,7 +133,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         pars = [[(c["date"], {"bold": True, "color": BLEU, "size": taille * 0.92}),
                  (("  " + c["rel"]) if c["rel"] else "", {"bold": True, "color": "#000000", "size": taille * 0.75})],
                 [(c["lieu"], {"bold": True, "color": ENCRE})],
-                [(c["titre"], {"color": GRIS, "size": taille * 0.92})]]
+                [(c["titre"], {"color": ENCRE, "bold": True, "size": taille * 1.02})]]
         if c["desc"] and not two:
             pars.append([(c["desc"], {"color": "#000000", "size": taille * 0.82})])
         for ch_ in c["chips"]:
@@ -142,6 +142,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         if c["personnes"]:
             pars.append([("? personnes présentes", {"color": ORANGE_T, "bold": True, "size": taille * 0.8})])
         S.text(bx + 6, by + 5, cw - 12, ch - pill_h - 12, pars, size=taille, color=ENCRE, align=PP_ALIGN.LEFT)
+        S.oval(bx + cw - 13, by + 13, 7, c["tc"], "#FFFFFF", 1.0)          # couleur du type d'étape
         sh = S.rect(bx + 6, by + ch - pill_h - 6, cw - 12, pill_h, c["r"]["c"], radius=5, name="Risque")
         S.text(0, 0, 0, 0, [f"{c['r']['s']} {c['r']['t']}"], size=_pt(8.5 if two else 9.5), color="#FFFFFF", bold=True,
                anchor=MSO_ANCHOR.MIDDLE, shape=sh)

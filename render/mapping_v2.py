@@ -303,6 +303,11 @@ def _actions(case: Case) -> dict:
     return {"lignes": lignes, "auto": True}
 
 
+def _icone_personnes() -> str:
+    from render.icons import icon_svg
+    return icon_svg("people", 10, "#8A4B00", 2.2)
+
+
 def vue(case: Case, ph, cards, grisk: str, why: str, score: int) -> dict:
     statut = {"Confirmé": "cas confirmé", "Probable": "cas probable", "Suspect": "cas suspect"}.get(case.statut, case.statut.lower())
     rang = f"{'1er' if case.rang == 1 else f'{case.rang}e'} " if case.rang else ""
@@ -314,9 +319,11 @@ def vue(case: Case, ph, cards, grisk: str, why: str, score: int) -> dict:
         "manque": _a_completer(case, cards),
         "frise": _frise(case, ph, cards),
         "cartes": [{"date": c.date, "rel": c.rel, "lieu": c.place, "titre": c.title, "desc": c.desc,
+                    "icon": c.icon, "tc": c.type_color,                  # icône et couleur du type d'étape
                     "r": risque(c.risk), "personnes": any(ch.get("todo") for ch in c.chips),
-                    "chips": [ch for ch in c.chips if not ch.get("todo")][:2], "incertain": c.uncertain}
+                    "chips": [ch for ch in c.chips if not ch.get("todo")][:3], "incertain": c.uncertain}
                    for c in cards],
+        "icone_personnes": _icone_personnes(),
         "contacts": _contacts(case),
         "pci": _pci(case),
         "actions": _actions(case),

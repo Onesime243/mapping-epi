@@ -46,6 +46,15 @@
 .mp-c .e { font-size: .92em; color: #000000; line-height: 1.25; }
 .mp-c .x { font-size: .82em; color: #000000; line-height: 1.25; }
 .mp-c .q { font-size: .8em; color: #8A4B00; font-weight: 700; }
+.mp-c .t { font-size: 1.02em; font-weight: 800; line-height: 1.15; margin: .05em 0 .1em; }
+.mp-c .ic { width: 1.75em; height: 1.75em; border-radius: 50%; display: grid; place-items: center; margin: .2em 0 .1em; }
+.mp-c .ic svg { width: 1.05em; height: 1.05em; }
+.mp-c .chips { display: flex; flex-wrap: wrap; gap: .3em; margin-top: .2em; }
+.mp-c .chip { display: inline-flex; align-items: center; gap: .3em; font-size: .78em; font-weight: 600; color: #1F3A5F;
+  background: #EDF1F6; border-radius: 1em; padding: .2em .6em; line-height: 1.2; }
+.mp-c .chip svg { width: 1.05em; height: 1.05em; flex: none; }
+.mp-c .chip.warn { background: #FBEAE8; color: #8E1F24; }
+.mp-c .chip.todo { background: #FFF1DC; color: #8A4B00; font-weight: 800; box-shadow: inset 0 0 0 1px #F0C78A; }
 .mp-c .ch { font-size: .78em; color: #8E1F24; font-weight: 700; }
 .mp-c .ch.info { color: #000000; font-weight: 600; }
 .mp-pill { flex: none; color: #fff; font-size: {{ 8.5 if two else 9.5 }}px; font-weight: 800; border-radius: 5px; padding: {{ 2 if two else 3 }}px 4px;
@@ -116,10 +125,13 @@
         <div class="cb" data-fit="6" data-max="{{ 10 if two else 11.5 }}" data-group="mpc">
           <div class="d">{{ c.date }}{% if c.rel %}<small>{{ c.rel }}</small>{% endif %}</div>
           <div class="p">{{ c.lieu }}</div>
-          <div class="e">{{ c.titre }}</div>
+          <span class="ic" style="background: {{ c.tc }};">{{ c.icon|safe }}</span>
+          <div class="t">{{ c.titre }}</div>
           {% if c.desc and not two %}<div class="x">{{ c.desc }}</div>{% endif %}
-          {% for ch in c.chips %}<div class="ch{% if not ch.warn %} info{% endif %}">{{ '⚠ ' if ch.warn }}{{ ch.t }}</div>{% endfor %}
-          {% if c.personnes %}<div class="q">? personnes présentes</div>{% endif %}
+          {% if c.chips or c.personnes %}<div class="chips">
+            {% for ch in c.chips %}<span class="chip{% if ch.warn %} warn{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}
+            {% if c.personnes %}<span class="chip todo">{{ x.icone_personnes|safe }}? personnes présentes</span>{% endif %}
+          </div>{% endif %}
         </div>
         <div class="mp-pill" style="background: {{ c.r.c }};">{{ c.r.s }} {{ c.r.t }}</div>
       </div>
