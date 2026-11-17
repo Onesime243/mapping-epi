@@ -456,3 +456,13 @@ def test_suivi_des_alertes_et_courbes(app):
     agent = app.test_client()
     ta = _login(agent, "agent.bunia", "Agent2026x")
     assert agent.post("/tableau-de-bord/alerte", data={"csrf": ta, "cid": c.id, "action": "prendre"}).status_code == 403
+
+
+def test_adresse_des_sites_pci():
+    from core.models import Case, Event, IPCSite
+    from render import html_renderer as H
+    from render import map_view
+    c = Case(zs="Beni", events=[Event(lieu="Domicile", lieu_arrivee="CS Ngongolio", titre="Soins")],
+             ipc=[IPCSite(site="CS Ngongolio", statut="Non", adresse="Av. de la Paix, quartier Ngongolio")])
+    assert "Av. de la Paix" in map_view.render_svg(c)                  # carte du parcours
+    assert "Av. de la Paix" not in H.render_mapping_html(c)            # pas sur le mapping

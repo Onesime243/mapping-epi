@@ -175,12 +175,15 @@ def render_svg(case: Case) -> str:
         nodes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{col}" stroke="#fff" stroke-width="3.5" filter="url(#sh)">'
                      f'<title>{K.esc(o)} : {K.esc(risk)}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
         lines = K.wrap_px(o, 168, 12, 800, 2)
+        adr = _adresse_pci(o, case)
         dx, dy = x - mx_c, y - my_c
         if abs(dy) >= abs(dx) * 0.6:
             prefer = ["below", "below-right", "below-left"] if dy > 0 else ["above", "above-right", "above-left"]
         else:
             prefer = ["right", "below-right", "above-right"] if dx > 0 else ["left", "below-left", "above-left"]
-        labels.append(placer.place(x, y, 31, [(ln, 12, 800, theme.INK) for ln in lines] + [(risk, 9.5, 700, col)],
+        labels.append(placer.place(x, y, 31, [(ln, 12, 800, theme.INK) for ln in lines]
+                                   + ([(K.ellipsize(adr, 190, 9), 9, 500, "#000000")] if adr else [])
+                                   + [(risk, 9.5, 700, col)],
                                    prefer=prefer))
     out += arrows + nodes + badges + ['<g class="halo">'] + labels + ['</g>']
 
@@ -191,6 +194,8 @@ def render_svg(case: Case) -> str:
     y = 116
     tw = 388 - 42 - 14            # largeur utile du texte dans le panneau
     shown = 0
+    sites = [s for s in case.ipc if s.adresse.strip()][:4]
+    bas_etapes = 612 - (34 + 30 * len(sites) if sites else 0)
     for leg in legs:
         risk = rules.event_risk(leg.ev, case)
         col = theme.RED if leg.corps else theme.risk_color(risk)
@@ -206,7 +211,7 @@ def render_svg(case: Case) -> str:
         if leg.corps:
             detail += " • transport du corps"
         need = 30 + (13 if line2 else 0)
-        if y + need > 612:
+        if y + need > bas_etapes:
             break
         out.append(f'<circle cx="{x0 + 24}" cy="{y + 5}" r="10" fill="{col}"/>'
                    f'<text x="{x0 + 24}" y="{y + 9}" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">{leg.n}</text>')
@@ -222,14 +227,36 @@ def render_svg(case: Case) -> str:
         out.append(f'<text x="{x0 + 42}" y="{y}" font-size="9.5" fill="{theme.MUTED}">… {len(legs) - shown} autre(s) étape(s)</text>')
     if not legs:
         out.append(f'<text x="{x0 + 20}" y="{y}" font-size="11" fill="{theme.MUTED}">Aucun déplacement documenté.</text>')
+    if sites:                     # adresses des sites PCI (absentes du mapping)
+        yb = bas_etapes + 4
+        out.append(K.pill(x0 + 12, yb, "Sites PCI · adresses"))
+        yb += 34
+        for s in sites:
+            sc = theme.IPC_STATUS.get(s.statut, theme.BLUE)
+            out.append(f'<circle cx="{x0 + 24}" cy="{yb - 3}" r="5" fill="{sc}"/>'
+                       f'<text x="{x0 + 36}" y="{yb}" font-size="10" font-weight="800" fill="{theme.INK}">'
+                       f'{K.esc(K.ellipsize(s.site + " · " + s.statut, tw, 10, 800))}</text>'
+                       f'<text x="{x0 + 36}" y="{yb + 13}" font-size="9.5" fill="#000000">'
+                       f'{K.esc(K.ellipsize(s.adresse, tw, 9.5))}</text>')
+            yb += 30
     ly = 632
     out.append(K.legend_item(x0 + 14, ly, theme.ORANGE, "Déplacement du cas", "line"))
     out.append(K.legend_item(x0 + 190, ly, theme.RED, "Transport du corps", "line", dashed=True))
-    out.append(K.legend_item(x0 + 14, ly + 22, theme.MUTED, "Couleur = niveau de risque", "circle"))
+    out.append(K.legend_item(x0 + 14, ly + 22, theme.GREY, "Couleur = niveau de risque", "circle"))
     out.append(K.footer("Les étapes laboratoire / investigation / riposte ne sont pas des déplacements du cas et ne figurent pas sur la carte. "
                         + ("Ajoutez la latitude/longitude des lieux pour une carte géographique." if not kmpx else "")))
     out.append("</svg>")
     return "".join(out)
+
+
+def _adresse_pci(nom: str, case: Case) -> str:
+    """Adresse du site PCI qui correspond à ce lieu (même nom, ou l'un contient l'autre)."""
+    k = _norm(nom)
+    for s in case.ipc:
+        ks = _norm(s.site)
+        if s.adresse.strip() and k and ks and (k == ks or k in ks or ks in k):
+            return s.adresse.strip()
+    return ""
 
 
 def _place_risk_from_events(name: str, case: Case) -> str:

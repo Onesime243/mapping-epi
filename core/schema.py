@@ -58,7 +58,10 @@ CONTACT_COLS = [
         Col("_fin", "Fin du suivi", "computed", width=130)]
 
 IPC_COLS = [
-        Col("site", "Site", width=260, complete=True), Col("statut", "Statut", "choice", theme.IPC_CHOICES, width=156),
+        Col("site", "Site", width=260, complete=True),
+        Col("adresse", "Adresse du site", width=260, tip="avenue, n°, quartier, repère : pour retrouver le site ; "
+            "affichée sur la carte du parcours, pas sur le mapping"),
+        Col("statut", "Statut", "choice", theme.IPC_CHOICES, width=156),
         Col("date", "Date", "date", width=130), Col("equipe", "Équipe", width=208), Col("produit", "Produit", width=208)]
 
 LAB_COLS = [

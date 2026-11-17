@@ -74,6 +74,7 @@ class IPCSite(BaseModel):
     date: Optional[_dt.date] = None
     equipe: str = ""
     produit: str = ""
+    adresse: str = ""               # adresse du site (avenue, quartier, repère) : carte du parcours, pas le mapping
 
 
 class LabSample(BaseModel):
