@@ -474,7 +474,8 @@ def test_symptomes_par_phase():
     from core import symptomes as SY
     from core.models import Case, Event
     assert SY.dans_texte("a développé des céphalées, asthénie physique, vomissements, faiblesse articulaire, sans fièvre") == \
-        ["Céphalées", "Asthénie / fatigue", "Douleurs articulaires", "Vomissements"]              # « sans fièvre » ignoré
+        ["Céphalées", "Asthénie / fatigue", "Vomissements", "Douleurs articulaires"]              # ordre du texte ; « sans fièvre » ignoré
+    assert SY.par_etape(c := __import__("core.models", fromlist=["Case"]).Case()) == []
     c = Case(code_cas="T-1", zs="Beni", debut_symptomes=date(2026, 11, 4), phase_dds="Phase sèche",
              events=[Event(date_debut=date(2026, 11, 4), titre="Début maladie", description="céphalées, asthénie"),
                      Event(date_debut=date(2026, 11, 9), titre="Hospitalisation", description="vomissements, diarrhée")])

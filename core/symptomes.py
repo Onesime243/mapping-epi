@@ -85,12 +85,13 @@ def _plat(t: str) -> str:
 def dans_texte(texte: str) -> List[str]:
     """Symptômes cités dans un texte libre (une mention niée n'est pas comptée)."""
     t = _plat(texte)
-    out = []
+    trouves = []
     for nom, rx in _MOTIFS:
         for m in rx.finditer(t):
             if not _NEGATION.search(t[max(0, m.start() - 14):m.start()]):
-                out.append(nom)
+                trouves.append((m.start(), nom))
                 break
+    out = [nom for _pos, nom in sorted(trouves)]           # dans l'ordre du texte
     precis = {"Gingivorragie", "Épistaxis", "Méléna", "Hématémèse", "Hématurie", "Saignements aux points d'injection"}
     if "Saignements (non précisés)" in out and precis & set(out):
         out.remove("Saignements (non précisés)")      # « gingivorragie » contient déjà un saignement
@@ -162,3 +163,21 @@ def frequences(cases: List[Case]) -> Dict[str, List[tuple]]:
         for m in ms:
             cpt[m.phase][m.symptome] += 1
     return {p: [(s, n, base[p]) for s, n in cpt[p].most_common()] for p, _l in PHASES}
+
+
+def par_etape(c: Case) -> List[dict]:
+    """Pour chaque étape datée qui cite des symptômes : la date, le jour (J±n), la phase et les symptômes, dans
+    l'ordre du texte, sans regroupement (ex. 19/07/2026 → Fièvre ; Asthénie / fatigue ; Céphalées ; Vomissements)."""
+    try:
+        ph = rules.phases(c)
+    except Exception:
+        ph = None
+    out = []
+    for ev in sorted((e for e in c.events if e.date_debut), key=lambda e: e.date_debut):
+        noms = dans_texte(f"{ev.titre} {ev.description}")
+        if not noms:
+            continue
+        out.append({"date": ev.date_debut, "jour": rules.relative_day(ev.date_debut, ph.j0) if ph else "",
+                    "phase": LIB_PHASE.get(_phase_etape(ev, ph), ""), "etape": ev.titre or ev.type,
+                    "symptomes": noms})
+    return out

@@ -374,6 +374,30 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
     ws.freeze_panes = "D2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(cols))}{max(1, ws.max_row)}"
 
+    # 1 bis. une variable par date : la date de l'étape et, comme valeur, les symptômes cités ce jour-là
+    wj = wb.create_sheet("Symptômes par date")
+    lignes, nmax = [], 0
+    for c in cases:
+        et = SY.par_etape(c)
+        nmax = max(nmax, len(et))
+        lignes.append((c, et))
+    cols = ["id_cas", "zone_sante"]
+    for i in range(1, nmax + 1):
+        cols += [f"date_{i}", f"symptomes_{i}", f"jour_{i}", f"phase_{i}", f"etape_{i}"]
+    wj.append(cols)
+    entete(wj)
+    for c, et in lignes:
+        ligne = [c.code_cas, c.zs]
+        for e in et:
+            ligne += [e["date"], "; ".join(e["symptomes"]), e["jour"], e["phase"], e["etape"]]
+        wj.append(ligne)
+        for cell in wj[wj.max_row]:
+            if isinstance(cell.value, date):
+                cell.number_format = "dd/mm/yyyy"
+    for i in range(1, len(cols) + 1):
+        wj.column_dimensions[get_column_letter(i)].width = 30 if cols[i - 1].startswith("symptomes") else 13
+    wj.freeze_panes = "C2"
+
     # 2. détail : d'où vient chaque symptôme
     wd = wb.create_sheet("Symptômes (détail)")
     wd.append(["id_cas", "zone_sante", "phase", "symptome", "date", "source"])
@@ -432,6 +456,9 @@ def _feuille_modelisation(wb, cases: List[Case]) -> None:
     for n, d in VARIABLES_MODELISATION:
         dico.append([n, d])
     dico.append([])
+    dico.append(["Symptômes par date", "Pour chaque étape du parcours qui cite des symptômes : date_n = date de l'étape, "
+                                       "symptomes_n = symptômes cités ce jour-là, jour_n = jour depuis le J0 retenu (J±n), "
+                                       "phase_n et etape_n."])
     dico.append(["Symptômes par phase", "Colonnes <phase>_<symptôme> : 1 = rapporté dans la phase, 0 = phase documentée "
                                         "sans ce symptôme, vide = phase non documentée. Sources : symptômes cochés dans la "
                                         "fiche et texte des étapes du parcours (« Symptômes (détail) » donne la source)."])
