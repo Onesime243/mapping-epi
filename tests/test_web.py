@@ -174,3 +174,19 @@ def test_import_narratif_web(app, tmp_path):
     cid = r.headers["Location"].rsplit("/", 1)[1]
     d = c.get(f"/api/cas/{cid}").get_json()
     assert d["case"]["zs"] == "Tumba" and len(d["case"]["events"]) >= 3
+
+
+def test_liste_cas_par_pages_de_20(app):
+    from core.models import Case
+    st = app.store
+    Users(st).create("chef", "Secret123", role="admin")
+    for i in range(45):
+        st.save(Case(code_cas=f"PAG-{i + 1:03d}", province="Equateur", zs="Tumba"), owner="chef")
+    c = app.test_client()
+    _login(c, "chef", "Secret123")
+    p1 = c.get("/cas?tri=code&ordre=asc").get_data(as_text=True)
+    assert "PAG-001" in p1 and "PAG-020" in p1 and "PAG-021" not in p1
+    assert "Fiches 1 à 20 sur 45" in p1 and "page=2" in p1 and "Suivant" in p1
+    p3 = c.get("/cas?tri=code&ordre=asc&page=3").get_data(as_text=True)
+    assert "PAG-041" in p3 and "PAG-045" in p3 and "PAG-040" not in p3 and "Précédent" in p3
+    assert "PAG-041" in c.get("/cas?tri=code&ordre=asc&page=99").get_data(as_text=True)   # page trop grande : la dernière

@@ -521,9 +521,20 @@ def create_app(store: storage.Store | None = None) -> Flask:
         onglet = onglet if onglet in ("brouillons", "exemples") else "cas"
         brouillons = [(cid, upd, c) for cid, upd, own, c in mes_brouillons()]
         exemples = [(cid, upd, c) for cid, upd, own, c in mes_exemples()]
+        # pages de 20 fiches (« Précédent », numéros, « Suivant »)
+        par_page = 20
+        n_filtres = len(items)
+        pages = max(1, -(-n_filtres // par_page))
+        try:
+            page = min(pages, max(1, int(request.args.get("page", "1"))))
+        except ValueError:
+            page = 1
+        items = items[(page - 1) * par_page: page * par_page]
+        args_page = dict(args, **{k: f[k] for k in ("tri", "ordre") if f[k]})
         return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows),
                                tri=tri, desc=desc, sorts=SORTS, args=args, brouillons=brouillons,
-                               exemples=exemples, onglet=onglet)
+                               exemples=exemples, onglet=onglet, page=page, pages=pages, n_filtres=n_filtres,
+                               par_page=par_page, args_page=args_page)
 
     # ------------------------------------------------- analyses multi-cas (limitées au périmètre du compte)
     def _selection(niveau: str):

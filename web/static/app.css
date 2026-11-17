@@ -451,3 +451,9 @@ table.tb-table td b { white-space: nowrap; }
 .tb-resolues { padding: 4px 2px; }
 .tb-res { font-size: 14px; padding: 5px 0; border-bottom: 1px dashed var(--border); }
 .tb-res b { color: var(--c-ok); }
+
+/* pagination (20 par page) */
+.pager { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; margin: 14px 0 4px; }
+.pager .btn { min-width: 38px; }
+.pager-gap { color: var(--muted); padding: 0 4px; }
+.pager-info { flex-basis: 100%; text-align: center; font-size: 13px; color: var(--muted); }

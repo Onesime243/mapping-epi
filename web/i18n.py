@@ -81,7 +81,7 @@ EN = {
     "Importer une fiche": "Import a record", "Importer": "Import",
     "Réservé aux administrateurs": "Administrators only", "réservé aux administrateurs": "administrators only",
     "Exports réservés aux administrateurs": "Exports are for administrators only", "Rapports": "Reports",
-    "Tableau de bord": "Dashboard", "Tableau de bord de la riposte": "Response dashboard",
+    "Tableau de bord": "Dashboard", "Précédent": "Previous", "Suivant": "Next", "Tableau de bord de la riposte": "Response dashboard",
     "Super-administrateur": "Super administrator", "Administrateur national": "National administrator",
     "Administrateur provincial": "Provincial administrator",
     "Sceau de la Présidence de la République démocratique du Congo":

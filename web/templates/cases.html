@@ -62,7 +62,8 @@
     <button class="btn">{{ t("Filtrer") }}</button>
     {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">{{ t("Effacer") }}</a>{% endif %}
   </form>
-  <p class="hint">{% if lang == "en" %}{{ items|length }} of {{ total }} record(s) shown.{% else %}{{ items|length }} fiche(s) affichée(s) sur {{ total }}.{% endif %}
+  {% set premier = (page - 1) * par_page + 1 %}{% set dernier = premier + items|length - 1 %}
+  <p class="hint">{% if lang == "en" %}{% if items %}{{ premier }}–{{ dernier }} of {% endif %}{{ n_filtres }} record(s){% if n_filtres != total %} ({{ total }} in all){% endif %}.{% else %}{% if items %}Fiches {{ premier }} à {{ dernier }} sur {% endif %}{{ n_filtres }}{% if n_filtres != total %} (sur {{ total }} au total){% endif %}.{% endif %}
     {% if me.is_admin %}{{ t("En tant qu'administrateur, vous voyez et corrigez les mappings de tous les comptes.") }}
     {% elif me.niveau == "zone" %}{{ t("Vous voyez et corrigez les cas de votre zone de santé, dont ceux de ses aires de santé.") }}
     {% elif me.niveau == "national" %}{{ t("Vous voyez les cas de toutes les provinces ; les fiches des autres comptes s'ouvrent en lecture seule.") }}
@@ -83,6 +84,17 @@
     </tr>
     {% endfor %}
   </table></div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">
+    {% if page > 1 %}<a class="btn small" href="{{ url_for('cases', **dict(args_page, page=page - 1)) }}">← {{ t("Précédent") }}</a>{% endif %}
+    {% for p in range(1, pages + 1) %}
+      {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+        {% if p == page %}<span class="btn small primary" aria-current="page">{{ p }}</span>{% else %}<a class="btn small" href="{{ url_for('cases', **dict(args_page, page=p)) }}">{{ p }}</a>{% endif %}
+      {% elif p == page - 3 or p == page + 3 %}<span class="pager-gap">…</span>{% endif %}
+    {% endfor %}
+    {% if page < pages %}<a class="btn small" href="{{ url_for('cases', **dict(args_page, page=page + 1)) }}">{{ t("Suivant") }} →</a>{% endif %}
+  </nav>
+  {% endif %}
   {% else %}
   <p class="muted">Aucune fiche{% if total %} pour ces filtres{% endif %}. Cliquez sur « Nouveau cas » pour commencer.</p>
   {% endif %}

@@ -73,6 +73,7 @@
   </div>
   {% endfor %}
   <p class="muted tb-vide" hidden>Aucun cas dans cette catégorie.</p>
+  <nav class="pager tb-pager" aria-label="Pages" hidden></nav>
   <div class="tb-resolues" data-etat="resolues" hidden>
     {% for r in resolues %}
     <div class="tb-res"><b>✓</b> {{ r.code or "?" }} · {{ r.resume or "alertes" }} · {{ r.par }} · {{ r.le[8:10] }}/{{ r.le[5:7] }}{% if r.note %} · « {{ r.note }} »{% endif %}</div>
@@ -312,23 +313,88 @@
   // plan de travail : filtre par état
   var plan = document.getElementById('tb-plan');
   if (plan) {
-    function filtreEtat(f) {
+    // 20 cas par page : « Précédent », numéros de page, « Suivant »
+    var PAR_PAGE = 20, filtre = 'traiter', pagerBox = plan.querySelector('.tb-pager');
+    function bouton(txt, p, actif) {
+      var b = document.createElement(actif ? 'span' : 'button');
+      b.className = 'btn small' + (actif ? ' primary' : '');
+      b.textContent = txt;
+      if (actif) b.setAttribute('aria-current', 'page');
+      else { b.type = 'button'; b.onclick = function () { filtreEtat(filtre, p); plan.scrollIntoView({behavior: 'smooth', block: 'start'}); }; }
+      return b;
+    }
+    function filtreEtat(f, page) {
+      filtre = f; page = page || 1;
       plan.querySelectorAll('.tb-plan-filtres button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === f); });
-      var vus = 0;
+      var retenus = [];
       plan.querySelectorAll('.tb-cas[data-etat]').forEach(function (c) {
         var e = c.dataset.etat, ok = e === 'toujours' || (f === 'traiter' ? (e === 'nouvelle' || e === 'reapparue') : e === f);
         c.hidden = f === 'resolues' ? e !== 'toujours' : !ok;
-        if (!c.hidden && e !== 'toujours') vus++;
+        if (!c.hidden && e !== 'toujours') retenus.push(c);
       });
+      var pages = Math.max(1, Math.ceil(retenus.length / PAR_PAGE));
+      page = Math.min(Math.max(1, page), pages);
+      retenus.forEach(function (c, i) { c.hidden = Math.floor(i / PAR_PAGE) + 1 !== page; });
       plan.querySelector('.tb-resolues').hidden = f !== 'resolues';
-      plan.querySelector('.tb-vide').hidden = f === 'resolues' || vus > 0;
+      plan.querySelector('.tb-vide').hidden = f === 'resolues' || retenus.length > 0;
+      pagerBox.innerHTML = '';
+      pagerBox.hidden = f === 'resolues' || pages < 2;
+      if (!pagerBox.hidden) {
+        var info = document.createElement('span');
+        info.className = 'pager-info';
+        info.textContent = 'Cas ' + ((page - 1) * PAR_PAGE + 1) + ' à ' + Math.min(page * PAR_PAGE, retenus.length) + ' sur ' + retenus.length;
+        pagerBox.appendChild(info);
+        if (page > 1) pagerBox.appendChild(bouton('← Précédent', page - 1));
+        for (var p = 1; p <= pages; p++) {
+          if (p === 1 || p === pages || Math.abs(p - page) <= 2) pagerBox.appendChild(bouton(String(p), p, p === page));
+          else if (Math.abs(p - page) === 3) { var g = document.createElement('span'); g.className = 'pager-gap'; g.textContent = '…'; pagerBox.appendChild(g); }
+        }
+        if (page < pages) pagerBox.appendChild(bouton('Suivant →', page + 1));
+      }
     }
-    plan.querySelectorAll('.tb-plan-filtres button').forEach(function (b) { b.onclick = function () { filtreEtat(b.dataset.f); }; });
+    plan.querySelectorAll('.tb-plan-filtres button').forEach(function (b) { b.onclick = function () { filtreEtat(b.dataset.f, 1); }; });
     filtreEtat('traiter');
   }
   // filtre des actions par catégorie
   var sel = document.getElementById('tb-filtre-cat');
-  function filtrer(v) { sel.value = v; document.querySelectorAll('#tb-actions tbody tr').forEach(function (tr) { tr.hidden = v && tr.dataset.cat !== v; }); }
+  // tableaux longs (cas du périmètre, actions, zones de santé) : 20 lignes par page
+  function paginer(tab, page) {
+    var nav = tab._pager;
+    if (!nav) {
+      nav = document.createElement('nav'); nav.className = 'pager'; nav.setAttribute('aria-label', 'Pages');
+      (tab.closest('.tb-defil') || tab).after(nav); tab._pager = nav;
+    }
+    var rows = Array.prototype.filter.call(tab.tBodies[0].rows, function (r) { return r.dataset.cache !== '1'; });
+    var pages = Math.max(1, Math.ceil(rows.length / PAR_PAGE_TAB));
+    page = Math.min(Math.max(1, page || 1), pages);
+    Array.prototype.forEach.call(tab.tBodies[0].rows, function (r) { r.hidden = true; });
+    rows.forEach(function (r, i) { r.hidden = Math.floor(i / PAR_PAGE_TAB) + 1 !== page; });
+    nav.innerHTML = ''; nav.hidden = pages < 2;
+    if (nav.hidden) return;
+    function b(txt, p, actif) {
+      var e = document.createElement(actif ? 'span' : 'button');
+      e.className = 'btn small' + (actif ? ' primary' : ''); e.textContent = txt;
+      if (actif) e.setAttribute('aria-current', 'page');
+      else { e.type = 'button'; e.onclick = function () { paginer(tab, p); tab.scrollIntoView({behavior: 'smooth', block: 'start'}); }; }
+      nav.appendChild(e);
+    }
+    var info = document.createElement('span'); info.className = 'pager-info';
+    info.textContent = 'Lignes ' + ((page - 1) * PAR_PAGE_TAB + 1) + ' à ' + Math.min(page * PAR_PAGE_TAB, rows.length) + ' sur ' + rows.length;
+    nav.appendChild(info);
+    if (page > 1) b('← Précédent', page - 1);
+    for (var p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - page) <= 2) b(String(p), p, p === page);
+      else if (Math.abs(p - page) === 3) { var g = document.createElement('span'); g.className = 'pager-gap'; g.textContent = '…'; nav.appendChild(g); }
+    }
+    if (page < pages) b('Suivant →', page + 1);
+  }
+  var PAR_PAGE_TAB = 20;
+  document.querySelectorAll('.tb-defil table.list.tri').forEach(function (tab) { paginer(tab, 1); });
+  function filtrer(v) {
+    sel.value = v;
+    document.querySelectorAll('#tb-actions tbody tr').forEach(function (tr) { tr.dataset.cache = v && tr.dataset.cat !== v ? '1' : ''; });
+    paginer(document.getElementById('tb-actions'), 1);
+  }
   if (sel) sel.onchange = function () { filtrer(sel.value); };
   document.querySelectorAll('[data-filtre-cat]').forEach(function (b) { b.onclick = function () { filtrer(sel.value === b.dataset.filtreCat ? '' : b.dataset.filtreCat); }; });
   // tri des colonnes
@@ -342,6 +408,7 @@
           var n = parseFloat(String(x).replace(',', '.')); return isNaN(n) || /^\d{4}-/.test(x) ? x.toLowerCase() : n; }
         rows.sort(function (a, b) { var x = v(a), y = v(b); return (x > y ? 1 : x < y ? -1 : 0) * (asc ? 1 : -1); });
         rows.forEach(function (r) { tab.tBodies[0].appendChild(r); });
+        paginer(tab, 1);
       };
     });
   });
