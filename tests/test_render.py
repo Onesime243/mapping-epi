@@ -14,11 +14,12 @@ from render.pptx_exporter import export_mapping_pptx
 
 def test_mapping_html_structure(demo):
     html = H.render_mapping_html(demo)
-    for s in ["CHRONOLOGIE", "Lieux &amp; expositions", "Contacts à identifier / suivre", "PCI / décontamination",
-              "Actions</span>", "3e CAS CONFIRMÉ MVE | ZS TUMBA", "Minimum documenté : 41 contacts"]:
+    for s in ["Chronologie à l’échelle du temps", "Contacts <small>", "PCI et décontamination", "Actions <small>",
+              "3e cas confirmé MVE · ZS Tumba", "41 à haut risque", "Signes → confirmation", "11 jours",
+              "? à dénombrer", "sans statut PCI", "Mapping Épi v" + H.APP_VERSION]:
         assert s.lower() in html.lower(), s
-    assert len(re.findall(r'class="card[ "]', html)) == 12
-    assert "Incubation" not in html and "Phase humide" in html and "date estimée" in html
+    assert len(re.findall(r'class="mp-c[ "]', html)) == 12
+    assert "Phase sèche" in html and "Corps très contagieux" in html and "jours sans information" in html
 
 
 def test_title_and_two_rows_for_many_events():

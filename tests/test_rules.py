@@ -127,7 +127,7 @@ def test_contact_source_et_personnes_obligatoires(demo):
     assert demo.events[0] in rules.personnes_manquantes(demo)
     from render.html_renderer import render_mapping_html
     html = render_mapping_html(demo)
-    assert "ID du cas source : à compléter" in html and "Personnes : à compléter" in html
+    assert "ID du cas source" in html and "? personnes présentes" in html
     demo.id_cas_source = "RDC-TUM-26-001"
     assert "ID du cas source : à compléter" not in render_mapping_html(demo)
 

@@ -20,7 +20,15 @@ from render.icons import icon_svg
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
-APP_VERSION = "1.1"
+def _version() -> str:
+    try:
+        v = (ROOT / "packaging" / "VERSION").read_text(encoding="utf-8").strip()
+        return ".".join(v.split(".")[:2]) or "1.7"
+    except OSError:
+        return "1.7"
+
+
+APP_VERSION = _version()
 PAGE_W, PAGE_H = 1280, 720
 
 _env = Environment(loader=FileSystemLoader(str(ROOT / "render" / "templates")),
@@ -230,6 +238,7 @@ class MappingView:
     contact: Optional[dict] = None
     badges: List[dict] = field(default_factory=list)
     theme: dict = field(default_factory=dict)
+    v2: dict = field(default_factory=dict)          # mapping repensé (v1.8) : en-tête, frise à l'échelle, blocs
 
 
 def _badges(case: Case) -> List[dict]:
@@ -380,12 +389,14 @@ def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView
     score, _ = rules.completeness(case)
     meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
             f"Mapping Épi v{APP_VERSION}")
+    from render import mapping_v2
+    v2 = mapping_v2.vue(case, ph, cards, grisk, grisk_why, score)
     return MappingView(
         title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
         + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
         identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
         ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul if ph.j0_source == "rapportée" else 0,
-        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact, badges=_badges(case))
+        meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact, badges=_badges(case), v2=v2)
 
 
 # ---------------------------------------------------------------------------

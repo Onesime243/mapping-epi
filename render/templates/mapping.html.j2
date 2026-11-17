@@ -1,239 +1,166 @@
+{# Mapping repensé (v1.8) : trois chiffres décisifs, frise à l'échelle du temps, étapes, Contacts / PCI / Actions.
+   Page 1280 × 720 px. Le rouge = danger, l'orange = à compléter ; chaque couleur est doublée d'un symbole. #}
+{% set x = v.v2 %}
+{% set per = v.rows[0]|length if v.rows and v.rows[0]|length else 1 %}
 {% set two = v.rows|length > 1 %}
 <style>
-.m-head { height: 56px; background: linear-gradient(180deg, {{ t.NAVY }} 0%, {{ t.NAVY_DARK }} 100%); color: #fff;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 24px; }
-.m-title { font-size: 22px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; max-width: 100%; }
-.m-sub { font-size: 10.5px; opacity: .78; margin-top: 3px; letter-spacing: .3px; }
-.m-wrap { position: absolute; top: 56px; left: 0; right: 0; bottom: 0; padding: 9px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
-
-.m-id { display: grid; grid-template-columns: repeat({{ v.identity|length }}, 1fr); background: #fff;
-  border: 1px solid {{ t.BORDER }}; border-radius: 9px; height: 46px; box-shadow: 0 1px 2px rgba(20,40,70,.06); }
-.m-id > div { display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border-left: 1px solid {{ t.BORDER }}; padding: 0 6px; min-width: 0; }
-.m-id > div:first-child { border-left: 0; }
-.m-id .k { font-size: 8.5px; letter-spacing: {{ '.4px' if v.identity|length > 10 else '.8px' }}; color: {{ t.MUTED }}; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
-.m-id .v { font-size: 14.5px; font-weight: 800; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-
-.pill { display: inline-block; background: {{ t.NAVY }}; color: #fff; font-size: 10px; font-weight: 800;
-  letter-spacing: .7px; padding: 5px 12px; border-radius: 6px; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
-
-.m-tl { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
-.m-tl-head { display: flex; align-items: center; justify-content: space-between; }
-.legend { display: flex; gap: 12px; font-size: 9px; color: {{ t.MUTED }}; align-items: center; }
-.legend i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.cbadge { font-size: 10px; font-weight: 800; letter-spacing: .7px; padding: 5px 16px; border-radius: 6px; text-transform: uppercase; }
-.cbadge.sm { padding: 5px 10px; letter-spacing: .4px; white-space: nowrap; }
-.m-tl-head { gap: 6px; justify-content: flex-start !important; }
-.m-tl-head .legend { margin-left: auto; }
-.phases { display: grid; height: 46px; flex: none; gap: 3px; }
-.ph { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 16px 0 18px; min-width: 0;
-  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%, 11px 50%); font-size: 9px; line-height: 1.22; color: {{ t.INK }}; }
-.ph:first-child { clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%); padding-left: 9px; border-radius: 5px 0 0 5px; }
-.ph .l1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ph .l1 b { font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
-.ph .l2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 800; }
-.ph .l3 { font-weight: 500; font-size: .92em; line-height: 1.18; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.m-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: {{ 6 if two else 0 }}px; }
-.m-row { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
-.bands, .cards { display: grid; column-gap: 6px; }
-.bands { height: 15px; margin-bottom: 3px; }
-.band { border-radius: 4px; font-size: 8.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
-  display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 6px; }
-.cards { flex: 1 1 auto; min-height: 0; position: relative; }
-.line { position: absolute; left: 10px; right: 10px; height: 2px; background: #C9D2DD; z-index: 0;
-  top: {{ 4 + (30 if two else 46) + 12 }}px; }
-.card { position: relative; z-index: 1; background: #fff; border: 1px solid {{ t.BORDER }}; border-radius: 8px;
-  overflow: hidden; display: flex; flex-direction: column; min-width: 0; min-height: 0; box-shadow: 0 1px 3px rgba(20,40,70,.07); }
-.card.uncertain .bar { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.65) 0 5px, transparent 5px 10px); }
-.bar { height: 4px; flex: none; }
-.chead { height: {{ 30 if two else 46 }}px; flex: none; padding: {{ 4 if two else 6 }}px 5px 0; text-align: center; overflow: hidden; font-size: 11px; }
-.cdate { font-size: 1em; font-weight: 800; white-space: nowrap; }
-.cplace { font-size: .98em; font-weight: 700; margin-top: {{ 2 if two else 6 }}px; line-height: 1.15; }
-.cdot { height: 24px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
-.dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 3px #fff; }
-.rel { position: absolute; right: 4px; top: 5px; font-size: 8px; font-weight: 700; color: {{ t.MUTED }};
-  background: {{ t.BG }}; border-radius: 3px; padding: 1px 3px; }
-.rel.j0 { background: {{ t.GREEN }}; color: #fff; }
-.cbody { flex: 1 1 auto; min-height: 0; overflow: hidden; text-align: center; padding: {{ 3 if two else 6 }}px 5px 2px; font-size: 11px; }
-.ctitle { font-weight: 800; font-size: 1.02em; line-height: 1.18; }
-.cdesc { color: {{ t.INK }}; font-weight: 500; font-size: .86em; line-height: 1.3; margin-top: 4px; }
-.badge { flex: none; margin: {{ "3px 6px 4px" if two else "4px 6px 6px" }}; border-radius: 5px; font-weight: 800; text-align: center;
-  font-size: {{ 9 if two else 10.5 }}px; padding: {{ 2 if two else 5 }}px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: .55em; }
-.chip { display: inline-flex; align-items: center; gap: .25em; font-size: .74em; font-weight: 600; color: {{ t.NAVY }};
-  background: #EDF1F6; border-radius: 1em; padding: .2em .55em; line-height: 1.2; }
-.chip svg { width: 1.05em; height: 1.05em; flex: none; }
-.chip.warn { background: #FBEAE8; color: {{ t.RED }}; }
-.chip.todo { background: #FFFFFF; color: {{ t.RED }}; box-shadow: inset 0 0 0 1px {{ t.RED }}; font-weight: 800; white-space: nowrap; font-size: .7em; }
-.todo { font-size: 10px; font-weight: 800; color: {{ t.RED }}; border: 1.5px solid {{ t.RED }}; border-radius: 6px; padding: 3px 10px; background: #fff; }
-.auto-mark { opacity: .8; font-weight: 600; }
-
-.m-panels { flex: none; height: {{ 196 if two else 258 }}px; display: grid; grid-template-columns: 1fr 1.42fr .86fr .92fr; gap: 10px; }
-.panel { background: #fff; border: 1px solid {{ t.BORDER }}; border-radius: 9px; padding: 9px 11px 9px; display: flex;
-  flex-direction: column; min-width: 0; min-height: 0; box-shadow: 0 1px 3px rgba(20,40,70,.07); }
-.panel .pill { align-self: flex-start; margin-bottom: 8px; }
-.pbody { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 10.5px; }
-.rows { display: flex; flex-direction: column; gap: .48em; }
-.prow { display: grid; align-items: center; gap: .6em; }
-.pl { line-height: 1.3; color: {{ t.INK }}; }
-.pl .nm { font-weight: 800; }
-.pl .pp { font-weight: 500; }
-.tag { font-weight: 800; border-radius: .4em; text-align: center; padding: .38em .3em; font-size: .9em; line-height: 1.1; }
-.ct { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.2em; row-gap: .5em; }
-.ct .cl { line-height: 1.3; color: {{ t.INK }}; }
-.ct .nm { font-weight: 600; }
-.ct .num { font-weight: 800; color: {{ t.INK }}; white-space: nowrap; }
-.ct .num.q { color: {{ t.RED }}; font-size: 1.1em; }
-.ct .num small { font-weight: 500; color: {{ t.MUTED }}; font-size: .82em; }
-.phrase { color: {{ t.RED }}; font-weight: 700; font-size: .92em; margin-top: .75em; line-height: 1.3; text-align: center; }
-.ipc .prow { grid-template-columns: minmax(0,1fr) auto; }
-.ipc .tag { min-width: 4.6em; padding: .38em .55em; }
-.ipc .nm { font-weight: 700; }
-.note { color: {{ t.MUTED }}; font-size: .88em; margin-top: .7em; line-height: 1.3; }
-.ac { display: flex; flex-direction: column; gap: .62em; }
-.ac div { display: flex; gap: .65em; align-items: flex-start; font-weight: 700; line-height: 1.25; }
-.ac-h { font-size: .78em; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; margin: .1em 0 -.1em;
-  display: flex; align-items: center; gap: .5em; }
-.ac-h.todo { color: {{ t.RED }}; }
-.ac-h.done { color: {{ t.GREEN }}; margin-top: .45em; padding-top: .55em; border-top: 1px dashed {{ t.BORDER }}; }
-.ac div.done { color: {{ t.INK }}; font-weight: 600; }
-.ac div.done i { flex: none; width: 1.05em; height: 1.05em; border-radius: 50%; background: {{ t.GREEN|soft }}; color: {{ t.GREEN|soft|ink }};
-  font-style: normal; font-size: .8em; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-top: .12em; }
-.ac b { flex: none; width: .72em; height: .72em; border-radius: 50%; margin-top: .25em; }
-.ac-note { font-size: .8em; color: {{ t.MUTED }}; font-weight: 500; margin-top: .5em; font-style: italic; }
-
-.m-foot { flex: none; height: 24px; background: #E7EBF0; border: 1px solid {{ t.BORDER }}; border-radius: 6px;
-  display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: 9.5px; color: {{ t.MUTED }}; gap: 16px; }
-.m-foot .org { color: {{ t.NAVY }}; font-weight: 700; }
-.m-foot span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.m-foot span:last-child { white-space: nowrap; font-size: 8.5px; }
+.mp { background: #F4F2EC; color: #14213D; }
+.mp-head { position: absolute; left: 0; right: 0; top: 0; height: 70px; background: #12213B; color: #F7F5F0;
+  display: flex; align-items: center; padding: 0 22px; gap: 16px; }
+.mp-ttl { min-width: 0; flex: 1 1 auto; }
+.mp-t1 { font-size: 20px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+.mp-t2 { font-size: 11.5px; color: #C9D3E2; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-hero { display: flex; gap: 8px; flex: none; }
+.mp-k { border-radius: 9px; padding: 6px 12px; width: 168px; }
+.mp-k .l { font-size: 8.5px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; opacity: .9; }
+.mp-k .v { font-size: 19px; font-weight: 800; line-height: 1.15; margin-top: 1px; white-space: nowrap; overflow: hidden; }
+.mp-k .s { font-size: 9px; opacity: .92; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-tri { position: absolute; left: 0; right: 0; top: 70px; height: 4px; display: flex; }
+.mp-tri i { flex: 1; }
+.mp-dates { position: absolute; left: 0; right: 0; top: 74px; height: 28px; background: #FFFDF9; border-bottom: 1px solid #E2DCCF;
+  display: flex; align-items: center; gap: 11px; padding: 0 22px; font-size: 10.5px; color: #435066; white-space: nowrap; }
+.mp-dates b { color: #14213D; }
+.mp-miss { margin-left: auto; background: #FFF1DC; color: #8A4B00; border: 1px solid #F0C78A; border-radius: 999px;
+  padding: 3px 10px; font-weight: 700; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; }
+.mp-wrap { position: absolute; left: 0; right: 0; top: 102px; bottom: 0; padding: 8px 22px 6px; display: flex; flex-direction: column; gap: 7px; }
+.mp-sec { font-size: 9.5px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: #12213B; display: flex; gap: 10px; align-items: baseline; }
+.mp-sec small { font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #7A8496; }
+.mp-tl { position: relative; height: 66px; flex: none; margin: 0 4px; }
+.mp-band { position: absolute; top: 4px; height: 20px; border-radius: 4px; font-size: 9.5px; font-weight: 700; display: flex;
+  align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; }
+.mp-gap { position: absolute; top: 28px; height: 14px; border: 1.5px dashed #C76A00; border-radius: 4px; background: #FFF6E8;
+  color: #8A4B00; font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
+.mp-line { position: absolute; left: 0; right: 0; top: 49px; height: 2px; background: #C9C2B3; }
+.mp-dot { position: absolute; top: 44px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; border: 2px solid #F4F2EC; }
+.mp-tick { position: absolute; top: 55px; font-size: 8.5px; color: #7A8496; transform: translateX(-50%); white-space: nowrap; }
+.mp-rep { position: absolute; top: 0; height: 52px; border-left: 1.5px solid #12213B; }
+.mp-rep span { position: absolute; top: -1px; left: 3px; font-size: 8px; font-weight: 800; color: #12213B; background: #F4F2EC; padding: 0 2px; white-space: nowrap; }
+.mp-cards { flex: 1 1 auto; min-height: 0; display: grid; gap: 6px; }
+.mp-c { background: #FFFDF9; border: 1px solid #E2DCCF; border-radius: 8px; padding: 6px 7px 7px; display: flex; flex-direction: column;
+  gap: 2px; min-width: 0; min-height: 0; overflow: hidden; }
+.mp-c.inc { border-style: dashed; }
+.mp-c .cb { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 11px; display: flex; flex-direction: column; gap: .18em; }
+.mp-c .d { font-size: .92em; font-weight: 800; color: #3E6FA8; line-height: 1.2; }
+.mp-c .d small { color: #7A8496; font-weight: 700; margin-left: .3em; }
+.mp-c .p { font-size: 1em; font-weight: 700; line-height: 1.2; }
+.mp-c .e { font-size: .92em; color: #435066; line-height: 1.25; }
+.mp-c .x { font-size: .82em; color: #5B6577; line-height: 1.25; }
+.mp-c .q { font-size: .8em; color: #8A4B00; font-weight: 700; }
+.mp-c .ch { font-size: .78em; color: #8E1F24; font-weight: 700; }
+.mp-c .ch.info { color: #435066; font-weight: 600; }
+.mp-pill { flex: none; color: #fff; font-size: {{ 8.5 if two else 9.5 }}px; font-weight: 800; border-radius: 5px; padding: {{ 2 if two else 3 }}px 4px;
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-bottom { flex: none; height: {{ 168 if two else 214 }}px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr; gap: 9px; }
+.mp-box { background: #FFFDF9; border: 1px solid #E2DCCF; border-radius: 9px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.mp-box .mp-sec { justify-content: space-between; margin-bottom: 5px; }
+.mp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 11px; display: flex; flex-direction: column; gap: .32em; }
+.mp-row { display: flex; align-items: center; gap: .7em; line-height: 1.2; }
+.mp-row .n { width: 40%; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-bar { flex: 1; height: .8em; background: #EEE9DE; border-radius: .4em; overflow: hidden; }
+.mp-bar i { display: block; height: 100%; }
+.mp-row .v { flex: none; min-width: 6.8em; text-align: right; font-weight: 800; white-space: nowrap; }
+.mp-todo { color: #8A4B00; font-weight: 700; }
+.mp-st { flex: none; font-size: .88em; font-weight: 800; border-radius: .4em; padding: .2em .55em; white-space: nowrap; }
+.mp-note { color: #435066; font-size: .92em; line-height: 1.3; }
+.mp-foot { flex: none; height: 16px; display: flex; justify-content: space-between; font-size: 8.5px; color: #7A8496; white-space: nowrap; gap: 12px; }
+.mp-foot b { color: #12213B; }
 </style>
 
-<div class="page mapping">
-  <div class="m-head">
-    <div class="m-title" data-fit="13" data-max="22">{{ v.title }}</div>
-    <div class="m-sub">{{ v.subtitle }}</div>
+<div class="page mapping mp">
+  <div class="mp-head">
+    <div class="mp-ttl">
+      <div class="mp-t1" data-fit="12" data-max="20">{{ x.titre }}</div>
+      <div class="mp-t2">{{ x.sous }}</div>
+    </div>
+    <div class="mp-hero">
+      {% for k in x.hero %}
+      <div class="mp-k" style="background: {{ k.bg }}; color: {{ k.fg }};">
+        <div class="l">{{ k.k }}</div><div class="v" data-fit="11" data-max="19">{{ k.v }}</div><div class="s">{{ k.s }}</div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
-  <div class="m-wrap">
-    <div class="m-id">
-      {% for c in v.identity %}
-      <div{% if c.tip %} title="{{ c.tip }}"{% endif %}><span class="k">{{ c.k }}</span><span class="v"{% if c.color %} style="color:{{ c.color }}"{% endif %}>{{ c.v }}</span></div>
+  <div class="mp-tri"><i style="background:#1D5FAF"></i><i style="background:#C8202A"></i><i style="background:#F2B705"></i></div>
+  <div class="mp-dates">
+    {% for d in x.dates %}<span>{{ d.k }} <b>{{ d.v }}</b>{% if d.x %} {{ d.x }}{% endif %}</span>{% endfor %}
+    {% if x.manque %}<span class="mp-miss">? {{ x.manque|join(' · ') }}</span>{% endif %}
+  </div>
+
+  <div class="mp-wrap">
+    <div class="mp-sec">Chronologie à l’échelle du temps
+      {% if x.frise and x.frise.adapte %}<small>les jours où plusieurs étapes se suivent sont agrandis</small>{% endif %}</div>
+    {% if x.frise %}
+    <div class="mp-tl">
+      {% for b in x.frise.bandes %}<div class="mp-band" style="left: {{ b.l }}%; width: calc({{ b.w }}% - 2px); background: {{ b.bg }}; color: {{ b.fg }};" title="{{ b.t }}">{{ b.t }}</div>{% endfor %}
+      {% if x.frise.trou %}<div class="mp-gap" style="left: {{ x.frise.trou.l }}%; width: calc({{ x.frise.trou.w }}% - 2px);">{{ x.frise.trou.t }}</div>{% endif %}
+      <div class="mp-line"></div>
+      {% for r in x.frise.reperes %}<div class="mp-rep" style="left: {{ r.x }}%;"><span>{{ r.t }}</span></div>{% endfor %}
+      {% for p in x.frise.points %}<div class="mp-dot" style="left: {{ p.x }}%; background: {{ p.c }};" title="{{ p.t }}"></div>{% endfor %}
+      {% for t in x.frise.ticks %}<div class="mp-tick" style="left: {{ t.x }}%;">{{ t.t }}</div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="mp-note" style="font-size: 11px; height: 24px;">Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise.</div>
+    {% endif %}
+
+    <div class="mp-cards" style="grid-template-columns: repeat({{ per }}, minmax(0, 1fr)); grid-template-rows: repeat({{ v.rows|length }}, minmax(0, 1fr));">
+      {% for c in x.cartes %}
+      <div class="mp-c{% if c.incertain %} inc{% endif %}">
+        <div class="cb" data-fit="6" data-max="{{ 10 if two else 11.5 }}" data-group="mpc">
+          <div class="d">{{ c.date }}{% if c.rel %}<small>{{ c.rel }}</small>{% endif %}</div>
+          <div class="p">{{ c.lieu }}</div>
+          <div class="e">{{ c.titre }}</div>
+          {% if c.desc and not two %}<div class="x">{{ c.desc }}</div>{% endif %}
+          {% for ch in c.chips %}<div class="ch{% if not ch.warn %} info{% endif %}">{{ '⚠ ' if ch.warn }}{{ ch.t }}</div>{% endfor %}
+          {% if c.personnes %}<div class="q">? personnes présentes</div>{% endif %}
+        </div>
+        <div class="mp-pill" style="background: {{ c.r.c }};">{{ c.r.s }} {{ c.r.t }}</div>
+      </div>
+      {% else %}
+      <div class="mp-note">Aucune étape dans la chronologie.</div>
       {% endfor %}
     </div>
 
-    <div class="m-tl">
-      <div class="m-tl-head">
-        <span class="pill">Chronologie du parcours</span>
-        {% if v.contact %}<span class="cbadge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="todo">ID du cas source : à compléter</span>{% endif %}{% endif %}
-        {% for b in v.badges %}{% if b.todo %}<span class="todo">{{ b.t }}</span>{% else %}<span class="cbadge sm" style="background: {{ b.fill }}; color: {{ b.ink }};">{{ b.t }}</span>{% endif %}{% endfor %}
-        <div class="legend"><span>J±n : jours depuis le J0 {% if v.recul %}retenu (date rapportée − {{ v.recul }} j){% else %}retenu ou estimé{% endif %}</span></div>
-      </div>
-      <div class="phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
-        {% for p in v.phase_strip %}
-        <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} : {{ p.detail }}">
-          <span class="l1"><b>{{ loop.index }}. {{ p.label }}</b> · {{ p.contag }}</span>
-          <span class="l2">{{ p.dates }}</span>
-          <span class="l3">{{ p.detail }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      <div class="m-rows">
-      {% for row in v.rows %}
-        {% set ncol = row|length if row|length > 0 else 1 %}
-        <div class="m-row">
-          <div class="bands" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
-            {% for b in v.bands[loop.index0] %}
-            {% set bc = t.PHASES[b.phase].color|soft %}<div class="band {{ b.phase }}" style="grid-column: {{ b.col }} / span {{ b.span }}; background: {{ bc }}; color: {{ bc|ink }};">{{ b.label }}</div>
-            {% endfor %}
-          </div>
-          <div class="cards" style="grid-template-columns: repeat({{ ncol }}, minmax(0,1fr));">
-            <div class="line"></div>
-            {% for c in row %}
-            <div class="card{% if c.uncertain %} uncertain{% endif %}" title="{{ c.reason }}">
-              <div class="bar" style="background-color: {{ c.type_color }};"></div>
-              <div class="chead" data-fit="7" data-max="{{ 10.5 if two else 12.5 }}" data-group="chead">
-                <div class="cdate" style="color: {{ c.type_color }};">{{ c.date }}</div>
-                <div class="cplace">{{ c.place }}</div>
-              </div>
-              <div class="cdot">
-                <span class="dot" style="background: {{ c.type_color }};">{{ c.icon | safe }}</span>
-                {% if c.rel %}<span class="rel{% if c.rel == 'J0' %} j0{% endif %}">{{ c.rel }}</span>{% endif %}
-              </div>
-              <div class="cbody" data-fit="{{ 5.5 if two else 6 }}" data-max="{{ 12 if two else 14 }}" data-group="cbody">
-                <div class="ctitle">{{ c.title }}</div>
-                {% if c.desc %}<div class="cdesc">{{ c.desc }}</div>{% endif %}
-                {% if c.chips %}<div class="chips">{% for ch in (c.chips[:1] if two else c.chips) %}<span class="chip{% if ch.warn %} warn{% endif %}{% if ch.todo %} todo{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}</div>{% endif %}
-              </div>
-              <div class="badge" style="background: {{ c.risk_color|soft }}; color: {{ c.risk_color|soft|ink }};">{{ c.risk }}</div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-      {% endfor %}
-      </div>
-    </div>
-
-    <div class="m-panels">
-      <div class="panel">
-        <span class="pill">Lieux &amp; expositions</span>
-        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
-          <div class="rows">
-          {% for p in v.places %}
-            <div class="pl"><span class="nm">{{ p.n }}. {{ p.name }}</span> : <span class="pp">{{ p.popu }}</span></div>
+    <div class="mp-bottom">
+      <div class="mp-box">
+        <div class="mp-sec">Contacts <small>{{ x.contacts.resume }}</small></div>
+        <div class="mp-body" data-fit="6.5" data-max="11.5" data-group="mpb">
+          {% for g in x.contacts.lignes %}
+          <div class="mp-row"><span class="n">{{ g.t }}</span><span class="mp-bar"><i style="width: {{ g.w }}%; background: {{ g.c }};"></i></span>
+            {% if g.n is none %}<span class="v mp-todo">? à dénombrer</span>{% else %}<span class="v">{{ g.n }}{% if g.s is not none %} · {{ g.s }} suivis{% endif %}</span>{% endif %}</div>
           {% else %}
-            <div class="note">Aucun lieu renseigné.</div>
+          <div class="mp-note">Aucun groupe de contacts renseigné.</div>
           {% endfor %}
-          </div>
         </div>
       </div>
-
-      <div class="panel">
-        <span class="pill">Contacts à identifier / suivre</span>
-        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
-          <div class="ct">
-          {% for c in v.contacts %}
-            <div class="cl"><span class="nm">{{ c.name }}</span> : <span class="num{% if c.unknown %} q{% endif %}">{{ c.n }}{% if c.suffix and not c.unknown %} <small>{{ c.suffix }}</small>{% endif %}</span></div>
+      <div class="mp-box">
+        <div class="mp-sec">PCI et décontamination <small>{{ x.pci.resume }}</small></div>
+        <div class="mp-body" data-fit="6.5" data-max="11.5" data-group="mpb">
+          {% for s in x.pci.sites %}
+          <div class="mp-row"><span style="flex: 1; min-width: 0;">{{ s.t }}</span><span class="mp-st" style="background: {{ s.bg }}; color: {{ s.fg }};">{{ s.lib }}</span></div>
+          {% endfor %}
+          {% if x.pci.sans %}
+          <div class="mp-todo" style="margin-top: .3em;">? {{ x.pci.sans|length }} lieu{{ 'x' if x.pci.sans|length > 1 }} d’exposition sans statut PCI :</div>
+          <div class="mp-note">{{ x.pci.sans|join(' · ') }}</div>
+          {% endif %}
+          {% if x.pci.sites|rejectattr('st', 'equalto', 'Décontaminé')|list %}<div class="mp-note" style="margin-top: .3em;">Priorité : fermer les sites non décontaminés ; noter date, équipe et produit.</div>{% endif %}
+        </div>
+      </div>
+      <div class="mp-box">
+        <div class="mp-sec">Actions <small>{% if x.actions.auto %}suggérées, à valider{% else %}responsable · échéance{% endif %}</small></div>
+        <div class="mp-body" data-fit="6" data-max="11.5" data-group="mpb">
+          {% for a in x.actions.lignes %}
+          <div class="mp-row"{% if a.fait %} style="opacity: .55;"{% endif %}>
+            <span class="mp-st" style="background: {{ a.c }}; color: #fff; min-width: 5.6em; text-align: center;">{{ '✓ Fait' if a.fait else a.p }}</span>
+            <span style="flex: 1; min-width: 0;">{{ a.t }}{% if a.cours %} <span class="mp-note">(en cours)</span>{% endif %}</span>
+            {% if not x.actions.auto and not a.fait %}<span class="{{ '' if a.resp else 'mp-todo' }}" style="white-space: nowrap; font-size: .9em;">{{ a.resp or 'à désigner' }} · {{ a.ech or '—' }}</span>{% endif %}
+          </div>
           {% else %}
-            <div class="note">Aucune catégorie de contacts renseignée.</div>
+          <div class="mp-note">Aucune action.</div>
           {% endfor %}
-          </div>
-          <div class="phrase">{{ v.contact_phrase }}</div>
-        </div>
-      </div>
-
-      <div class="panel ipc">
-        <span class="pill">PCI / décontamination</span>
-        <div class="pbody" data-fit="6.5" data-max="13" data-group="panels">
-          <div class="rows">
-          {% for x in v.ipc %}
-            <div class="prow"><span class="nm">{{ x.site }}</span><span class="tag" style="background: {{ x.color|soft }}; color: {{ x.color|soft|ink }};">{{ x.status }}</span></div>
-          {% endfor %}
-          </div>
-          <div class="note">{{ v.ipc_phrase }}</div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <span class="pill">Actions</span>
-        <div class="pbody" data-fit="5.5" data-max="13" data-group="actions">
-          <div class="ac">
-          {% set todo = v.actions|rejectattr('done')|list %}
-          {% set done = v.actions|selectattr('done')|list %}
-          {% if todo %}
-            {% if done %}<span class="ac-h todo">À réaliser immédiatement</span>{% endif %}
-            {% for a in todo %}<div><b style="background: {{ a.color }};"></b><span>{{ a.t }}</span></div>{% endfor %}
-          {% endif %}
-          {% if done %}
-            <span class="ac-h done">Déjà réalisées</span>
-            {% for a in done %}<div class="done"><i>✓</i><span>{{ a.t }}</span></div>{% endfor %}
-          {% endif %}
-          </div>
-          {% if v.actions_auto %}<div class="ac-note">Actions suggérées automatiquement, à valider.</div>{% endif %}
         </div>
       </div>
     </div>
 
-    <div class="m-foot"><span><b class="org">{{ v.org }}</b>{% if v.footer %} · {{ v.footer }}{% endif %}</span><span>{{ v.meta }}</span></div>
+    <div class="mp-foot"><span><b>{{ v.org }}</b>{% if v.footer %} · {{ v.footer }}{% endif %}</span><span>{{ v.meta }}</span></div>
   </div>
 </div>

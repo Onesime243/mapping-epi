@@ -293,6 +293,18 @@ Copyright (C) 2026 Onesime Mbulayi et les contributeurs de Mapping Épi.
 - **Thème clair par défaut** ; le bouton Thème reste disponible (choix gardé sur le navigateur).
 - **Message de bienvenue** sur l'accueil (champs obligatoires, enregistrement) et **pied de page** collé en bas.
 
+## Version 1.8 : mapping repensé
+
+- **En-tête** : trois chiffres décisifs en grand (risque, issue, délai entre premiers signes et confirmation avec
+  son seuil de 5 jours), les autres dates sur une ligne, et un rappel de ce qui manque.
+- **Frise à l'échelle du temps** : une seule bande de phases, les étapes à leur date réelle (les jours chargés sont
+  agrandis), le plus long trou de la chronologie signalé (« ? n jours sans information »), repère de confirmation.
+- **Étapes** : rouge réservé au risque élevé, orange à ce qui manque, un symbole pour chaque niveau de risque.
+- **Blocs** : contacts en barres avec « ? à dénombrer », PCI avec les lieux d'exposition sans statut, actions avec
+  responsable et échéance. Le pied de page affiche la vraie version.
+- L'ancien gabarit reste dans `render/templates/mapping_v1.html.j2`. L'export PowerPoint du mapping garde sa mise en
+  page actuelle.
+
 ## Version 1.7 : bandeau officiel et tableau de bord de la riposte
 
 - **Bandeau du site** : sceau de la Présidence de la République, titres de la Task Force Présidentielle Ebola 17 et bande bleu, rouge, jaune. Les textes
