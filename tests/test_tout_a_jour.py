@@ -420,3 +420,32 @@ def test_alertes_regroupees_par_cas():
     assert tb.groupes and tb.groupes[0]["crit"] >= 1
     assert all(tb.groupes[i]["crit"] >= tb.groupes[i + 1]["crit"] for i in range(len(tb.groupes) - 1))
     assert sum(len(g["liste"]) for g in tb.groupes) == sum(1 for a in tb.alertes if a.cid)
+
+
+def test_suivi_des_alertes_et_courbes(app):
+    from core import alertes_suivi as AS
+    from core import tableau_bord as TB
+    from core.models import ContactGroup
+    assert AS.type_alerte("12 contacts à haut risque listés, aucun en suivi") == AS.type_alerte("3 contacts à haut risque listés, aucun en suivi")
+    svg = TB.sparkline([None, 2, 3, None, 5, 4, 6, 7], seuil=5)
+    assert svg.count("<polyline") == 2 and "sp-seuil" in svg and "sp-mal" in svg
+    st = app.store
+    c = jeu()[0]
+    c.contacts = [ContactGroup(categorie="Famille", nombre=12, suivis=0, risque="Haut")]
+    st.save(c, owner="admin")
+    cl = app.test_client()
+    tok = _login(cl, "admin", "Secret123")
+    q = "debut=2026-09-01&fin=2026-11-12"
+    page = cl.get("/tableau-de-bord?" + q).get_data(as_text=True)
+    assert "Je m’en occupe" in page and "courbe : 8 dernières semaines" in page and "tb-spark-svg" in page
+    r = cl.post("/tableau-de-bord/alerte", data={"csrf": tok, "cid": c.id, "action": "prendre", "note": "relance EPI", "retour": q})
+    assert r.status_code == 302 and q in r.headers["Location"]
+    page = cl.get("/tableau-de-bord?" + q).get_data(as_text=True)
+    assert "Prise en charge · admin" in page and "relance EPI" in page
+    cl.post("/tableau-de-bord/alerte", data={"csrf": tok, "cid": c.id, "action": "resoudre", "retour": q})
+    page = cl.get("/tableau-de-bord?" + q).get_data(as_text=True)
+    assert "Réapparue" in page                                 # la fiche montre toujours le problème
+    assert AS.resolues_depuis(st, 7)[0]["par"] == "admin"
+    agent = app.test_client()
+    ta = _login(agent, "agent.bunia", "Agent2026x")
+    assert agent.post("/tableau-de-bord/alerte", data={"csrf": ta, "cid": c.id, "action": "prendre"}).status_code == 403

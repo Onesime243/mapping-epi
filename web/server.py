@@ -727,11 +727,32 @@ def create_app(store: storage.Store | None = None) -> Flask:
         n_brouillons = sum(1 for _i, _u, _o, c in app.store.brouillons()
                            if not c.exemple() and (not prov or _same(c.province, prov)))
         tb = TB.construire(allc, debut, fin, prov, zs, pil, n_brouillons)
+        from core import alertes_suivi as AS
+        AS.appliquer(tb.groupes, AS.etats(app.store))
+        resolues = AS.resolues_depuis(app.store, 7)
         base = [c for c in allc if not zs or _same(c.zs, zs)]
         matrice = PIL.construire(base, debut, fin, prov, None, g.user.perimetre, app.store.created_dates(), n_brouillons)
         return render_template("tableau_bord.html", tb=tb, TB=TB, matrice=matrice, provinces=provinces, zones=zones,
+                               resolues=resolues,
                                piliers=theme.PILIERS, piliers_rapport=PIL.PILIERS_RAPPORT,
                                svg_semaines=TB.svg_semaines(tb.semaines))
+
+    @app.route("/tableau-de-bord/alerte", methods=["POST"])
+    @login_required
+    def tableau_bord_alerte():
+        """Je m'en occupe / marquer résolue : état d'un cas en alerte (super-administrateurs)."""
+        from core import alertes_suivi as AS
+        from core import tableau_bord as TB
+        c = get_case(request.form.get("cid", ""))
+        action = request.form.get("action", "")
+        etat = {"prendre": "prise", "resoudre": "resolue"}.get(action)
+        if not etat:
+            abort(400)
+        textes = [a.texte.rstrip(". ") for a in TB.ligne_cas(c, date.today()).alertes]
+        AS.marquer(app.store, c.id, etat, g.user.username, textes, TB._code(c), request.form.get("note", ""))
+        flash(("Cas pris en charge : " if etat == "prise" else "Cas marqué résolu : ") + TB._code(c), "ok")
+        retour = request.form.get("retour", "")
+        return redirect(url_for("tableau_bord") + ("?" + retour if retour and "//" not in retour else ""))
 
     @app.route("/rapports")
     @login_required

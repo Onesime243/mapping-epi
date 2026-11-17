@@ -55,6 +55,10 @@ class Tuile:
     delta: str = ""
     delta_ton: str = ""                  # up (mieux) | dn (moins bien)
     onglet: str = ""                     # onglet ouvert au clic
+    serie: List[Optional[float]] = field(default_factory=list)   # 8 dernières semaines (None = pas de donnée)
+    serie_txt: str = ""                  # évolution de la dernière semaine, en mots
+    serie_ton: str = ""                  # up (mieux) | dn (moins bien)
+    seuil: Optional[float] = None        # ligne pointillée (délai)
 
 
 @dataclass
@@ -288,6 +292,74 @@ def _tuiles(cur: dict, prev: dict) -> List[Tuile]:
     return out
 
 
+def _series(cases_perimetre: List[Case], fin: date, province: str, zs: str, ref: date, n: int = 8) -> List[dict]:
+    """Indicateurs des tuiles semaine par semaine (lundi → dimanche), sur les n semaines qui finissent avec `fin`."""
+    lundi = fin - timedelta(days=fin.weekday())
+    out = []
+    for k in range(n - 1, -1, -1):
+        d = lundi - timedelta(days=7 * k)
+        ind = _indicateurs(selection(cases_perimetre, d, d + timedelta(days=6), province, zs), ref)
+        out.append({"debut": d, "n": ind["n"], "verif": _pct(ind["verifiees"], ind["actions"]),
+                    "delai": ind["delai"], "lieux": _pct(ind["lieux_ok"], ind["lieux"])})
+    return out
+
+
+def _evolution(serie: List[Optional[float]], unite: str, mieux_si_bas: bool = False,
+               semaines: Optional[List[date]] = None) -> Tuple[str, str]:
+    """Évolution entre les deux dernières semaines renseignées (la semaine en cours est souvent encore vide)."""
+    idx = [i for i, v in enumerate(serie) if v is not None]
+    if not idx:
+        return "aucune donnée sur 8 semaines", ""
+    quand = ""
+    if idx[-1] != len(serie) - 1 and semaines:
+        quand = f" (semaine du {semaines[idx[-1]]:%d/%m})"
+    if len(idx) < 2:
+        return "une seule semaine avec des données" + quand, ""
+    d = serie[idx[-1]] - serie[idx[-2]]
+    if abs(d) < 1e-9:
+        return "stable" + quand, ""
+    mieux = (d < 0) if mieux_si_bas else (d > 0)
+    if unite == "cas":
+        return f"{'▲' if d > 0 else '▼'} {d:+.0f} vs semaine précédente" + quand, ""
+    val = _num(abs(d), "j") if unite == "j" else f"{abs(d):.0f} point{'s' if abs(d) >= 2 else ''}"
+    return f"{'▲ +' if d > 0 else '▼ −'}{val} : {'mieux' if mieux else 'moins bien'}" + quand, ("up" if mieux else "dn")
+
+
+def sparkline(serie: List[Optional[float]], seuil: Optional[float] = None, w: int = 150, h: int = 38) -> str:
+    """Petite courbe : un trait par suite de semaines renseignées ; les semaines sans donnée restent vides."""
+    vals = [v for v in serie if v is not None]
+    if not vals:
+        return f'<svg class="tb-spark-svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" aria-hidden="true"></svg>'
+    lo, hi = min(vals + ([seuil] if seuil is not None else [])), max(vals + ([seuil] if seuil is not None else []))
+    if hi - lo < 1e-9:
+        lo, hi = lo - 1, hi + 1
+    n = len(serie)
+    def xy(i, v):
+        return 5 + i * (w - 10) / max(1, n - 1), h - 5 - (v - lo) / (hi - lo) * (h - 10)
+    o = [f'<svg class="tb-spark-svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" aria-hidden="true">']
+    if seuil is not None:
+        y = xy(0, seuil)[1]
+        o.append(f'<line class="sp-seuil" x1="0" x2="{w}" y1="{y:.1f}" y2="{y:.1f}"/>')
+    seg: List[str] = []
+    for i, v in enumerate(serie + [None]):
+        if v is None:
+            if len(seg) > 1:
+                o.append(f'<polyline class="sp-l" points="{" ".join(seg)}"/>')
+            elif len(seg) == 1:
+                x0, y0 = seg[0].split(",")
+                o.append(f'<circle class="sp-p" cx="{x0}" cy="{y0}" r="2"/>')
+            seg = []
+        else:
+            x, y = xy(i, v)
+            seg.append(f"{x:.1f},{y:.1f}")
+    if serie[-1] is not None:
+        x, y = xy(n - 1, serie[-1])
+        alerte = seuil is not None and serie[-1] > seuil
+        o.append(f'<circle class="sp-fin{" sp-mal" if alerte else ""}" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>')
+    o.append("</svg>")
+    return "".join(o)
+
+
 def _semaines(cases: List[Case], debut: date, fin: date) -> List[Tuple[date, int, Optional[float]]]:
     lundi = debut - timedelta(days=debut.weekday())
     sem: Dict[date, List[Case]] = {}
@@ -406,8 +478,18 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
     qualite = {"manquants": manq.most_common(8), "incoherences": incoh, "brouillons": brouillons,
                "par_zs": [(z["zs"], z["completude"]) for z in par_zs]}
 
+    tuiles = _tuiles(_indicateurs(cases, ref), _indicateurs(prev, ref))
+    sem = _series(cases_perimetre, fin, province, zs, ref)
+    for t, cle_, unite, bas in zip(tuiles, ("n", "verif", "delai", "lieux"), ("cas", "pct", "j", "pct"),
+                                   (False, False, True, False)):
+        t.serie = [w_[cle_] for w_ in sem]
+        if cle_ == "n":
+            t.serie = [float(v) if v else None for v in t.serie]        # semaine sans cas : pas de point
+        t.serie_txt, t.serie_ton = _evolution(t.serie, unite, bas, [w_["debut"] for w_ in sem])
+        if cle_ == "delai":
+            t.seuil = SEUILS["delai_conf"]
     return Tableau(debut, fin, province, zs, pilier, len(cases), len([c for c in cases_perimetre if not c.exemple()]),
-                   _tuiles(_indicateurs(cases, ref), _indicateurs(prev, ref)), alertes, lignes, acts, dict(bilan),
+                   tuiles, alertes, lignes, acts, dict(bilan),
                    par_pilier, obstacles, _semaines(cases, debut, fin), par_zs, transmission, qualite,
                    groupes=groupes, alertes_generales=generales)
 

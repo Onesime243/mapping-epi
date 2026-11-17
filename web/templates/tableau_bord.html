@@ -32,29 +32,54 @@
 
 {% if tb.groupes or tb.alertes_generales %}
 {% set n_crit = tb.groupes|selectattr("crit")|list|length %}
-<div class="tb-plan">
+{% set n_new = tb.groupes|selectattr("etat", "equalto", "nouvelle")|list|length %}
+{% set n_prise = tb.groupes|selectattr("etat", "equalto", "prise")|list|length %}
+{% set n_re = tb.groupes|selectattr("etat", "equalto", "reapparue")|list|length %}
+<div class="tb-plan" id="tb-plan">
   <div class="tb-plan-tete">
-    <b class="tb-plan-n">{{ tb.groupes|length }} cas à traiter</b>
+    <b class="tb-plan-n">{{ tb.groupes|length }} cas en alerte</b>
     {% if n_crit %}<span class="tb-chip crit">{{ n_crit }} avec alerte critique</span>{% endif %}
     {% if tb.groupes|length - n_crit %}<span class="tb-chip al">{{ tb.groupes|length - n_crit }} à surveiller</span>{% endif %}
     <span class="hint" style="margin:0 0 0 auto">Les cas avec une alerte critique passent en premier.</span>
   </div>
+  <div class="tb-plan-filtres" role="tablist">
+    <button type="button" class="on" data-f="traiter">À traiter ({{ n_new + n_re }})</button>
+    <button type="button" data-f="prise">Prises en charge ({{ n_prise }})</button>
+    <button type="button" data-f="reapparue">Réapparues ({{ n_re }})</button>
+    <button type="button" data-f="resolues">Résolues cette semaine ({{ resolues|length }})</button>
+  </div>
   {% for g in tb.groupes %}
-  {% if loop.index == 7 %}<details class="tb-plan-plus"><summary>Voir les {{ tb.groupes|length - 6 }} autres cas</summary>{% endif %}
-  <div class="tb-cas {{ 'crit' if g.crit else 'al' }}">
+  <div class="tb-cas {{ 'crit' if g.crit else 'al' }}" data-etat="{{ g.etat }}">
     <div class="tb-cas-top">
       <b class="tb-cas-id">{{ g.code }}</b>
       <span class="muted">{{ g.zs }} ({{ g.province }}){% if g.notif %} · notifié le {{ g.notif.strftime("%d/%m") }}{% endif %}</span>
       {% if g.crit %}<span class="tb-chip crit">{{ g.crit }} critique{{ 's' if g.crit > 1 }}</span>{% endif %}
       {% if g.alertes %}<span class="tb-chip al">{{ g.alertes }} alerte{{ 's' if g.alertes > 1 }}</span>{% endif %}
+      {% if g.etat == "prise" %}<span class="tb-etat prise">Prise en charge · {{ g.suivi.par }} · {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }}</span>
+      {% elif g.etat == "reapparue" %}<span class="tb-etat re">Réapparue · résolue le {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }} par {{ g.suivi.par }}</span>
+      {% else %}<span class="tb-etat new">Nouvelle</span>{% endif %}
       <a class="tb-cas-lien" href="{{ url_for('editor', cid=g.cid) }}">Ouvrir la fiche →</a>
     </div>
     <div class="tb-cas-items">{% for it in g.liste %}<span class="tb-it {{ 'c' if it.niveau == 'crit' }}">{{ it.texte }}</span>{% endfor %}</div>
+    <form method="post" action="{{ url_for('tableau_bord_alerte') }}" class="tb-cas-actions">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="cid" value="{{ g.cid }}">
+      <input type="hidden" name="retour" value="{{ request.query_string.decode() }}">
+      {% if g.etat != "prise" %}<button class="btn small primary" name="action" value="prendre">Je m’en occupe</button>{% endif %}
+      <button class="btn small" name="action" value="resoudre">Marquer résolue</button>
+      <input name="note" maxlength="200" placeholder="Note (facultatif)" class="tb-note" value="">
+      {% if g.etat == "prise" and g.suivi.note %}<span class="muted">Note : « {{ g.suivi.note }} »</span>{% endif %}
+      {% if g.etat == "reapparue" %}<span class="muted">La fiche montre toujours le problème : mettre la fiche à jour.</span>{% endif %}
+    </form>
   </div>
-  {% if loop.last and loop.length > 6 %}</details>{% endif %}
   {% endfor %}
+  <p class="muted tb-vide" hidden>Aucun cas dans cette catégorie.</p>
+  <div class="tb-resolues" data-etat="resolues" hidden>
+    {% for r in resolues %}
+    <div class="tb-res"><b>✓</b> {{ r.code or "?" }} · {{ r.resume or "alertes" }} · {{ r.par }} · {{ r.le[8:10] }}/{{ r.le[5:7] }}{% if r.note %} · « {{ r.note }} »{% endif %}</div>
+    {% else %}<p class="muted">Aucune alerte résolue ces 7 derniers jours.</p>{% endfor %}
+  </div>
   {% for a in tb.alertes_generales %}
-  <div class="tb-cas gen"><div class="tb-cas-top"><b class="tb-cas-id">Toutes fiches</b><span>{{ a.texte }}</span>
+  <div class="tb-cas gen" data-etat="toujours"><div class="tb-cas-top"><b class="tb-cas-id">Toutes fiches</b><span>{{ a.texte }}</span>
     <a class="tb-cas-lien" href="?{{ qs }}&onglet=actions">Voir les actions →</a></div></div>
   {% endfor %}
 </div>
@@ -75,9 +100,11 @@
     {% for k in tb.tuiles %}
     <button type="button" class="tb-kpi" data-aller="{{ k.onglet }}" title="Voir le détail">
       <span class="n">{{ k.titre }}</span><span class="src">{{ k.axes }}</span>
-      <span class="v">{{ k.valeur }}{% if k.delta %}<span class="delta {{ k.delta_ton }}">{{ k.delta }}</span>{% endif %}</span>
-      <span class="d">{{ k.detail }}</span>
+      <span class="tb-kpi-ligne"><span class="v">{{ k.valeur }}</span>{% if k.serie %}<span class="tb-spark">{{ TB.sparkline(k.serie, k.seuil)|safe }}</span>{% endif %}</span>
+      {% if k.serie_txt %}<span class="tb-trend {{ k.serie_ton }}">{{ k.serie_txt }}</span>{% endif %}
+      <span class="d">{{ k.detail }}{% if k.seuil %} · pointillé : seuil {{ k.seuil }} j{% endif %}</span>
       <span class="tb-jauge"><i class="{{ k.ton }}" style="width:{{ k.pct if k.pct is not none else 0 }}%"></i></span>
+      <span class="tb-spark-l">courbe : 8 dernières semaines</span>
     </button>
     {% endfor %}
   </div>
@@ -282,6 +309,23 @@
   document.querySelectorAll('[data-aller]').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.aller); window.scrollTo({top: document.querySelector('.tb-onglets').offsetTop - 60, behavior: 'smooth'}); }; });
   var valides = ['synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
   ouvrir(valides.indexOf(champ.value) >= 0 ? champ.value : 'synthese');
+  // plan de travail : filtre par état
+  var plan = document.getElementById('tb-plan');
+  if (plan) {
+    function filtreEtat(f) {
+      plan.querySelectorAll('.tb-plan-filtres button').forEach(function (b) { b.classList.toggle('on', b.dataset.f === f); });
+      var vus = 0;
+      plan.querySelectorAll('.tb-cas[data-etat]').forEach(function (c) {
+        var e = c.dataset.etat, ok = e === 'toujours' || (f === 'traiter' ? (e === 'nouvelle' || e === 'reapparue') : e === f);
+        c.hidden = f === 'resolues' ? e !== 'toujours' : !ok;
+        if (!c.hidden && e !== 'toujours') vus++;
+      });
+      plan.querySelector('.tb-resolues').hidden = f !== 'resolues';
+      plan.querySelector('.tb-vide').hidden = f === 'resolues' || vus > 0;
+    }
+    plan.querySelectorAll('.tb-plan-filtres button').forEach(function (b) { b.onclick = function () { filtreEtat(b.dataset.f); }; });
+    filtreEtat('traiter');
+  }
   // filtre des actions par catégorie
   var sel = document.getElementById('tb-filtre-cat');
   function filtrer(v) { sel.value = v; document.querySelectorAll('#tb-actions tbody tr').forEach(function (tr) { tr.hidden = v && tr.dataset.cat !== v; }); }
