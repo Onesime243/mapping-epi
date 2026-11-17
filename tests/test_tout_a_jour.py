@@ -394,3 +394,29 @@ def test_noms_de_personnes_signales():
     from pathlib import Path
     ex = Case.model_validate(json.loads(Path("sample_data/cas_exemple_fictif.json").read_text(encoding="utf-8")))
     assert rules.noms_personnes(ex) == []
+
+
+def test_lieux_harmonises_et_lieux_de_zone():
+    from core.lieux import harmoniser, lieux_de_zone
+    from core.models import Case, Event, Place
+    assert harmoniser("hgr beni") == "HGR Beni" and harmoniser("HGR BENI") == "HGR Beni"
+    assert harmoniser("cs de la mission") == "CS de la Mission"
+    assert harmoniser("Lieu de culte Monzombo") == "Lieu de culte Monzombo"      # écriture mixte respectée
+    a = Case(zs="Beni", province="Nord-Kivu", events=[Event(lieu="hgr beni"), Event(lieu="Domicile")])
+    b = Case(zs="Beni", province="Nord-Kivu", places=[Place(nom="HGR BENI")], events=[Event(lieu="CM My God")])
+    c = Case(zs="Butembo", province="Nord-Kivu", events=[Event(lieu="HGR Butembo")])
+    z = lieux_de_zone([a, b, c], "Beni", "Nord-Kivu")
+    assert z[0] == {"nom": "HGR Beni", "n": 2} and {"nom": "CM My God", "n": 1} in z
+    assert not any(l["nom"] in ("Domicile", "HGR Butembo") for l in z)          # lieu vague, autre zone
+
+
+def test_alertes_regroupees_par_cas():
+    from datetime import date
+    from core import tableau_bord as TB
+    from core.models import ContactGroup
+    cases = jeu()
+    cases[0].contacts = [ContactGroup(categorie="Famille", nombre=12, suivis=0, risque="Haut")]
+    tb = TB.construire(cases, date(2026, 9, 1), date(2026, 11, 12))
+    assert tb.groupes and tb.groupes[0]["crit"] >= 1
+    assert all(tb.groupes[i]["crit"] >= tb.groupes[i + 1]["crit"] for i in range(len(tb.groupes) - 1))
+    assert sum(len(g["liste"]) for g in tb.groupes) == sum(1 for a in tb.alertes if a.cid)

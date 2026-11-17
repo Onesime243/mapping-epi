@@ -113,6 +113,8 @@ class Tableau:
     par_zs: List[dict]
     transmission: dict
     qualite: dict
+    groupes: List[dict] = field(default_factory=list)          # alertes regroupées par cas (critiques d'abord)
+    alertes_generales: List[Alerte] = field(default_factory=list)  # alertes sans cas précis
 
 
 # -- outils --------------------------------------------------------------------------------------------------------
@@ -217,6 +219,8 @@ def ligne_cas(c: Case, ref: date) -> LigneCas:
     if urg:
         al.append(Alerte("crit", f"{len(urg)} action(s) urgente(s) en retard de plus de {SEUILS['retard_crit']} jours.",
                          c.id, code))
+    if rules.noms_personnes(c):
+        al.append(Alerte("alerte", "nom de personne dans un texte libre (n’écrire que des identifiants).", c.id, code))
     if any(a.niveau == "crit" for a in al):
         lc.statut = "Critique"
     elif al or comp < SEUILS["completude"]:
@@ -338,6 +342,17 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
     alertes.sort(key=lambda a: a.niveau != "crit")
     if bilan.get("sans_preuve"):
         alertes.append(Alerte("alerte", f"{bilan['sans_preuve']} action(s) déclarée(s) réalisée(s) sans preuve."))
+    groupes = []
+    for x in lignes:
+        if not x.alertes:
+            continue
+        crit = [a for a in x.alertes if a.niveau == "crit"]
+        autres = [a for a in x.alertes if a.niveau != "crit"]
+        groupes.append({"cid": x.case.id, "code": x.code, "zs": x.case.zs or "?", "province": x.case.province or "?",
+                        "notif": x.notif, "crit": len(crit), "alertes": len(autres),
+                        "liste": [{"niveau": a.niveau, "texte": a.texte.rstrip(". ")} for a in crit + autres]})
+    groupes.sort(key=lambda g: (-g["crit"], -g["alertes"], -(g["notif"] or date.min).toordinal()))
+    generales = [a for a in alertes if not a.cid]
 
     # par zone de santé
     zs_map: Dict[str, List[LigneCas]] = defaultdict(list)
@@ -393,7 +408,8 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
 
     return Tableau(debut, fin, province, zs, pilier, len(cases), len([c for c in cases_perimetre if not c.exemple()]),
                    _tuiles(_indicateurs(cases, ref), _indicateurs(prev, ref)), alertes, lignes, acts, dict(bilan),
-                   par_pilier, obstacles, _semaines(cases, debut, fin), par_zs, transmission, qualite)
+                   par_pilier, obstacles, _semaines(cases, debut, fin), par_zs, transmission, qualite,
+                   groupes=groupes, alertes_generales=generales)
 
 
 # -- graphique : cas par semaine et délai médian ----------------------------------------------------------------------

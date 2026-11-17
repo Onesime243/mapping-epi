@@ -983,6 +983,16 @@ def create_app(store: storage.Store | None = None) -> Flask:
         resp.headers["Cache-Control"] = "private, max-age=3600"
         return resp
 
+    @app.route("/api/cas/<cid>/lieux")
+    @login_required
+    def api_lieux_zone(cid):
+        """Lieux déjà saisis dans la zone de santé de la fiche (fiches visibles par le compte), pour l'autocomplétion."""
+        from core import lieux as LX
+        c = get_case(cid)
+        zs = request.args.get("zs", c.zs) or ""
+        prov = request.args.get("province", c.province) or ""
+        return jsonify(zs=zs, lieux=LX.lieux_de_zone(visible_cases(), zs, prov, exclure=c.id)[:300])
+
     @app.route("/api/cas/<cid>", methods=["GET", "PUT"])
     @login_required
     def api_case(cid):

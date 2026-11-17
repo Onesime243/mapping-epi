@@ -30,25 +30,33 @@
   </div>
 </form>
 
-{% if tb.alertes %}
-{% set n_crit = tb.alertes|selectattr("niveau", "equalto", "crit")|list|length %}
-<div class="tb-alertes {{ 'crit' if n_crit else '' }}">
-  <div class="tb-alertes-ic" aria-hidden="true">!</div>
-  <div style="flex:1;min-width:0">
-    <b>{{ tb.alertes|length }} alerte(s) calculée(s) automatiquement</b>{% if n_crit %} · <span class="tb-crit-txt">{{ n_crit }} critique(s)</span>{% endif %}
-    <ul>
-      {% for a in tb.alertes[:6] %}
-      <li><span class="tb-point {{ a.niveau }}"></span>{% if a.code %}Cas <b>{{ a.code }}</b> : {% endif %}{{ a.texte }}
-        {% if a.cid %} <a href="{{ url_for('editor', cid=a.cid) }}">Ouvrir la fiche</a>{% endif %}</li>
-      {% endfor %}
-    </ul>
-    {% if tb.alertes|length > 6 %}
-    <details><summary>Voir les {{ tb.alertes|length - 6 }} autres alertes</summary><ul>
-      {% for a in tb.alertes[6:] %}<li><span class="tb-point {{ a.niveau }}"></span>{% if a.code %}Cas <b>{{ a.code }}</b> : {% endif %}{{ a.texte }}
-        {% if a.cid %} <a href="{{ url_for('editor', cid=a.cid) }}">Ouvrir la fiche</a>{% endif %}</li>{% endfor %}
-    </ul></details>
-    {% endif %}
+{% if tb.groupes or tb.alertes_generales %}
+{% set n_crit = tb.groupes|selectattr("crit")|list|length %}
+<div class="tb-plan">
+  <div class="tb-plan-tete">
+    <b class="tb-plan-n">{{ tb.groupes|length }} cas à traiter</b>
+    {% if n_crit %}<span class="tb-chip crit">{{ n_crit }} avec alerte critique</span>{% endif %}
+    {% if tb.groupes|length - n_crit %}<span class="tb-chip al">{{ tb.groupes|length - n_crit }} à surveiller</span>{% endif %}
+    <span class="hint" style="margin:0 0 0 auto">Les cas avec une alerte critique passent en premier.</span>
   </div>
+  {% for g in tb.groupes %}
+  {% if loop.index == 7 %}<details class="tb-plan-plus"><summary>Voir les {{ tb.groupes|length - 6 }} autres cas</summary>{% endif %}
+  <div class="tb-cas {{ 'crit' if g.crit else 'al' }}">
+    <div class="tb-cas-top">
+      <b class="tb-cas-id">{{ g.code }}</b>
+      <span class="muted">{{ g.zs }} ({{ g.province }}){% if g.notif %} · notifié le {{ g.notif.strftime("%d/%m") }}{% endif %}</span>
+      {% if g.crit %}<span class="tb-chip crit">{{ g.crit }} critique{{ 's' if g.crit > 1 }}</span>{% endif %}
+      {% if g.alertes %}<span class="tb-chip al">{{ g.alertes }} alerte{{ 's' if g.alertes > 1 }}</span>{% endif %}
+      <a class="tb-cas-lien" href="{{ url_for('editor', cid=g.cid) }}">Ouvrir la fiche →</a>
+    </div>
+    <div class="tb-cas-items">{% for it in g.liste %}<span class="tb-it {{ 'c' if it.niveau == 'crit' }}">{{ it.texte }}</span>{% endfor %}</div>
+  </div>
+  {% if loop.last and loop.length > 6 %}</details>{% endif %}
+  {% endfor %}
+  {% for a in tb.alertes_generales %}
+  <div class="tb-cas gen"><div class="tb-cas-top"><b class="tb-cas-id">Toutes fiches</b><span>{{ a.texte }}</span>
+    <a class="tb-cas-lien" href="?{{ qs }}&onglet=actions">Voir les actions →</a></div></div>
+  {% endfor %}
 </div>
 {% else %}
 <div class="tb-alertes ok"><div class="tb-alertes-ic" aria-hidden="true">✓</div><div><b>Aucune alerte</b> sur la période et le périmètre choisis.</div></div>

@@ -278,6 +278,92 @@
   }
 
   // --------------------------------------------------------------- tableaux
+  // ---------------------------------------------------------- lieux : propositions, harmonisation, nom proche
+  const SIGLES_LIEUX = new Set(['HGR', 'CS', 'CM', 'PS', 'CSR', 'CSDT', 'CTE', 'CTI', 'CH', 'CHU', 'HGRB', 'HGRK', 'CBCA',
+    'CEBCE', 'CEPAC', 'CBCE', 'CECA', 'ZS', 'AS', 'CRS', 'PMI', 'BCZ', 'MSF', 'ALIMA', 'IRC', 'ONG', 'RN', 'RN2', 'RN4', 'EP',
+    'ITM', 'IT', 'DPS', 'UPC', 'UNIKIN', 'MONUSCO', 'FARDC', 'PNC', 'CTA', 'ECC', '8E', '55E']);
+  const PETITS_MOTS = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'à', 'a', 'au', 'aux', 'en', 'sur', 'sous', 'pour', 'par']);
+  const lettres = m => m.replace(/[^A-Za-zÀ-ÿ0-9]/g, '');
+  function harmoniser(nom) {          // même règle que core/lieux.py : harmoniser()
+    const mots = (nom || '').trim().split(/\s+/).filter(Boolean);
+    const reste = mots.filter(m => !SIGLES_LIEUX.has(lettres(m).toUpperCase())).join(' ');
+    const uniforme = reste && (reste === reste.toLowerCase() || reste === reste.toUpperCase());
+    return mots.map((m, i) => {
+      if (SIGLES_LIEUX.has(lettres(m).toUpperCase())) return m.toUpperCase();
+      if (i > 0 && PETITS_MOTS.has(m.toLowerCase())) return m.toLowerCase();
+      if (/\d/.test(m)) return m;
+      if (!uniforme) return i === 0 ? m.charAt(0).toUpperCase() + m.slice(1) : m;
+      let pre = '';
+      if (m.length > 2 && "'’".includes(m[1]) && 'dl'.includes(m[0].toLowerCase())) { pre = m.slice(0, 2).toLowerCase(); m = m.slice(2); }
+      return pre + m.charAt(0).toUpperCase() + m.slice(1).toLowerCase();
+    }).join(' ');
+  }
+  const cleLieu = s => norm(s).replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  function distance(a, b) {           // Levenshtein
+    const d = Array.from({length: a.length + 1}, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  let ZONE = {zs: null, lieux: []};
+  async function chargerZone() {
+    const zs = C.zs || '';
+    if (ZONE.zs === zs) return;
+    ZONE = {zs, lieux: []};
+    if (!zs || !ID) return;
+    try {
+      const j = await api('/api/cas/' + ID + '/lieux?zs=' + encodeURIComponent(zs) + '&province=' + encodeURIComponent(C.province || ''));
+      if (ZONE.zs === zs) ZONE.lieux = j.lieux || [];
+    } catch (e) { /* hors ligne ou application de bureau : seulement les lieux de la fiche */ }
+  }
+  function lieuxConnus() {             // [{nom, n, fiche}] : ceux de la fiche d'abord, puis ceux de la zone
+    const vus = new Map();
+    placeNames().forEach(n => { const k = cleLieu(n); if (k && !vus.has(k)) vus.set(k, {nom: harmoniser(n), n: 0, fiche: true}); });
+    ZONE.lieux.forEach(l => { const k = cleLieu(l.nom); if (k && !vus.has(k)) vus.set(k, {nom: l.nom, n: l.n, fiche: false}); });
+    return [...vus.values()];
+  }
+  function remplirListeLieux() {
+    let d = document.getElementById('dl-places');
+    if (!d) { d = el('datalist', {id: 'dl-places'}); document.body.appendChild(d); }
+    d.innerHTML = '';
+    lieuxConnus().forEach(l => d.appendChild(el('option', {value: l.nom,
+      label: l.fiche ? 'dans cette fiche' : (l.n + ' fiche' + (l.n > 1 ? 's' : '') + ' · ZS ' + (ZONE.zs || '?'))})));
+  }
+  function attachLieu(inp, set) {
+    inp.addEventListener('focus', async () => { remplirListeLieux(); await chargerZone(); remplirListeLieux(); });
+    inp.addEventListener('change', () => {
+      const td = inp.parentNode;
+      const ancien = td && td.querySelector('.lieu-hint'); if (ancien) ancien.parentNode.removeChild(ancien);
+      const brut = inp.value.trim();
+      if (!brut) return;
+      const h = harmoniser(brut);
+      if (h !== inp.value) { inp.value = h; set(h); if (h !== brut) toast('Écriture harmonisée : « ' + brut + ' » → « ' + h + ' »', 3500); }
+      const k = cleLieu(h);
+      // déjà connu : ailleurs dans la fiche (ce champ compte une fois) ou dans les fiches de la zone
+      const dansFiche = placeNames().filter(n => cleLieu(n) === k).length;
+      if (dansFiche > 1 || ZONE.lieux.some(l => cleLieu(l.nom) === k)) return;
+      const connus = lieuxConnus().filter(l => cleLieu(l.nom) !== k);
+      let best = null;
+      connus.forEach(l => {
+        const kl = cleLieu(l.nom);
+        if (kl.length < 5 || k.length < 5) return;
+        const dmax = Math.max(k.length, kl.length) >= 9 ? 2 : 1;
+        const dd = distance(k, kl);
+        if (dd > 0 && dd <= dmax && (!best || dd < best.d || (dd === best.d && l.n > best.l.n))) best = {l, d: dd};
+      });
+      if (!best || !td) return;
+      const b = best.l;
+      const hint = el('div', {class: 'lieu-hint'}, [
+        el('span', {text: 'Nom proche : '}), el('b', {text: b.nom}),
+        el('span', {text: b.fiche ? ' (dans cette fiche)' : ' (' + b.n + ' fiche' + (b.n > 1 ? 's' : '') + ')'}),
+        el('button', {type: 'button', class: 'btn small primary', text: 'Remplacer', on: {click: () => {
+          inp.value = b.nom; set(b.nom); hint.parentNode.removeChild(hint); }}}),
+        el('button', {type: 'button', class: 'btn small', text: 'Garder', on: {click: () => hint.parentNode.removeChild(hint)}})]);
+      td.appendChild(hint);
+    });
+  }
+
   function placeNames() {
     return C.places.map(p => p.nom).concat(C.events.map(e => e.lieu), C.events.map(e => e.lieu_arrivee)).filter(n => n && !n.includes('→'));
   }
@@ -337,7 +423,7 @@
           const mark = () => inp.classList.toggle('req-missing', !inp.value.trim());
           inp.addEventListener('input', mark); mark();
         }
-        if (c.complete) inp.addEventListener('focus', () => datalist('dl-places', placeNames()));
+        if (c.complete) attachLieu(inp, set);
     }
     if (c.tip) inp.title = c.tip;
     return el('td', {}, [inp]);
