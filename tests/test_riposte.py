@@ -26,7 +26,7 @@ def jeu():
     a = _cas("RDC-ITU-BUN-26-001", contact_connu="Contact connu suivi", agent_sante="Oui",
              events=[Event(type="Hospitalisation", date_debut=date(2026, 11, 3))],
              contacts=[ContactGroup(categorie="Famille", nombre=10, suivis=9)],
-             actions=[Action(texte="Boucler les contacts", priorite="Urgent", responsable="EPI ZS",
+             actions=[Action(texte="Lister les contacts", priorite="Urgent", responsable="EPI ZS",
                              echeance=date(2026, 11, 8))])
     b = _cas("RDC-ITU-BUN-26-002", contact_connu="Non contact", issue="Décès", date_deces=date(2026, 11, 9),
              events=[Event(type="Enterrement", date_debut=date(2026, 11, 10), securise=False)],
@@ -62,7 +62,7 @@ def test_filtre_courbe_actions():
     assert len(acts) == 1 and acts[0].retard == 4
     assert len(R.actions_ouvertes(cases, REF, toutes=True)) == 2
     assert R.bilan_actions(acts)["retard"] == 1
-    assert "Boucler les contacts" in R.html_actions(acts)
+    assert "Lister les contacts" in R.html_actions(acts)
     assert "rip-k" in R.html_indicateurs(R.indicateurs(cases))
 
 
@@ -150,7 +150,7 @@ def test_pages_web(app):
     assert "Riposte ▾" in page and "Données ▾" in page
     r = c.get("/riposte/indicateurs?periode=0")
     assert r.status_code == 200 and "Nouveaux cas déjà connus comme contacts" in r.get_data(as_text=True)
-    assert "Boucler les contacts" in c.get("/riposte/actions").get_data(as_text=True)
+    assert "Lister les contacts" in c.get("/riposte/actions").get_data(as_text=True)
     assert c.get("/donnees").status_code == 200
     for quoi in ("liste-cas.xlsx", "rapport-situation.docx", "paquet.zip"):
         assert c.get(f"/donnees/{quoi}?province=Ituri").status_code == 200

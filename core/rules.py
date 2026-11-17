@@ -708,12 +708,17 @@ def suggest_actions(case: Case) -> List[Suggestion]:
     out: List[Suggestion] = []
     s = contact_summary(case)
 
+    # anciens libellés : une suggestion écartée sous son ancien nom reste écartée
+    anciens = {"Lister tous les contacts": "Boucler tous les contacts"}
+
     def add(texte, prio, raison):
-        if texte not in case.suggestions_rejetees and all(texte != x.texte for x in out):
+        rejet = texte in case.suggestions_rejetees or anciens.get(texte) in case.suggestions_rejetees
+        if not rejet and all(texte != x.texte for x in out) and not (
+                texte in anciens and any(a.texte.strip() == anciens[texte] for a in case.actions)):
             out.append(Suggestion(texte, prio, raison))
 
     if case.contacts:
-        add("Boucler tous les contacts", "Urgent", s.phrase)
+        add("Lister tous les contacts", "Urgent", s.phrase)
     unknown = [g.categorie.strip() for g in case.contacts if g.nombre is None and g.categorie.strip()]
     if unknown:
         def low(c: str) -> str:

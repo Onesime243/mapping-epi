@@ -74,11 +74,11 @@ def test_consistency_detects_errors():
 
 def test_suggested_actions(demo):
     texts = [s.texte for s in rules.suggest_actions(demo)]
-    assert "Boucler tous les contacts" in texts
+    assert "Lister tous les contacts" in texts
     assert any(t.startswith("PCI / décontamination") for t in texts)
     assert "Identifier et suivre les motards" in texts
-    demo.suggestions_rejetees = ["Boucler tous les contacts"]
-    assert "Boucler tous les contacts" not in [s.texte for s in rules.suggest_actions(demo)]
+    demo.suggestions_rejetees = ["Boucler tous les contacts"]                   # ancien libellé : reste écartée
+    assert "Lister tous les contacts" not in [s.texte for s in rules.suggest_actions(demo)]
 
 
 def test_places_from_events():

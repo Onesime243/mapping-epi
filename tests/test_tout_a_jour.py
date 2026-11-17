@@ -321,7 +321,7 @@ def test_rapports_piliers(app, tmp_path):
     from core import rapport_rendu as RR
     from core.models import Action
     assert P.pilier_action(Action(texte="Décontaminer le CS")) == "PCI"
-    assert P.pilier_action(Action(texte="Boucler les contacts")) == "Suivi des contacts"
+    assert P.pilier_action(Action(texte="Lister les contacts")) == "Suivi des contacts"
     assert P.pilier_action(Action(texte="Réunion", pilier="Laboratoire")) == "Laboratoire"
     r = P.construire(jeu(), date(2026, 9, 1), date(2026, 11, 12), perimetre="Toute la RDC")
     assert [s.cle for s in r.sections] == ["surveillance", "contacts", "pci", "labo", "actions", "qualite"]

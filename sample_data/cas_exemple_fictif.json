@@ -472,7 +472,7 @@
   "actions": [
     {
       "id": "87604b8903",
-      "texte": "Boucler tous les contacts",
+      "texte": "Lister tous les contacts",
       "priorite": "Urgent",
       "responsable": "",
       "echeance": null,
