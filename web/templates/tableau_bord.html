@@ -25,8 +25,8 @@
   <div class="tb-boutons">
     <button class="btn small primary" type="submit">Appliquer</button>
     <a class="btn small" href="{{ url_for('tableau_bord') }}">Réinitialiser</a>
-    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=docx">Rapport Word</a>
-    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=pptx">PowerPoint</a>
+    {% if droits.super %}<a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=docx">Rapport Word</a>
+    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=pptx">PowerPoint</a>{% endif %}
   </div>
 </form>
 
@@ -243,8 +243,8 @@
       <table class="tb-piles">{% for k, n in tb.transmission.expositions %}
         <tr><td>{{ k }}</td><td><div class="tb-pile"><i class="c-sp" style="width:{{ 100 * n / emax }}%"></i></div></td><td class="num">{{ n }}</td></tr>{% endfor %}
       </table>{% else %}<p class="muted">Aucune exposition à risque renseignée.</p>{% endif %}
-      <p style="margin-top:12px"><a class="btn small" href="{{ url_for('chains_page') }}">Chaînes de transmission</a>
-        <a class="btn small" href="{{ url_for('riposte_carte') }}">Carte des cas</a></p>
+      <p style="margin-top:12px">{% if droits.admin %}<a class="btn small" href="{{ url_for('chains_page') }}">Chaînes de transmission</a>{% endif %}
+        {% if droits.super %}<a class="btn small" href="{{ url_for('riposte_carte') }}">Carte des cas</a>{% endif %}</p>
     </div>
   </div>
   {% for s in matrice.sections if s.cle in ("surveillance", "labo") %}

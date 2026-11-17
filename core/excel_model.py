@@ -245,7 +245,7 @@ def build_workbook(case: Optional[Case] = None, preview_png: Optional[Path] = No
 
     # ---- Cas ---------------------------------------------------------------------------
     ws = wb.create_sheet("Cas", 1)
-    _style_title(ws, "FICHE DU CAS : MAPPING DU PARCOURS ÉPIDÉMIOLOGIQUE",
+    _style_title(ws, "FICHE DU CAS : MAPPING DU PARCOURS THÉRAPEUTIQUE",
                  "Remplir la colonne « Valeur ». Cases jaunes = indispensables. Inconnu : laisser vide (affiché « ? »).", 3)
     for i, h in enumerate(["Champ", "Valeur", "Aide"], start=1):
         c = ws.cell(row=HEADER_ROW, column=i, value=h)
@@ -270,7 +270,7 @@ def build_workbook(case: Optional[Case] = None, preview_png: Optional[Path] = No
             if required:
                 v.fill = REQ_FILL
             if kind == "date":
-                v.number_format = "DD/MM/YYYY"
+                v.number_format = "dd/mm/yyyy"
             h = ws.cell(row=row, column=3, value=help_)
             h.font = Font(italic=True, size=9, color=MUTED)
             h.alignment = Alignment(wrap_text=True, vertical="center")
@@ -335,9 +335,9 @@ def build_workbook(case: Optional[Case] = None, preview_png: Optional[Path] = No
                 cell.alignment = Alignment(vertical="top", wrap_text=kind == "text",
                                            horizontal="center" if kind in ("bool", "int?", "float") else None)
                 if kind == "date":
-                    cell.number_format = "DD/MM/YYYY"
+                    cell.number_format = "dd/mm/yyyy"
                 elif kind == "datetime":
-                    cell.number_format = "DD/MM/YYYY HH:MM"
+                    cell.number_format = "dd/mm/yyyy hh:mm"
             if kind in LISTS:
                 _add_list_validation(sh, rng, kind, list_ranges, strict=False)
             if kind in ("risque", "contact_risk", "ipc", "priority"):

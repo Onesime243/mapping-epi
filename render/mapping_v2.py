@@ -312,7 +312,7 @@ def vue(case: Case, ph, cards, grisk: str, why: str, score: int) -> dict:
     statut = {"Confirmé": "cas confirmé", "Probable": "cas probable", "Suspect": "cas suspect"}.get(case.statut, case.statut.lower())
     rang = f"{'1er' if case.rang == 1 else f'{case.rang}e'} " if case.rang else ""
     return {
-        "titre": f"Parcours épidémiologique · {rang}{statut} {case.maladie} · ZS {case.zs or '?'}",
+        "titre": f"Parcours thérapeutique · {rang}{statut} {case.maladie} · ZS {case.zs or '?'}",
         "sous": _sous_titre(case),
         "hero": _hero(case, ph, grisk, why),
         "dates": _dates(case, ph, score),

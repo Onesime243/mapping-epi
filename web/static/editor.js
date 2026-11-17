@@ -131,7 +131,6 @@
     const sel = (key, list, emptyLabel) => { const s = el('select'); options(s, list, C[key] ?? '', emptyLabel); bindInput(s, key, 'select'); return s; };
 
     g.appendChild(field('ID du cas * (alphanumérique)', inp('code_cas', 'text', {placeholder: 'ex. RDC-HUE-WAM-26-001', maxlength: 40})));
-    g.appendChild(field('Rang du cas (1er, 2e…)', inp('rang', 'number', {min: 1})));
     const mal = el('input', {value: C.maladie || '', list: datalist('dl-mal', S.choices.diseases)}); bindInput(mal, 'maladie');
     g.appendChild(field('Maladie *', mal));
     g.appendChild(field('Statut', sel('statut', S.choices.status)));

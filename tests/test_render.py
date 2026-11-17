@@ -14,7 +14,7 @@ from render.pptx_exporter import export_mapping_pptx
 
 def test_mapping_html_structure(demo):
     html = H.render_mapping_html(demo)
-    for s in ["Chronologie à l’échelle du temps", "Contacts à identifier / suivre", "PCI / décontamination", ">Actions</span>",
+    for s in ["Chronologie du parcours", "Parcours thérapeutique", "Exposition estimée", "NON VACCINÉ", "Contacts à identifier / suivre", "PCI / décontamination", ">Actions</span>",
               "3e cas confirmé MVE · ZS Tumba", "41 à haut risque", "Signes → confirmation", "11 jours",
               "? à dénombrer", "sans statut PCI", "Mapping Épi v" + H.APP_VERSION]:
         assert s.lower() in html.lower(), s

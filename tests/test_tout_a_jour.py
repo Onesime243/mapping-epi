@@ -370,12 +370,18 @@ def test_tableau_de_bord(app):
     page = c.get("/tableau-de-bord?debut=2026-09-01&fin=2026-11-12").get_data(as_text=True)
     assert "Tableau de bord de la riposte" in page and "sceau_presidence.png" in page and "Task Force Présidentielle Ebola 17" in page and "Matrice des questions" in page
     us = app.users
-    us.create("chef.nat2", "Secret123", role="admin")
-    for u in ("chef.nat2", "agent.bunia"):
+    us.create("chef.nat2", "Secret123", role="admin")                                   # national (niveau par défaut)
+    us.create("chef.prov2", "Secret123", niveau="province", province="Ituri")           # provincial
+    for u in ("chef.nat2", "chef.prov2"):                     # comptes nationaux et provinciaux : accès au tableau de bord
         c2 = app.test_client()
-        _login(c2, u, "Secret123" if u == "chef.nat2" else "Agent2026x")
-        assert c2.get("/tableau-de-bord").status_code == 403
-        assert "tableau-de-bord" not in c2.get("/").get_data(as_text=True)
+        _login(c2, u, "Secret123")
+        page2 = c2.get("/tableau-de-bord")
+        assert page2.status_code == 200 and "Rapport Word" not in page2.get_data(as_text=True)
+        assert "tableau-de-bord" in c2.get("/").get_data(as_text=True)
+    c3 = app.test_client()                                     # agent de zone : pas d'accès
+    _login(c3, "agent.bunia", "Agent2026x")
+    assert c3.get("/tableau-de-bord").status_code == 403
+    assert "tableau-de-bord" not in c3.get("/").get_data(as_text=True)
 
 
 def test_noms_de_personnes_signales():

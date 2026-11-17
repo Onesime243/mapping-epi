@@ -210,10 +210,153 @@ def liste_cas_xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> 
         ws.append(_ligne(c))
         for cell in ws[ws.max_row]:
             if isinstance(cell.value, date):
-                cell.number_format = "DD/MM/YYYY"
+                cell.number_format = "dd/mm/yyyy"          # minuscules : seul format reconnu par tous les Excel
     ws.freeze_panes = "B3"
     ws.auto_filter.ref = f"A2:{get_column_letter(len(COLONNES))}{max(2, ws.max_row)}"
+    _feuille_modelisation(wb, tri)
     wb.save(str(path))
+
+
+# ---------------------------------------------------------------------------
+# feuille « Modélisation » : une ligne par cas, variables pour l'analyse et la modélisation
+# ---------------------------------------------------------------------------
+VARIABLES_MODELISATION = [
+    ("id_cas", "N° EPID du cas"), ("province", "Province"), ("zone_sante", "Zone de santé"), ("aire_sante", "Aire de santé"),
+    ("sexe", "Sexe"), ("age_ans", "Âge en années (mois convertis)"), ("profession", "Profession"),
+    ("agent_sante", "Agent de santé / prestataire (PPL)"), ("vaccine", "Vacciné (Oui / Non / Inconnu)"),
+    ("date_vaccination", "Date de vaccination"), ("contact_connu", "Statut de contact (connu, connu suivi, non contact)"),
+    ("id_cas_source", "ID du cas source"), ("date_dernier_contact_source", "Dernier contact avec le cas source"),
+    ("exposition_debut", "Début de la fenêtre d'exposition"), ("exposition_fin", "Fin de la fenêtre d'exposition"),
+    ("exposition_source", "Origine de la fenêtre (estimée, dernier contact, cas source)"),
+    ("j0_rapporte", "Début des symptômes rapporté par l'équipe"), ("phase_premiers_signes", "Phase des premiers signes rapportés"),
+    ("recul_j0_jours", "Jours retirés pour obtenir le J0 retenu"), ("j0_retenu", "J0 retenu (début réel estimé)"),
+    ("phase_seche_debut", "Début de la phase sèche (= J0 retenu)"),
+    ("phase_seche_symptomes", "Symptômes de la phase sèche rapportés"),
+    ("phase_humide_debut", "Début de la phase humide"), ("phase_humide_origine", "Origine de la date (saisie, rapportée, estimée)"),
+    ("phase_humide_symptomes", "Symptômes de la phase humide rapportés"),
+    ("phase_critique_debut", "Début de la phase critique"), ("phase_critique_origine", "Origine de la date"),
+    ("phase_critique_symptomes", "Signes de la phase critique (hémorragiques) rapportés"),
+    ("autres_symptomes", "Autres symptômes"),
+    ("duree_phase_seche_j", "Durée de la phase sèche (jours)"), ("duree_phase_humide_j", "Durée de la phase humide (jours)"),
+    ("duree_phase_critique_j", "Durée de la phase critique jusqu'au décès (jours)"),
+    ("date_notification", "Date de notification"), ("date_confirmation", "Date de confirmation"),
+    ("delai_j0_notification_j", "J0 rapporté → notification (jours)"), ("delai_j0_confirmation_j", "J0 rapporté → confirmation (jours)"),
+    ("delai_notification_confirmation_j", "Notification → confirmation (jours)"),
+    ("date_isolement", "Isolement (1re hospitalisation)"), ("delai_j0_isolement_j", "J0 rapporté → isolement (jours)"),
+    ("date_prelevement", "Premier prélèvement"), ("date_resultat", "Premier résultat"),
+    ("delai_prelevement_resultat_h", "Prélèvement → résultat (heures)"), ("resultat_labo", "Résultat du laboratoire"),
+    ("debut_anneau_vaccinal", "Début de la vaccination en anneau"), ("delai_confirmation_anneau_j", "Confirmation → anneau (jours)"),
+    ("issue", "État du cas"), ("date_deces", "Date de décès"), ("delai_j0_deces_j", "J0 retenu → décès (jours)"),
+    ("deces_communautaire", "Décès hors structure de soins"), ("enterrement_securise", "Enterrement digne et sécurisé"),
+    ("date_enterrement", "Date de l'enterrement"),
+    ("contacts_listes", "Contacts listés (catégories dénombrées)"), ("contacts_haut_risque", "Contacts à haut ou très haut risque"),
+    ("contacts_suivis", "Contacts suivis"), ("contacts_vaccines", "Contacts vaccinés"),
+    ("categories_contacts_inconnues", "Catégories de contacts non dénombrées"),
+    ("nb_etapes", "Nombre d'étapes de la chronologie"), ("nb_lieux", "Nombre de lieux d'exposition"),
+    ("nb_deplacements", "Nombre de déplacements"), ("transports", "Moyens de transport utilisés"),
+    ("nb_contact_corps", "Étapes avec contact avec le corps"), ("nb_liquides", "Étapes avec liquides biologiques"),
+    ("nb_sans_pci", "Étapes de soins sans PCI"), ("nb_funerailles", "Funérailles ou enterrements"),
+    ("nb_sites_pci", "Sites PCI renseignés"), ("nb_sites_decontamines", "Sites décontaminés"),
+    ("nb_sites_pci_non_inconnu", "Sites PCI « Non » ou inconnu"), ("sequencage", "Résultat du séquençage"),
+    ("risque_global", "Risque global"), ("completude_pct", "Complétude de la fiche (%)"),
+]
+
+
+def _jours(a, b):
+    return (b - a).days if a and b else None
+
+
+def _ligne_modelisation(c: Case) -> list:
+    from config import theme
+    try:
+        ph = rules.phases(c)
+    except Exception:
+        ph = None
+    sy = list(c.symptomes)
+    secs = [x for x in sy if x in theme.SYMPTOMES_SECS]
+    crit = [x for x in sy if x in theme.HEMORRHAGIC]
+    hum = [x for x in sy if x in theme.SYMPTOMES_HUMIDES and x not in crit]
+    autres = [x for x in sy if x not in secs and x not in hum and x not in crit] + ([c.symptomes_autres] if c.symptomes_autres else [])
+    j0 = ph.j0 if ph else None
+    hu = ph.humide if ph else None
+    cr = ph.critique if ph else None
+    iso = R.date_isolement(c)
+    labs = sorted([l for l in c.labs if l.prelevement], key=lambda l: l.prelevement)
+    l0 = labs[0] if labs else None
+    ent = [e.date_debut for e in c.events if e.type == "Enterrement" and e.date_debut]
+    hr = [g for g in c.contacts if g.risque in ("Haut", "Très haut") and g.nombre is not None]
+    yn = {True: "Oui", False: "Non", None: ""}
+    age = None
+    if c.age is not None:
+        age = round(c.age / 12, 2) if (c.age_unite or "").startswith("mois") else c.age
+    try:
+        risque = c.risque_global or rules.global_risk(c)[0]
+    except Exception:
+        risque = c.risque_global
+    dc = ph.deces if ph else c.date_deces
+    return [
+        c.code_cas, c.province, c.zs, c.aire_sante, c.sexe, age, c.profession, c.agent_sante, c.vaccine, c.date_vaccination,
+        c.contact_connu, c.id_cas_source, c.date_contact_source,
+        ph.exposition[0] if ph and ph.exposition else None, ph.exposition[1] if ph and ph.exposition else None,
+        ph.exposition_source if ph else "",
+        c.debut_symptomes, c.phase_dds, ph.recul if ph else None, j0,
+        j0, "; ".join(secs), hu, ph.humide_source if ph and hu else "", "; ".join(hum),
+        cr, ph.critique_source if ph and cr else "", "; ".join(crit), "; ".join(autres),
+        _jours(j0, hu), _jours(hu, cr) if cr else _jours(hu, dc), _jours(cr, dc),
+        c.date_notification, c.date_confirmation, _jours(c.debut_symptomes, c.date_notification),
+        _jours(c.debut_symptomes, c.date_confirmation), _jours(c.date_notification, c.date_confirmation),
+        iso, _jours(c.debut_symptomes, iso),
+        l0.prelevement.date() if l0 else None, l0.resultat_le.date() if l0 and l0.resultat_le else None,
+        round((l0.resultat_le - l0.prelevement).total_seconds() / 3600, 1) if l0 and l0.resultat_le else None,
+        l0.resultat if l0 else "",
+        c.date_debut_anneau, _jours(c.date_confirmation, c.date_debut_anneau),
+        c.issue, c.date_deces, _jours(j0, c.date_deces), yn[R.deces_communautaire(c)], yn[R.enterrement_securise(c)],
+        min(ent) if ent else None,
+        sum(g.nombre for g in c.contacts if g.nombre is not None) if any(g.nombre is not None for g in c.contacts) else None,
+        sum(g.nombre for g in hr) if hr else None,
+        sum(g.suivis for g in c.contacts if g.suivis is not None) if any(g.suivis is not None for g in c.contacts) else None,
+        sum(g.vaccines for g in c.contacts if g.vaccines is not None) if any(g.vaccines is not None for g in c.contacts) else None,
+        sum(1 for g in c.contacts if g.nombre is None),
+        len(c.events), len(c.places), sum(1 for e in c.events if e.lieu_arrivee.strip()),
+        "; ".join(sorted({e.transport for e in c.events if e.transport})),
+        sum(1 for e in c.events if e.contact_corps), sum(1 for e in c.events if e.liquides), sum(1 for e in c.events if e.sans_pci),
+        sum(1 for e in c.events if e.type in ("Funérailles", "Enterrement")),
+        len(c.ipc), sum(1 for x in c.ipc if x.statut == "Décontaminé"), sum(1 for x in c.ipc if x.statut in ("Non", "Inconnu")),
+        c.sequencage, risque, rules.completeness(c)[0],
+    ]
+
+
+def _feuille_modelisation(wb, cases: List[Case]) -> None:
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    ws = wb.create_sheet("Modélisation")
+    ws.append([n for n, _d in VARIABLES_MODELISATION])
+    for i in range(1, len(VARIABLES_MODELISATION) + 1):
+        cell = ws.cell(row=1, column=i)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F3A5F")
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+        ws.column_dimensions[get_column_letter(i)].width = 16
+    for c in cases:
+        ws.append(_ligne_modelisation(c))
+        for cell in ws[ws.max_row]:
+            if isinstance(cell.value, date):
+                cell.number_format = "dd/mm/yyyy"
+    ws.freeze_panes = "B2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(VARIABLES_MODELISATION))}{max(1, ws.max_row)}"
+    dico = wb.create_sheet("Variables")
+    dico.append(["Variable", "Description"])
+    for cell in dico[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="1F3A5F")
+    for n, d in VARIABLES_MODELISATION:
+        dico.append([n, d])
+    dico.append([])
+    dico.append(["Règle", "Une case vide = information non renseignée (jamais 0). Dates au format jj/mm/aaaa. "
+                          "Les phases sèche, humide et critique viennent de la fiche (dates saisies ou rapportées), sinon "
+                          "de l'estimation de l'outil (colonne « origine »). Exemples fictifs exclus."])
+    dico.column_dimensions["A"].width = 32
+    dico.column_dimensions["B"].width = 90
 
 
 # ---------------------------------------------------------------------------

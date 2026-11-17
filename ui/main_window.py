@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
         self.settings = QSettings("MappingEpi", "MappingEpi")
         self.exporter = Exporter(self)
         self.exporter.busy.connect(self._busy)
-        self.setWindowTitle("Mapping Épi : parcours épidémiologique des cas")
+        self.setWindowTitle("Mapping Épi : parcours thérapeutique des cas")
         self.resize(1500, 900)
 
         # --- liste des cas -------------------------------------------------

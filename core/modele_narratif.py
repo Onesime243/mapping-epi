@@ -214,7 +214,7 @@ def generer_docx(path: Path | str, case: Optional[Case] = None) -> None:
     # --- titre et consignes
     t = d.add_paragraph()
     t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = t.add_run("NARRATIF DU CAS : MAPPING DU PARCOURS ÉPIDÉMIOLOGIQUE")
+    r = t.add_run("NARRATIF DU CAS : MAPPING DU PARCOURS THÉRAPEUTIQUE")
     r.bold = True
     r.font.size = Pt(16)
     r.font.color.rgb = navy
@@ -373,7 +373,7 @@ def generer_pptx(path: Path | str, case: Optional[Case] = None) -> None:
         return t
 
     # --- couverture + consignes
-    s = slide("NARRATIF DU CAS : MAPPING DU PARCOURS ÉPIDÉMIOLOGIQUE",
+    s = slide("NARRATIF DU CAS : MAPPING DU PARCOURS THÉRAPEUTIQUE",
               "Modèle PowerPoint : remplir les tableaux puis importer le fichier dans l'outil (« Importer une fiche »)")
     t = table(s, 1.3, len(CONSIGNES) + 1, [2.2, 9.0], 0.5)
     cell(t.cell(0, 0), "COMMENT REMPLIR", 12, True, blanc, navy)

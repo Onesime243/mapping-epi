@@ -129,13 +129,19 @@ def create_app(store: storage.Store | None = None) -> Flask:
         """Ce que le compte voit : super-admin (Riposte, rapports), admin (analyses, données), agent (fiche)."""
         sup = bool(u and u.is_super)
         adm = bool(u and (u.is_admin or sup))
-        return {"super": sup, "admin": adm}
+        tdb = sup or bool(u and u.niveau in ("national", "province"))     # tableau de bord
+        return {"super": sup, "admin": adm, "tdb": tdb}
 
     @app.before_request
     def controle_acces():
         p = request.path
-        reserve_super = (p.startswith("/riposte/") or p.startswith("/rapports") or p.startswith("/tableau-de-bord")
+        reserve_super = (p.startswith("/riposte/") or p.startswith("/rapports")
                          or p == "/donnees/rapport-situation.docx")
+        if p.startswith("/tableau-de-bord"):            # comptes nationaux et provinciaux aussi
+            u = current_user()
+            if u and not droits(u)["tdb"]:
+                abort(403)
+            return None
         reserve_admin = p.startswith("/analyse/") or p.startswith("/donnees") or "/telecharger/" in p
         if "/apercu/" in p and p.startswith("/cas/"):
             reserve_admin = p.rsplit("/", 1)[-1] not in VUES_AGENT

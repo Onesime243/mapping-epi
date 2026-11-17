@@ -377,7 +377,7 @@ def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView
 
     statut = {"Confirmé": "CONFIRMÉ", "Probable": "PROBABLE", "Suspect": "SUSPECT"}.get(case.statut, case.statut.upper())
     rang = f"DU {ordinal(case.rang)} CAS" if case.rang else "DU CAS"
-    title = f"MAPPING COMPLET – PARCOURS ÉPIDÉMIOLOGIQUE {rang} {statut} {case.maladie.upper()} | ZS {(case.zs or '?').upper()}"
+    title = f"MAPPING COMPLET – PARCOURS THÉRAPEUTIQUE {rang} {statut} {case.maladie.upper()} | ZS {(case.zs or '?').upper()}"
     contact = None
     if case.contact_connu and case.contact_connu != "Inconnu":
         cc = theme.soft(theme.CONTACT_STATUS_COLORS.get(case.contact_connu, theme.RED))

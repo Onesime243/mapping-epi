@@ -94,7 +94,7 @@ class IdentityTab(QWidget):
         self.code_cas.setPlaceholderText("ex. RDC-HUE-WAM-26-001 (lettres et chiffres)")
         self.code_cas.textChanged.connect(self.changed)
         f.addRow("ID du cas *", self.code_cas)
-        f.addRow("Rang du cas (1er, 2e…)", self.rang)
+        self.rang.hide()                     # rang du cas retiré de la saisie (demande de la riposte)
         f.addRow("Maladie *", self.maladie)
         f.addRow("Statut", self.statut)
         self.contact = _combo(theme.CONTACT_STATUS_CHOICES)

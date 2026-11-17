@@ -12,4 +12,4 @@ def texte() -> str:
 # bandeau du site web (sceau : web/static/sceau_presidence.png)
 BANDEAU_SUR = "Task Force Présidentielle Ebola 17"
 BANDEAU_TITRE = "Système de Gestion de l’Incident MVE 17 : MAPPING EPI"
-BANDEAU_SOUS = "Documentation du parcours épidémiologique des cas confirmés"
+BANDEAU_SOUS = "Documentation du parcours thérapeutique des cas confirmés"

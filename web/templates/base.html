@@ -42,7 +42,7 @@
   <nav>
     {% if me %}
       <a href="/" class="{{ 'on' if request.path == '/' }}">{{ t("Accueil") }}</a>
-      {% if droits.super %}<a href="{{ url_for('tableau_bord') }}" class="{{ 'on' if request.path.startswith('/tableau-de-bord') }}">{{ t("Tableau de bord") }}</a>{% endif %}
+      {% if droits.tdb %}<a href="{{ url_for('tableau_bord') }}" class="{{ 'on' if request.path.startswith('/tableau-de-bord') }}">{{ t("Tableau de bord") }}</a>{% endif %}
       <a href="{{ url_for('cases') }}">{{ t("Mes cas") if me.niveau == "aire" and not me.is_admin else t("Cas") }}</a>
       {% if droits.admin %}
       <div class="menu">

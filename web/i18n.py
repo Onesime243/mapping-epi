@@ -17,7 +17,7 @@ EN = {
     # barre du haut et menus
     "Cas": "Cases", "Analyses": "Analyses", "Riposte": "Response", "Données": "Data", "Utilisateurs": "Users",
     "Tutoriel": "Tutorial", "Mon compte": "My account", "Déconnexion": "Sign out", "Thème": "Theme", "Langue": "Language",
-    "Menu": "Menu", "parcours épidémiologique": "epidemiological pathway",
+    "Menu": "Menu", "parcours thérapeutique": "care pathway",
     "Chaînes de transmission": "Transmission chains", "Catégories des ZS, délais et incubation":
         "Health zone categories, delays and incubation",
     "Lieux fréquentés par zone de santé": "Places visited by health zone",
@@ -41,15 +41,15 @@ EN = {
     "Première fois ?": "First time?", "Suivre le tutoriel pas à pas": "Follow the step-by-step tutorial",
     # accueil
     "Accueil": "Home", "Bonjour": "Hello", "Bienvenue dans Mapping Épi.": "Welcome to Mapping Épi.",
-    "Documentez ici le parcours épidémiologique de chaque cas confirmé. Renseignez l'ensemble des champs obligatoires, "
+    "Documentez ici le parcours thérapeutique de chaque cas confirmé. Renseignez l'ensemble des champs obligatoires, "
     "signalés par un astérisque (*), puis enregistrez la fiche : seules les fiches complètes et enregistrées sont "
     "prises en compte dans les analyses et partagées avec la coordination.":
-        "Use this tool to document the epidemiological pathway of each confirmed case. Complete all mandatory fields, "
+        "Use this tool to document the care pathway of each confirmed case. Complete all mandatory fields, "
         "marked with an asterisk (*), then save the record: only complete, saved records are included in the analyses "
         "and shared with the coordination team.",
     "Bienvenue dans Mapping Épi": "Welcome to Mapping Épi",
-    "Documentation du parcours épidémiologique des cas confirmés":
-        "Documenting the epidemiological pathway of confirmed cases",
+    "Documentation du parcours thérapeutique des cas confirmés":
+        "Documenting the care pathway of confirmed cases",
     "Pour chaque cas, renseignez l'ensemble des champs obligatoires, signalés par un astérisque (*), puis enregistrez "
     "la fiche.": "For each case, complete all mandatory fields, marked with an asterisk (*), then save the record.",
     "Seules les fiches complètes et enregistrées sont prises en compte dans les analyses et partagées avec la "
