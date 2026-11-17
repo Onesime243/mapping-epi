@@ -37,17 +37,31 @@
 .mp-wrap { position: absolute; left: 0; right: 0; top: 128px; bottom: 0; padding: 8px 22px 6px; display: flex; flex-direction: column; gap: 7px; }
 .mp-sec { font-size: 9.5px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: #12213B; display: flex; gap: 10px; align-items: baseline; }
 .mp-sec small { font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #000000; }
-.mp-tl { position: relative; height: 66px; flex: none; margin: 0 4px; }
+.mp-tl { position: relative; height: 44px; flex: none; margin: 0 4px; }
+.mp-phases { display: grid; height: 44px; flex: none; gap: 3px; }
+.mp-phases .ph { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 0 15px 0 17px; min-width: 0;
+  clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%, 11px 50%); font-size: 8.6px; line-height: 1.2; }
+.mp-phases .ph:first-child { clip-path: polygon(0 0, calc(100% - 11px) 0, 100% 50%, calc(100% - 11px) 100%, 0 100%); padding-left: 9px; border-radius: 5px 0 0 5px; }
+.mp-phases .l1, .mp-phases .l2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-phases .l1 b { font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+.mp-phases .l2 { font-weight: 800; }
+.mp-phases .l3 { font-weight: 500; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mp-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.mp-crow { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 3px; }
+.mp-bands { display: grid; column-gap: 6px; height: 15px; flex: none; }
+.mp-bd { border-radius: 4px; font-size: 8.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; display: flex;
+  align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; padding: 0 6px; }
 .mp-band { position: absolute; top: 4px; height: 20px; border-radius: 4px; font-size: 9.5px; font-weight: 700; display: flex;
   align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; }
-.mp-gap { position: absolute; top: 28px; height: 14px; border: 1.5px dashed #C76A00; border-radius: 4px; background: #FFF6E8;
+.mp-gap { position: absolute; top: 0px; height: 14px; border: 1.5px dashed #C76A00; border-radius: 4px; background: #FFF6E8;
   color: #8A4B00; font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
-.mp-line { position: absolute; left: 0; right: 0; top: 49px; height: 2px; background: #C9C2B3; }
-.mp-dot { position: absolute; top: 44px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; border: 2px solid #FFFFFF; }
-.mp-tick { position: absolute; top: 55px; font-size: 8.5px; color: #000000; transform: translateX(-50%); white-space: nowrap; }
-.mp-rep { position: absolute; top: 0; height: 52px; border-left: 1.5px solid #12213B; }
-.mp-rep span { position: absolute; top: -1px; left: 3px; font-size: 8px; font-weight: 800; color: #12213B; background: #FFFFFF; padding: 0 2px; white-space: nowrap; }
+.mp-line { position: absolute; left: 0; right: 0; top: 23px; height: 2px; background: #C9C2B3; }
+.mp-dot { position: absolute; top: 18px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; border: 2px solid #FFFFFF; }
+.mp-tick { position: absolute; top: 29px; font-size: 8.5px; color: #000000; transform: translateX(-50%); white-space: nowrap; }
+.mp-rep { position: absolute; top: 0; height: 27px; border-left: 1.5px solid #12213B; }
+.mp-rep span { position: absolute; top: -1px; left: 4px; font-size: 8px; font-weight: 800; color: #12213B; background: #FFFFFF; padding: 0 2px; white-space: nowrap; }
 .mp-cards { flex: 1 1 auto; min-height: 0; display: grid; gap: 6px; }
+.mp-cards > .mp-c { min-height: 0; }
 .mp-c { background: #FFFFFF; border: 1px solid #B8C0CC; border-radius: 8px; padding: 6px 7px 7px; display: flex; flex-direction: column;
   gap: 2px; min-width: 0; min-height: 0; overflow: hidden; }
 .mp-c.inc { border-style: dashed; }
@@ -71,7 +85,7 @@
 .mp-c .ch.info { color: #000000; font-weight: 600; }
 .mp-pill { flex: none; color: #fff; font-size: {{ 8.5 if two else 9.5 }}px; font-weight: 800; border-radius: 5px; padding: {{ 2 if two else 3 }}px 4px;
   text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mp-bottom { flex: none; height: {{ 168 if two else 214 }}px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr; gap: 9px; }
+.mp-bottom { flex: none; height: {{ 150 if two else 190 }}px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr; gap: 9px; }
 .mp-box { background: #FFFFFF; border: 1px solid #B8C0CC; border-radius: 9px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .mp-box .mp-sec { justify-content: space-between; align-items: center; margin-bottom: 7px; }
 .mp-lab { display: inline-block; background: #1F3A5F; color: #FFFFFF; font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
@@ -120,9 +134,19 @@
       {% for b in v.badges %}{% if b.todo %}<span class="mp-badge todo">{{ b.t }}</span>{% else %}<span class="mp-badge" style="background: {{ b.fill }}; color: {{ b.ink }};">{{ b.t }}</span>{% endif %}{% endfor %}
       {% if x.manque %}<span class="mp-miss">? {{ x.manque|join(' · ') }}</span>{% endif %}
       <small class="mp-leg">J±n : jours depuis le J0 {% if v.recul %}retenu (date rapportée − {{ v.recul }} j){% else %}retenu ou estimé{% endif %}{% if x.frise and x.frise.adapte %} · jours chargés agrandis{% endif %}</small></div>
+    {% if v.phase_strip %}
+    <div class="mp-phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
+      {% for p in v.phase_strip %}
+      <div class="ph" style="background: {{ p.fill }}; color: {{ p.fill|ink }};" title="{{ p.label }} : {{ p.dates }} : {{ p.detail }}">
+        <span class="l1"><b>{{ loop.index }}. {{ p.label }}</b> · {{ p.contag }}</span>
+        <span class="l2">{{ p.dates }}</span>
+        <span class="l3">{{ p.detail }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% if x.frise %}
     <div class="mp-tl">
-      {% for b in x.frise.bandes %}<div class="mp-band" style="left: {{ b.l }}%; width: calc({{ b.w }}% - 2px); background: {{ b.bg }}; color: {{ b.fg }};" title="{{ b.t }}">{{ b.t }}</div>{% endfor %}
       {% if x.frise.trou %}<div class="mp-gap" style="left: {{ x.frise.trou.l }}%; width: calc({{ x.frise.trou.w }}% - 2px);">{{ x.frise.trou.t }}</div>{% endif %}
       <div class="mp-line"></div>
       {% for r in x.frise.reperes %}<div class="mp-rep" style="left: {{ r.x }}%;"><span>{{ r.t }}</span></div>{% endfor %}
@@ -133,8 +157,14 @@
     <div class="mp-note" style="font-size: 11px; height: 24px;">Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise.</div>
     {% endif %}
 
-    <div class="mp-cards" style="grid-template-columns: repeat({{ per }}, minmax(0, 1fr)); grid-template-rows: repeat({{ v.rows|length }}, minmax(0, 1fr));">
-      {% for c in x.cartes %}
+    <div class="mp-rows">
+    {% for row in v.rows %}{% set r0 = loop.index0 * per %}
+      <div class="mp-crow">
+        <div class="mp-bands" style="grid-template-columns: repeat({{ per }}, minmax(0, 1fr));">
+          {% for b in v.bands[loop.index0] %}{% set bc = t.PHASES[b.phase].color|soft %}<div class="mp-bd" style="grid-column: {{ b.col }} / span {{ b.span }}; background: {{ bc }}; color: {{ bc|ink }};">{{ b.label }}</div>{% endfor %}
+        </div>
+        <div class="mp-cards" style="grid-template-columns: repeat({{ per }}, minmax(0, 1fr));">
+      {% for c in x.cartes[r0:r0 + row|length] %}
       <div class="mp-c{% if c.incertain %} inc{% endif %}">
         <div class="mp-cbar" style="background: {{ c.tc }};"></div>
         <div class="cb" data-fit="6" data-max="{{ 10 if two else 11.5 }}" data-group="mpc">
@@ -150,9 +180,12 @@
         </div>
         <div class="mp-pill" style="background: {{ c.r.c }};">{{ c.r.s }} {{ c.r.t }}</div>
       </div>
-      {% else %}
-      <div class="mp-note">Aucune étape dans la chronologie.</div>
       {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <div class="mp-note">Aucune étape dans la chronologie.</div>
+    {% endfor %}
     </div>
 
     <div class="mp-bottom">

@@ -19,7 +19,7 @@ def test_mapping_html_structure(demo):
               "? à dénombrer", "sans statut PCI", "Mapping Épi v" + H.APP_VERSION]:
         assert s.lower() in html.lower(), s
     assert len(re.findall(r'class="mp-c[ "]', html)) == 12
-    assert "Phase sèche" in html and "Corps très contagieux" in html and "jours sans information" in html
+    assert "Phase sèche" in html and "Phase humide" in html and "le plus contagieux" in html and "jours sans information" in html
 
 
 def test_title_and_two_rows_for_many_events():

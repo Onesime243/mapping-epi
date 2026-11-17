@@ -214,6 +214,7 @@ def liste_cas_xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> 
     ws.freeze_panes = "B3"
     ws.auto_filter.ref = f"A2:{get_column_letter(len(COLONNES))}{max(2, ws.max_row)}"
     _feuille_modelisation(wb, tri)
+    _feuilles_symptomes(wb, tri)
     wb.save(str(path))
 
 
@@ -326,6 +327,85 @@ def _ligne_modelisation(c: Case) -> list:
     ]
 
 
+def _slug(t: str) -> str:
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFD", t.lower()).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+def _feuilles_symptomes(wb, cases: List[Case]) -> None:
+    """Symptômes par phase : tableau 0/1 par cas, liste détaillée (source et date), fréquences par phase."""
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    from core import symptomes as SY
+    ent = PatternFill("solid", fgColor="1F3A5F")
+
+    def entete(ws, row=1):
+        for cell in ws[row]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = ent
+            cell.alignment = Alignment(wrap_text=True, vertical="center")
+
+    # 1. une ligne par cas : 1 = symptôme rapporté dans la phase, 0 = phase documentée sans ce symptôme, vide = phase non documentée
+    ws = wb.create_sheet("Symptômes par phase")
+    cols = ["id_cas", "zone_sante", "issue"]
+    for p, _l in SY.PHASES:
+        cols += [f"{p}_documentee"] + [f"{p}_{_slug(n)}" for n in SY.NOMS] + [f"{p}_liste"]
+    ws.append(cols)
+    entete(ws)
+    details = []
+    for c in cases:
+        ms = SY.mentions(c)
+        doc = SY.phases_documentees(c, ms)
+        par = {}
+        for m in ms:
+            par.setdefault(m.phase, set()).add(m.symptome)
+            details.append([c.code_cas, c.zs, SY.LIB_PHASE.get(m.phase, m.phase), m.symptome, m.date, m.source])
+        ligne = [c.code_cas, c.zs, c.issue]
+        for p, _l in SY.PHASES:
+            d = p in doc
+            vus = par.get(p, set())
+            ligne += ["Oui" if d else "Non"] + [(1 if n in vus else 0) if d else None for n in SY.NOMS]
+            ligne += ["; ".join(n for n in SY.NOMS if n in vus)]
+        ws.append(ligne)
+    for i in range(1, len(cols) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 14
+    ws.freeze_panes = "D2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(cols))}{max(1, ws.max_row)}"
+
+    # 2. détail : d'où vient chaque symptôme
+    wd = wb.create_sheet("Symptômes (détail)")
+    wd.append(["id_cas", "zone_sante", "phase", "symptome", "date", "source"])
+    entete(wd)
+    for r in sorted(details, key=lambda r: (r[0], r[4] or date.max)):
+        wd.append(r)
+        if isinstance(r[4], date):
+            wd.cell(row=wd.max_row, column=5).number_format = "dd/mm/yyyy"
+    for col, w in zip("ABCDEF", (24, 16, 16, 30, 12, 46)):
+        wd.column_dimensions[col].width = w
+    wd.freeze_panes = "A2"
+    wd.auto_filter.ref = f"A1:F{max(1, wd.max_row)}"
+
+    # 3. fréquences : quels symptômes reviennent le plus dans chaque phase
+    wf = wb.create_sheet("Fréquence par phase")
+    wf.append(["Symptômes les plus fréquents par phase (cas dont la phase est documentée dans la fiche)"])
+    wf["A1"].font = Font(bold=True, size=12, color="1F3A5F")
+    freq = SY.frequences(cases)
+    for p, lib in SY.PHASES:
+        wf.append([])
+        base = freq[p][0][2] if freq[p] else 0
+        wf.append([f"{lib} · {base} cas documentés", "Nombre de cas", "% des cas documentés"])
+        entete(wf, wf.max_row)
+        if not freq[p]:
+            wf.append(["Aucun symptôme rapporté dans cette phase."])
+        for nom, n, b in freq[p]:
+            wf.append([nom, n, round(100 * n / b, 1) if b else None])
+    wf.column_dimensions["A"].width = 44
+    wf.column_dimensions["B"].width = 16
+    wf.column_dimensions["C"].width = 22
+
+
 def _feuille_modelisation(wb, cases: List[Case]) -> None:
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -352,6 +432,9 @@ def _feuille_modelisation(wb, cases: List[Case]) -> None:
     for n, d in VARIABLES_MODELISATION:
         dico.append([n, d])
     dico.append([])
+    dico.append(["Symptômes par phase", "Colonnes <phase>_<symptôme> : 1 = rapporté dans la phase, 0 = phase documentée "
+                                        "sans ce symptôme, vide = phase non documentée. Sources : symptômes cochés dans la "
+                                        "fiche et texte des étapes du parcours (« Symptômes (détail) » donne la source)."])
     dico.append(["Règle", "Une case vide = information non renseignée (jamais 0). Dates au format jj/mm/aaaa. "
                           "Les phases sèche, humide et critique viennent de la fiche (dates saisies ou rapportées), sinon "
                           "de l'estimation de l'outil (colonne « origine »). Exemples fictifs exclus."])

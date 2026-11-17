@@ -466,3 +466,20 @@ def test_adresse_des_sites_pci():
              ipc=[IPCSite(site="CS Ngongolio", statut="Non", adresse="Av. de la Paix, quartier Ngongolio")])
     assert "Av. de la Paix" in map_view.render_svg(c)                  # carte du parcours
     assert "Av. de la Paix" not in H.render_mapping_html(c)            # pas sur le mapping
+
+
+def test_symptomes_par_phase():
+    from datetime import date
+    from core import echanges as ECH
+    from core import symptomes as SY
+    from core.models import Case, Event
+    assert SY.dans_texte("a développé des céphalées, asthénie physique, vomissements, faiblesse articulaire, sans fièvre") == \
+        ["Céphalées", "Asthénie / fatigue", "Douleurs articulaires", "Vomissements"]              # « sans fièvre » ignoré
+    c = Case(code_cas="T-1", zs="Beni", debut_symptomes=date(2026, 11, 4), phase_dds="Phase sèche",
+             events=[Event(date_debut=date(2026, 11, 4), titre="Début maladie", description="céphalées, asthénie"),
+                     Event(date_debut=date(2026, 11, 9), titre="Hospitalisation", description="vomissements, diarrhée")])
+    ms = {(m.phase, m.symptome) for m in SY.mentions(c)}
+    assert ("seche", "Céphalées") in ms and ("seche", "Asthénie / fatigue") in ms
+    assert any(s == "Vomissements" for _p, s in ms)
+    f = SY.frequences([c])
+    assert f["seche"][0][1] == 1
