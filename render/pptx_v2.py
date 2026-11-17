@@ -66,10 +66,12 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
                anchor=MSO_ANCHOR.MIDDLE, shape=sh)
 
     # -- frise à l'échelle du temps -------------------------------------------------------------------------------
-    S.text(22, 108, 700, 14, [[("CHRONOLOGIE À L’ÉCHELLE DU TEMPS", {"bold": True, "color": NAVY}),
-                               ("   les jours où plusieurs étapes se suivent sont agrandis"
-                                if x["frise"] and x["frise"]["adapte"] else "", {"color": "#000000", "size": 6.6})]],
-           size=7.1, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, name="Titre frise")
+    sh = S.rect(22, 106, 232, 17, "#1F3A5F", radius=4, name="Étiquette chronologie")
+    S.text(0, 0, 0, 0, ["CHRONOLOGIE À L’ÉCHELLE DU TEMPS"], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE,
+           shape=sh)
+    if x["frise"] and x["frise"]["adapte"]:
+        S.text(262, 106, 500, 17, ["les jours où plusieurs étapes se suivent sont agrandis"], size=6.6, color="#000000",
+               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
     fx, fw, ft = 26, W - 52, 126
     f = x["frise"]
     if f:
@@ -154,12 +156,14 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     def boite(i, titre, resume):
         bx, bw = xs[i], largeurs[i]
         S.rect(bx, bas_y, bw, bas_h, PAPIER, BORD, radius=9, name=titre)
-        S.text(bx + 12, bas_y + 7, bw * 0.5, 14, [titre.upper()], size=7.1, color=NAVY, bold=True, align=PP_ALIGN.LEFT)
+        lw = 22 + len(titre) * 6.4
+        sh = S.rect(bx + 10, bas_y + 7, lw, 17, "#1F3A5F", radius=4, name="Étiquette " + titre)
+        S.text(0, 0, 0, 0, [titre.upper()], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         S.text(bx + bw * 0.4, bas_y + 7, bw * 0.6 - 12, 14, [resume], size=6.6, color="#000000", align=PP_ALIGN.RIGHT)
-        return bx + 12, bas_y + 26, bw - 24, bas_h - 34
+        return bx + 12, bas_y + 30, bw - 24, bas_h - 38
 
     # Contacts
-    cx, cyb, cwb, chb = boite(0, "Contacts", x["contacts"]["resume"])
+    cx, cyb, cwb, chb = boite(0, "Contacts à identifier / suivre", x["contacts"]["resume"])
     lig = x["contacts"]["lignes"]
     if lig:
         rh = min(18, chb / max(1, len(lig)))
@@ -182,7 +186,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         S.text(cx, cyb, cwb, 16, ["Aucun groupe de contacts renseigné."], size=8, color=GRIS, align=PP_ALIGN.LEFT)
 
     # PCI
-    px_, pyb, pwb, phb = boite(1, "PCI et décontamination", x["pci"]["resume"])
+    px_, pyb, pwb, phb = boite(1, "PCI / décontamination", x["pci"]["resume"])
     sites = x["pci"]["sites"]
     extra = (2 if x["pci"]["sans"] else 0) + (1 if any(s["st"] != "Décontaminé" for s in sites) else 0)
     rh = min(20, phb / max(1, len(sites) + extra))
@@ -209,20 +213,38 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     # Actions
     ax, ayb, awb, ahb = boite(2, "Actions", "suggérées, à valider" if x["actions"]["auto"] else "responsable · échéance")
     acts = x["actions"]["lignes"]
-    rh = min(20, ahb / max(1, len(acts)))
+    afaire = [a for a in acts if not a["fait"]]
+    faites = [a for a in acts if a["fait"]]
+    titres = (1 if afaire and not x["actions"]["auto"] else 0) + (1 if faites else 0)
+    rh = min(20, ahb / max(1, len(acts) + titres))
     fs = min(_pt(11.5), rh * 0.6)
-    for j, a in enumerate(acts):
-        yy = ayb + j * rh
+    yy = ayb
+    if afaire and not x["actions"]["auto"]:
+        sh = S.rect(ax, yy + 1, awb, rh - 3, "#FFFFFF", "#B3262C", radius=4, line_w=1.2, name="À réaliser immédiatement")
+        S.text(0, 0, 0, 0, ["À RÉALISER IMMÉDIATEMENT"], size=fs * 0.8, color="#B3262C", bold=True,
+               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        yy += rh
+    for a in afaire:
         sh = S.rect(ax, yy + rh * 0.12, 62, rh * 0.76, a["c"], radius=4, name="Priorité")
-        S.text(0, 0, 0, 0, ["✓ Fait" if a["fait"] else a["p"]], size=fs * 0.85, color="#FFFFFF", bold=True,
-               anchor=MSO_ANCHOR.MIDDLE, shape=sh)
-        resp = "" if x["actions"]["auto"] or a["fait"] else f"{a['resp'] or 'à désigner'} · {a['ech'] or '—'}"
+        S.text(0, 0, 0, 0, [a["p"]], size=fs * 0.85, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        resp = "" if x["actions"]["auto"] else f"{a['resp'] or 'à désigner'} · {a['ech'] or '—'}"
         tw_ = awb - 70 - (110 if resp else 0)
-        S.text(ax + 68, yy, tw_, rh, [a["t"] + (" (en cours)" if a["cours"] else "")], size=fs,
-               color=GRIS if a["fait"] else ENCRE, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
+        S.text(ax + 68, yy, tw_, rh, [a["t"] + (" (en cours)" if a["cours"] else "")], size=fs, color=ENCRE,
+               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
         if resp:
             S.text(ax + awb - 110, yy, 110, rh, [resp], size=fs * 0.88, color=ENCRE if a["resp"] else ORANGE_T,
                    bold=not a["resp"], align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+        yy += rh
+    if faites:
+        S.line(ax, yy + 2, ax + awb, yy + 2, "#B8C0CC", 0.75)
+        S.text(ax, yy + 2, awb, rh - 2, ["DÉJÀ RÉALISÉES"], size=fs * 0.8, color="#2E7D4F", bold=True,
+               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
+        yy += rh
+        for a in faites:
+            S.oval(ax + 8, yy + rh / 2, min(7, rh * 0.32), "#2E7D4F", "#FFFFFF", 0.5)
+            S.text(ax + 1, yy, 14, rh, ["✓"], size=fs * 0.75, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE)
+            S.text(ax + 22, yy, awb - 22, rh, [a["t"]], size=fs, color=ENCRE, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
+            yy += rh
     if not acts:
         S.text(ax, ayb, awb, 16, ["Aucune action."], size=8, color=GRIS, align=PP_ALIGN.LEFT)
 
