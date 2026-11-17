@@ -99,6 +99,44 @@ table.list tr:hover td { background: var(--hover); }
   border-bottom: 3px solid transparent; cursor: pointer; border-radius: 8px 8px 0 0; }
 .tabs button.on { color: var(--accent); border-bottom-color: var(--accent); background: var(--panel); }
 .tabs button:hover:not(.on) { color: var(--text); background: var(--hover); }
+/* fiche par étapes : liste verticale des étapes à gauche, étape ouverte à droite */
+.editor { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { .editor { grid-template-columns: 1fr; } }
+.card.etapes { display: grid; grid-template-columns: 200px minmax(0, 1fr); column-gap: 16px; align-items: start; }
+.card.etapes > .tabs { grid-column: 1; grid-row: 1 / span 30; flex-direction: column; flex-wrap: nowrap; gap: 2px;
+  border-bottom: 0; border-right: 1px solid var(--border); padding-right: 10px; margin: 0; position: sticky; top: 110px; }
+.card.etapes > .pane { grid-column: 2; min-width: 0; }
+.card.etapes > .tabs button { display: flex; align-items: center; gap: 9px; text-align: left; border: 0; border-radius: 9px;
+  padding: 8px 8px; color: var(--text); font-weight: 600; }
+.card.etapes > .tabs button.on { background: var(--accent-soft); color: var(--text); font-weight: 800; }
+.card.etapes > .tabs button .n { width: 24px; height: 24px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; background: var(--hover); color: var(--muted); }
+.card.etapes > .tabs button.ok .n { background: var(--ok); color: #fff; }
+.card.etapes > .tabs button.todo .n { background: color-mix(in srgb, var(--warn) 18%, var(--panel)); color: var(--warn);
+  box-shadow: inset 0 0 0 1.5px var(--warn); }
+.card.etapes > .tabs button .lb { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.card.etapes > .tabs button small { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.card.etapes > .tabs button.ok small { color: var(--ok); }
+.card.etapes > .tabs button.todo small { color: var(--warn); }
+.card.etapes > .tabs button.ctl { margin-top: 6px; border-top: 1px dashed var(--border); border-radius: 0 0 9px 9px; padding-top: 10px; }
+.etape-tete { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.etape-tete b { font-size: 18px; }
+.etape-tete span { color: var(--muted); font-size: 13.5px; }
+.etape-manque { background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  border-radius: 9px; padding: 8px 11px; font-size: 13.5px; margin: 0 0 10px; }
+.etape-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.progression { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; box-shadow: var(--shadow); }
+.progression .pb { flex: 1 1 200px; height: 10px; border-radius: 5px; background: var(--hover); overflow: hidden; }
+.progression .pb i { display: block; height: 100%; background: var(--ok); }
+.progression .manque { font-size: 13px; font-weight: 700; color: var(--warn); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.progression .manque a { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; color: inherit; }
+@media (max-width: 760px) {
+  .card.etapes { display: block; }
+  .card.etapes > .tabs { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border);
+    padding: 0 0 8px; margin-bottom: 12px; position: static; }
+  .card.etapes > .tabs button { flex: none; }
+}
 .pane { display: none; }
 .pane.on { display: block; }
 .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }

@@ -43,7 +43,7 @@
 
   function changed() {
     if (RO) return;
-    markRequired(); renderObligatoires();
+    markRequired(); renderObligatoires(); renderEtapes();
     dirty = true; setStatus('Modifications non enregistrées…', 'pending');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -420,7 +420,8 @@
         inp.addEventListener('input', () => set(inp.value));
         if (c.key === 'personnes') {   // obligatoire : rouge tant que vide
           inp.placeholder = 'À compléter';
-          const mark = () => inp.classList.toggle('req-missing', !inp.value.trim());
+          // étapes sans personnes exposées (investigation, laboratoire, riposte) : pas à compléter (même règle que le mapping)
+          const mark = () => inp.classList.toggle('req-missing', !inp.value.trim() && !SANS_PERSONNES.has(row.type));
           inp.addEventListener('input', mark); mark();
         }
         if (c.complete) attachLieu(inp, set);
@@ -538,6 +539,112 @@
     p.appendChild(el('h2', {text: 'Informations critiques manquantes'}));
     if (CTRL.missing.length) p.appendChild(el('ul', {}, CTRL.missing.map(m => el('li', {text: m}))));
     else p.appendChild(el('p', {style: 'color:var(--ok)', text: 'Fiche complète.'}));
+    renderEtapes();
+  }
+
+  // ------------------------------------------------------------- fiche par étapes
+  const SANS_PERSONNES = new Set(['Investigation', 'Laboratoire', 'Riposte']);     // config/theme.py SANS_PERSONNES
+  const ETAPES = [['identite', '1. Identité'], ['clinique', '2. Clinique'], ['events', '3. Chronologie'], ['places', '4. Lieux'],
+    ['contacts', '5. Contacts'], ['ipc', '6. PCI'], ['labs', '7. Laboratoire'], ['actions', '8. Actions']];
+  const pl = (n, s, p) => n + ' ' + (n > 1 ? (p || s + 's') : s);
+  function etatEtape(p) {
+    const pane = $('#p-' + p);
+    const rouges = pane ? $$('.req-missing, .obl-missing', pane).length : 0;
+    const rows = C[p];
+    switch (p) {
+      case 'identite': case 'clinique':
+        return rouges ? {e: 'todo', t: pl(rouges, 'champ') + ' à compléter'} : {e: 'ok', t: 'complète'};
+      case 'events': {
+        if (!rows.length) return {e: 'no', t: 'aucune étape saisie'};
+        const sansDate = rows.filter(r => !r.date_debut).length;
+        const bits = [];
+        const sansPers = rows.filter(r => !SANS_PERSONNES.has(r.type) && !(r.personnes || '').trim()).length;
+        if (sansPers) bits.push(pl(sansPers, 'étape') + ' sans personnes présentes');
+        if (sansDate) bits.push(pl(sansDate, 'date') + ' manquante' + (sansDate > 1 ? 's' : ''));
+        return bits.length ? {e: 'todo', t: bits.join(' · ')} : {e: 'ok', t: pl(rows.length, 'étape') + ' · complète'};
+      }
+      case 'places': return rows.length ? {e: 'ok', t: pl(rows.length, 'lieu', 'lieux')} : {e: 'no', t: 'aucun lieu saisi'};
+      case 'contacts': {
+        if (!rows.length) return {e: 'no', t: 'aucune catégorie'};
+        const q = rows.filter(r => r.nombre === null || r.nombre === undefined || r.nombre === '').length;
+        return q ? {e: 'todo', t: pl(q, 'groupe') + ' à dénombrer'} : {e: 'ok', t: 'complète'};
+      }
+      case 'ipc': return rows.length ? {e: 'ok', t: pl(rows.length, 'site')} : {e: 'no', t: 'aucun site saisi'};
+      case 'labs': return rows.length ? {e: 'ok', t: pl(rows.length, 'prélèvement')} : {e: 'no', t: 'aucun prélèvement'};
+      case 'actions': {
+        if (rows.length) return {e: 'ok', t: pl(rows.length, 'action')};
+        const n = CTRL && CTRL.suggestions ? CTRL.suggestions.length : 0;
+        return {e: 'no', t: 'facultatif' + (n ? ' · ' + pl(n, 'suggestion') : '')};
+      }
+    }
+    return {e: 'no', t: ''};
+  }
+  function allerA(p) {
+    const b = $('#tabs button[data-p="' + p + '"]'); if (b) b.click();
+    const c = $('.editor > section.card'); if (c) c.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+  function renderEtapes() {
+    if (!$('#tabs')) return;
+    let ok = 0;
+    const manques = [];
+    ETAPES.forEach(([p, nom], i) => {
+      const s = etatEtape(p);
+      if (s.e === 'ok') ok++;
+      if (s.e === 'todo') manques.push([p, nom.replace(/^\d+\. /, '') + ' : ' + s.t]);
+      const b = $('#tabs button[data-p="' + p + '"]'); if (!b) return;
+      b.className = s.e + (b.classList.contains('on') ? ' on' : '');
+      b.innerHTML = '';
+      b.appendChild(el('span', {class: 'n', text: s.e === 'ok' ? '✓' : String(i + 1)}));
+      b.appendChild(el('span', {class: 'lb'}, [el('span', {text: nom.replace(/^\d+\. /, (i + 1) + '. ')}), el('small', {text: s.t})]));
+      const pane = $('#p-' + p);
+      let tete = pane && $('.etape-tete', pane);
+      if (pane && !tete) {
+        tete = el('div', {class: 'etape-tete'});
+        pane.insertBefore(tete, pane.firstChild);
+        const nav = el('div', {class: 'etape-nav'});
+        nav.appendChild(i > 0 ? el('button', {type: 'button', class: 'btn small', text: '← ' + ETAPES[i - 1][1], on: {click: () => allerA(ETAPES[i - 1][0])}}) : el('span'));
+        nav.appendChild(i < ETAPES.length - 1
+          ? el('button', {type: 'button', class: 'btn small primary', text: ETAPES[i + 1][1] + ' →', on: {click: () => allerA(ETAPES[i + 1][0])}})
+          : el('button', {type: 'button', class: 'btn small primary', text: 'Contrôles →', on: {click: () => allerA('controles')}}));
+        pane.appendChild(nav);
+      }
+      if (tete) {
+        tete.innerHTML = '';
+        tete.appendChild(el('b', {text: nom}));
+        tete.appendChild(el('span', {text: 'Étape ' + (i + 1) + ' sur ' + ETAPES.length}));
+        let m = $('.etape-manque', pane);
+        if (s.e === 'todo') {
+          if (!m) { m = el('div', {class: 'etape-manque'}); tete.after(m); }
+          m.textContent = 'À compléter ici : ' + s.t + '.';
+        } else if (m) { m.parentNode.removeChild(m); }
+      }
+    });
+    const cb = $('#tabs button[data-p="controles"]');
+    if (cb && CTRL) {
+      const al = CTRL.issues.filter(x => x.level === 'erreur' || x.level === 'alerte').length;
+      const inf = CTRL.issues.length - al;
+      cb.className = 'ctl' + (al ? ' todo' : ' ok') + (cb.classList.contains('on') ? ' on' : '');
+      cb.innerHTML = '';
+      cb.appendChild(el('span', {class: 'n', text: '✔'}));
+      cb.appendChild(el('span', {class: 'lb'}, [el('span', {text: 'Contrôles'}),
+        el('small', {text: (al ? pl(al, 'alerte') : 'aucune alerte') + (inf ? ' · ' + pl(inf, 'information') : '')})]));
+    }
+    const box = $('#progression');
+    if (box) {
+      box.hidden = false; box.innerHTML = '';
+      box.appendChild(el('b', {text: ok + ' étape' + (ok > 1 ? 's' : '') + ' sur ' + ETAPES.length + ' complète' + (ok > 1 ? 's' : '')}));
+      box.appendChild(el('span', {class: 'pb'}, [el('i', {style: 'width:' + Math.round(100 * ok / ETAPES.length) + '%'})]));
+      if (CTRL) box.appendChild(el('b', {text: 'Complétude ' + CTRL.score + ' %'}));
+      if (manques.length) {
+        const m = el('span', {class: 'manque'}, [el('span', {text: 'Il manque :'})]);
+        manques.forEach(([p, t], j) => {
+          m.appendChild(el('a', {text: t, on: {click: () => allerA(p)}}));
+          if (j < manques.length - 1) m.appendChild(document.createTextNode('·'));
+        });
+        box.appendChild(m);
+      }
+    }
+    const mis = $('#missing'); if (mis) mis.hidden = true;      // remplacé par la barre de progression
   }
   function renderSuggestions() {
     const box = $('#suggestions'); if (!CTRL) return; box.innerHTML = '';

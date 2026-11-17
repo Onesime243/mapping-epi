@@ -300,6 +300,7 @@ def test_droits_super_admin_provincial_session_unique(app):
     assert a.get(f"/cas/{cid}/telecharger/json").status_code == 403
     page = a.get(f"/cas/{cid}").get_data(as_text=True)
     assert 'data-v="network"' in page and 'data-v="gantt"' not in page and "Analyses ▾" not in page
+    assert 'class="card etapes"' in page and 'id="progression"' in page            # fiche par étapes
     assert 'data-fmt="png"' in page and 'data-fmt="xlsx"' not in page
     assert "Importer une fiche" in a.get("/cas").get_data(as_text=True)
     # session unique : la 2e connexion déconnecte la 1re
