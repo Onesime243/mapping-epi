@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple
 import yaml
 
 from config import theme
-from core.models import Case, ContactGroup, Event, Place
+from core.models import NOTE_PIED_DEFAUT, Case, ContactGroup, Event, Place
 
 ROOT = Path(__file__).resolve().parent.parent
 _DISEASES: Optional[dict] = None
@@ -575,6 +575,104 @@ def check_consistency(case: Case) -> List[Issue]:
     for gap in coverage_gaps(case):
         out.append(Issue("info", f"Période non couverte du {gap[0]:%d/%m} au {gap[1]:%d/%m} : "
                                  "ajouter une étape « Période à documenter » ?"))
+    par_lieu: dict = {}
+    for ou, extrait in noms_personnes(case):
+        par_lieu.setdefault(ou, []).append(extrait)
+    for ou, ex in par_lieu.items():
+        cites = ", ".join(f"« {e} »" for e in ex)
+        out.append(Issue("alerte", f"Nom de personne ? {ou} : {cites}. L'outil ne doit contenir que des identifiants : "
+                                   "remplacez le nom par un ID ou un rôle (ex. « mère du cas »)."))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Noms de personnes dans les textes libres (confidentialité)
+# ---------------------------------------------------------------------------
+import re as _re
+
+# sigles et mots en majuscules courants dans une riposte : jamais pris pour un nom
+_SIGLES = {"MVE", "PCI", "IPC", "HGR", "CTE", "CS", "ZS", "AS", "EDS", "OMS", "WHO", "MSF", "ALIMA", "IRC", "INRB",
+           "UMIE", "RDC", "SGI", "PPL", "CBCA", "CEBCE", "CEPAC", "CBCE", "CECA", "FICTIF", "EPI", "PEV", "UNICEF",
+           "IMC", "MDM", "CICR", "ONG", "ID", "RAS", "NB", "OK", "CAS", "HGRB", "HGRK", "CSR", "PS", "CH", "PNLMVE",
+           "DPS", "BCZ", "MCZ", "IT", "ITM", "REKO", "RECO", "PTME", "VIH", "TB", "SIDA", "GPS", "SMS", "PDF",
+           "MPOX", "EBOLA", "MARBURG", "NON", "OUI", "INCONNU", "DECES", "DÉCÈS", "ALERTE", "URGENT", "PCR", "RDT",
+           "TDR", "SpO2", "TASK", "FORCE", "PRÉSIDENTIELLE", "PRESIDENTIELLE", "SYSTÈME", "SYSTEME", "GESTION",
+           "INCIDENT", "DÉMONSTRATION", "DEMONSTRATION", "CONFIRMÉ", "CONFIRME", "POSITIF", "NÉGATIF", "NEGATIF",
+           "SUSPECT", "PROBABLE", "CONTACT", "CONTACTS", "DOMICILE", "HOPITAL", "HÔPITAL", "MARCHE", "MARCHÉ",
+           "EGLISE", "ÉGLISE", "ECOLE", "ÉCOLE", "CENTRE", "SANTE", "SANTÉ", "PROVINCE", "ZONE", "AIRE"}
+_TITRES = r"(?:M\.|Mr|Mme|Mlle|Monsieur|Madame|Mademoiselle|Maman|Mama|Papa|Docteur|Dr|Pasteur|Abbé|Chef|Infirmier|Infirmière)"
+_MAJ = r"[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ][A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ'-]{2,}"
+_TITLE = r"[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ][a-zàâäçéèêëîïôöùûü'-]{2,}"
+_RE_MAJ2 = _re.compile(rf"\b{_MAJ}(?:\s+{_MAJ})+\b")                      # MUSUBAO MURATUSI
+_RE_MAJ_TITLE = _re.compile(rf"\b{_MAJ}\s+{_TITLE}\b|\b{_TITLE}\s+{_MAJ}\b")   # MUSUBAO Benedicte
+_RE_TITRE = _re.compile(rf"\b{_TITRES}\s+(?:{_TITLE}|{_MAJ})(?:\s+(?:{_TITLE}|{_MAJ}))?")   # Maman Benedicte, Dr Kasereka
+_PARENTE = r"(?:frère|frere|sœur|soeur|mère|mere|père|pere|fils|fille|oncle|tante|épouse|epouse|époux|epoux|mari|femme|cousin|cousine|voisin|voisine|enfant)"
+_RE_PARENTE = _re.compile(rf"\b{_PARENTE}\s+(?:{_TITLE}|{_MAJ})(?:\s+(?:{_TITLE}|{_MAJ}))?")         # frère KAMBALE
+
+
+def _lieux_connus(case: Case) -> set:
+    from core import pyramide
+    noms = set()
+    try:
+        py = pyramide.get()
+        for z in py.zones(case.province or ""):
+            noms.add(pyramide.norm(z))
+        for a in py.aires(case.province or "", case.zs or ""):
+            noms.add(pyramide.norm(a))
+    except Exception:
+        pass
+    for x in (case.zs, case.aire_sante, case.province, case.village):
+        if x:
+            noms.add(pyramide.norm(x))
+    for p in case.places:
+        for mot in (p.nom or "").split():
+            noms.add(pyramide.norm(mot))
+    for e in case.events:
+        for t in (e.lieu, e.lieu_arrivee):
+            for mot in (t or "").split():
+                noms.add(pyramide.norm(mot))
+    return {n for n in noms if n}
+
+
+def noms_personnes(case: Case) -> List[Tuple[str, str]]:
+    """(où, extrait) des passages de texte libre qui ressemblent à un nom de personne. Repérage prudent :
+    plusieurs mots en MAJUSCULES qui ne sont pas des sigles, un mot en majuscules accolé à un prénom,
+    ou un titre suivi d'un nom (« Maman Benedicte »). Les noms de lieux connus de la fiche sont ignorés."""
+    from core import pyramide
+    lieux = _lieux_connus(case)
+
+    def suspect(extrait: str, rx) -> bool:
+        mots = [m for m in _re.split(r"[\s'-]+", extrait) if m]
+        if rx in (_RE_TITRE, _RE_PARENTE):
+            noms = mots[1:]
+            return bool(noms) and not all(pyramide.norm(m) in lieux or m.upper() in _SIGLES for m in noms)
+        majs = [m for m in mots if m.isupper() and len(m) >= 4 and m not in _SIGLES and pyramide.norm(m) not in lieux]
+        return bool(majs)
+
+    textes = []
+    for i, e in enumerate(case.events, 1):
+        lab = f"Chronologie, étape {i} ({e.titre or e.type})"
+        textes += [(lab, e.titre), (lab, e.description), (lab, e.personnes)]
+    for g in case.contacts:
+        textes += [(f"Contacts « {g.categorie} »", g.categorie), (f"Contacts « {g.categorie} »", g.lien)]
+    for p in case.places:
+        textes.append((f"Lieu « {p.nom} »", p.population))
+    textes.append(("Note de bas de page", case.note_pied if case.note_pied != NOTE_PIED_DEFAUT else ""))
+    out, vus = [], set()
+    for ou, t in textes:
+        t = (t or "").strip()
+        if not t:
+            continue
+        # « avecMUSUBAO » : sépare un mot collé à un nom en majuscules
+        t2 = _re.sub(r"([a-zàâäçéèêëîïôöùûü])([A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ]{3,})", r"\1 \2", t)
+        for rx in (_RE_TITRE, _RE_PARENTE, _RE_MAJ2, _RE_MAJ_TITLE):
+            for m in rx.finditer(t2):
+                ex = m.group(0).strip()
+                if any(ex in d or d in ex for o_, d in vus if o_ == ou):
+                    continue
+                if suspect(ex, rx) and (ou, ex) not in vus:
+                    vus.add((ou, ex))
+                    out.append((ou, ex))
     return out
 
 

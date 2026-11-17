@@ -2,7 +2,7 @@
 {% block title %}{{ case.titre_court() }} · Mapping Épi{% endblock %}
 {% block mainclass %}wide{% endblock %}
 {% block content %}
-<div class="row" style="justify-content:space-between; margin-bottom:10px">
+<div class="row ed-head" style="justify-content:space-between; margin-bottom:10px">
   <div>
     <a href="{{ url_for('cases') }}" class="muted" style="text-decoration:none">← Liste des cas</a>
     <h1 id="caseTitle" style="margin:4px 0 0">{{ case.titre_court() }}</h1>
@@ -11,7 +11,7 @@
     {% if readonly %}
     <span class="pill ro">Lecture seule</span>
     {% else %}
-    <span id="status" class="status">Enregistré</span>
+    <span id="status" class="status ok" role="status" aria-live="polite">✓ Enregistré</span>
     <button class="btn primary" id="saveVersion" title="Enregistre une version dans l'historique">Enregistrer une version</button>
     {% endif %}
     {% if can_delete %}
@@ -75,7 +75,7 @@
 
   <section class="preview">
     <div class="vtabs" id="vtabs">
-      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% else %}<button type="button" class="vt-off" disabled title="{{ t('Réservé aux administrateurs') }}">{{ label }}</button>{% endif %}{% endfor %}
+      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% endif %}{% endfor %}
     </div>
     <div class="frame" id="frame"><iframe id="pv" title="Aperçu" loading="eager"></iframe></div>
     <div class="dl" id="dl">

@@ -125,8 +125,17 @@ table.edit td.ops { white-space: nowrap; }
   border: 1px solid var(--border); box-shadow: var(--shadow); }
 .frame iframe { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; border: 0; transform-origin: 0 0; }
 .dl { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.status { font-size: 13px; color: var(--muted); }
-.status.err { color: var(--danger); font-weight: 700; }
+.ed-head { position: sticky; top: 46px; z-index: 15; background: var(--bg); padding: 6px 0; }
+.status { font-size: 13px; font-weight: 650; border-radius: 999px; padding: 6px 12px; white-space: nowrap;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+.status.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: color-mix(in srgb, var(--ok) 10%, var(--panel)); }
+.status.pending { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); }
+.status.saving { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.status.err { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); background: color-mix(in srgb, var(--danger) 9%, var(--panel)); font-weight: 700; }
+.dl a.busy { opacity: .75; pointer-events: none; }
+.dl a.busy::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor;
+  border-right-color: transparent; display: inline-block; animation: tourne .8s linear infinite; }
+@keyframes tourne { to { transform: rotate(360deg); } }
 .issues li { margin: 5px 0; }
 .lvl-erreur { color: var(--danger); font-weight: 800; }
 .lvl-alerte { color: var(--warn); font-weight: 800; }

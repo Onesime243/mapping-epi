@@ -299,7 +299,7 @@ def test_droits_super_admin_provincial_session_unique(app):
     assert a.get(f"/cas/{cid}/telecharger/xlsx").status_code == 403
     assert a.get(f"/cas/{cid}/telecharger/json").status_code == 403
     page = a.get(f"/cas/{cid}").get_data(as_text=True)
-    assert "Réservé aux administrateurs" in page and "Analyses ▾" not in page
+    assert 'data-v="network"' in page and 'data-v="gantt"' not in page and "Analyses ▾" not in page
     assert 'data-fmt="png"' in page and 'data-fmt="xlsx"' not in page
     assert "Importer une fiche" in a.get("/cas").get_data(as_text=True)
     # session unique : la 2e connexion déconnecte la 1re
@@ -375,3 +375,22 @@ def test_tableau_de_bord(app):
         _login(c2, u, "Secret123" if u == "chef.nat2" else "Agent2026x")
         assert c2.get("/tableau-de-bord").status_code == 403
         assert "tableau-de-bord" not in c2.get("/").get_data(as_text=True)
+
+
+def test_noms_de_personnes_signales():
+    from core import rules
+    from core.models import Case, ContactGroup, Event
+    c = Case(zs="Beni", province="Nord-Kivu", aire_sante="Ngongolio", events=[
+        Event(lieu="CM TAMENDE", titre="Accouchement et contact avecMUSUBAO MURATUSI Benedicte"),
+        Event(lieu="HGR Beni", titre="Prélèvement PCR", description="Équipe MSF ALIMA, transfert au CTE de Beni"),
+        Event(titre="Visite", personnes="Maman Kahindo et ses enfants")],
+        contacts=[ContactGroup(categorie="Famille", lien="frère KAMBALE"), ContactGroup(categorie="Co-patients HGR")])
+    trouves = [e for _o, e in rules.noms_personnes(c)]
+    assert "MUSUBAO MURATUSI" in trouves and "Maman Kahindo" in trouves and "frère KAMBALE" in trouves
+    assert not any("HGR" in e or "PCR" in e or "MSF" in e or "Beni" in e for e in trouves)
+    msgs = [i.message for i in rules.check_consistency(c)]
+    assert sum(1 for m in msgs if m.startswith("Nom de personne ?")) == 3
+    import json
+    from pathlib import Path
+    ex = Case.model_validate(json.loads(Path("sample_data/cas_exemple_fictif.json").read_text(encoding="utf-8")))
+    assert rules.noms_personnes(ex) == []

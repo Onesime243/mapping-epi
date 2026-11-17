@@ -21,31 +21,55 @@
     clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, ms || 2600);
   }
   const RO = !!window.READONLY;      // lecture seule (fiche d'un autre compte, niveau provincial / national)
-  function setStatus(txt, err) { const s = $('#status'); if (!s) return; s.textContent = txt; s.className = 'status' + (err ? ' err' : ''); }
+  // état de sauvegarde toujours visible : ok (vert), pending (orange), saving (bleu), err (rouge)
+  let lastSaved = null;
+  function setStatus(txt, kind) {
+    const s = $('#status'); if (!s) return;
+    const k = kind === true ? 'err' : (kind || 'ok');
+    const ic = {ok: '✓ ', pending: '● ', saving: '↻ ', err: '⚠ '}[k] || '';
+    s.textContent = ic + txt; s.className = 'status ' + k;
+  }
+  function depuis(t) {
+    const sec = Math.round((Date.now() - t.getTime()) / 1000);
+    if (sec < 10) return "à l'instant";
+    if (sec < 60) return 'il y a ' + sec + ' s';
+    const m = Math.round(sec / 60);
+    return m < 60 ? 'il y a ' + m + ' min' : 'à ' + t.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+  }
+  setInterval(() => {
+    const s = $('#status');
+    if (s && lastSaved && s.classList.contains('ok') && !dirty) setStatus('Enregistré ' + depuis(lastSaved), 'ok');
+  }, 15000);
 
   function changed() {
     if (RO) return;
     markRequired(); renderObligatoires();
-    dirty = true; setStatus('Modifications non enregistrées…');
+    dirty = true; setStatus('Modifications non enregistrées…', 'pending');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
   async function save(version, comment) {
     if (saving) await saving.catch(() => {});
     if (!dirty && !version) return;
-    dirty = false; setStatus('Enregistrement…');
+    dirty = false; setStatus('Enregistrement…', 'saving');
     const q = version ? ('?version=1&commentaire=' + encodeURIComponent(comment || '')) : '';
     saving = api('/api/cas/' + ID + q, {method: 'PUT', body: JSON.stringify(C)}).then(j => {
       CTRL = j.controls; updateComputed(); renderControls(); renderSuggestions(); refreshPreview();
       const t = new Date(j.saved_at);
       OBLIG = j.obligatoires || []; renderObligatoires();
       if (j.brouillon) {
-        setStatus('Non enregistré : ' + OBLIG.length + ' champ(s) obligatoire(s) manquant(s) (brouillon gardé)', true);
+        setStatus('Brouillon : ' + OBLIG.length + ' champ(s) obligatoire(s) manquant(s)', 'pending');
         if (version) toast(j.message, 6000);
       } else {
-        setStatus((version ? 'Version enregistrée' : 'Enregistré') + ' à ' + t.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}));
+        lastSaved = isNaN(t.getTime()) ? new Date() : t;
+        setStatus((version ? 'Version enregistrée ' : 'Enregistré ') + depuis(lastSaved), 'ok');
       }
       updateTitle();
-    }).catch(e => { dirty = true; setStatus('Échec : ' + e.message, true); });
+    }).catch(e => {
+      dirty = true;
+      setStatus(navigator.onLine === false ? 'Hors connexion : non enregistré, nouvel essai automatique'
+                                           : "Échec de l'enregistrement : " + e.message, 'err');
+      clearTimeout(timer); timer = setTimeout(() => save(false), 15000);
+    });
     return saving;
   }
   async function flush() { clearTimeout(timer); if (dirty) await save(false); else if (saving) await saving.catch(() => {}); }
@@ -374,7 +398,7 @@
     $$('[data-k]').forEach(x => x.classList.toggle('obl-missing', m.some(o => o.key === x.dataset.k)));
     box.hidden = !m.length;
     if (!m.length) return;
-    if (!dirty && !saving) setStatus('Brouillon : non enregistré', true);
+    if (!dirty && !saving) setStatus('Brouillon : non enregistré', 'pending');
     box.innerHTML = '';
     const noms = m.map(o => o.label.replace(/ \(.*\)$/, '').toLowerCase().replace(/^id /, 'ID '));
     const liste = noms.length > 1 ? noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1] : noms[0];
@@ -512,12 +536,34 @@
       if (com === null) return;
       clearTimeout(timer); await save(true, com); toast('Version enregistrée dans l\'historique.');
     });
+    // téléchargement : le bouton affiche « Génération… » jusqu'à ce que le fichier soit prêt, ou dit pourquoi il a échoué
     $$('#dl a').forEach(a => a.addEventListener('click', async ev => {
       ev.preventDefault();
+      if (a.classList.contains('busy')) return;
       await flush();
-      const slow = ['png', 'png4k', 'pdf', 'pdfa4', 'rapport-pdf', 'rapport-pptx'].includes(a.dataset.fmt);
-      if (slow) toast('Génération du fichier… (quelques secondes)', 6000);
-      window.location.href = a.href;
+      const label = a.textContent;
+      a.classList.add('busy'); a.textContent = ' Génération…';
+      try {
+        const r = await fetch(a.href, {credentials: 'same-origin'});
+        if (!r.ok) {
+          const txt = (await r.text().catch(() => '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          throw new Error(r.status === 403 ? 'réservé aux administrateurs' : (txt.slice(0, 160) || ('erreur ' + r.status)));
+        }
+        const blob = await r.blob();
+        const cd = r.headers.get('Content-Disposition') || '';
+        const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i);
+        const nom = m ? decodeURIComponent(m[1]) : ('mapping.' + a.dataset.fmt);
+        const url = URL.createObjectURL(blob);
+        const lien = document.createElement('a');
+        lien.href = url; lien.download = nom; lien.style.display = 'none';
+        document.body.appendChild(lien); lien.click(); document.body.removeChild(lien);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        toast('Fichier prêt : ' + nom, 3500);
+      } catch (e) {
+        toast('Téléchargement impossible : ' + e.message, 7000);
+      } finally {
+        a.classList.remove('busy'); a.textContent = label;
+      }
     }));
     new ResizeObserver(scaleFrame).observe($('#frame'));
     scaleFrame(); refreshPreview();
