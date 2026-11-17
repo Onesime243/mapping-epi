@@ -10,6 +10,7 @@ from typing import Optional
 
 from pptx import Presentation
 from pptx.enum.dml import MSO_LINE_DASH_STYLE
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 
 from core.models import Case
@@ -50,52 +51,88 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     for i, c in enumerate(("#1D5FAF", "#C8202A", "#F2B705")):
         S.rect(i * W / 3, 70, W / 3 + 1, 4, c, name="Bande tricolore")
 
-    # -- ligne des dates et de ce qui manque ---------------------------------------------------------------------
-    S.rect(0, 74, W, 28, PAPIER, name="Dates")
-    S.line(0, 102, W, 102, BORD, 0.75)
-    manque = ("? " + " · ".join(x["manque"])) if x["manque"] else ""
-    mw = min(520, 24 + len(manque) * 5.3) if manque else 0
-    runs = []
-    for d in x["dates"]:
-        runs += [(d["k"] + " ", {"color": GRIS}), (d["v"], {"bold": True, "color": ENCRE}),
-                 ((" " + d["x"]) if d.get("x") else "", {"color": GRIS}), ("    ", {})]
-    S.text(22, 76, W - 44 - mw - 10, 24, [runs], size=7.9, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, name="Dates clés")
-    if manque:
-        sh = S.rect(W - 22 - mw, 79, mw, 18, "#FFF1DC", "#F0C78A", radius=9, name="À compléter")
-        S.text(0, 0, 0, 0, [manque], size=fit_pt([(manque, 1)], mw - 12, 16, 7.9, 5.5), color=ORANGE_T, bold=True,
-               anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    # -- bandeau d'identité (11 cases) ------------------------------------------------------------------------------
+    from config import theme as TH
+    import math
+    ids = v.identity
+    iw = (W - 44) / max(1, len(ids))
+    S.rect(22, 80, W - 44, 46, PAPIER, BORD, radius=9, name="Identité")
+    for i, cid in enumerate(ids):
+        cx_ = 22 + i * iw
+        if i:
+            S.line(cx_, 80, cx_, 126, BORD, 0.75)
+        S.text(cx_ + 3, 85, iw - 6, 12, [cid["k"].upper()], size=6, color="#000000", bold=True)
+        S.text(cx_ + 3, 97, iw - 6, 24, [cid["v"]], size=fit_pt([(cid["v"], 1)], iw - 8, 22, _pt(14), 6),
+               color=cid.get("color") or "#000000", bold=True, anchor=MSO_ANCHOR.MIDDLE)
 
-    # -- frise à l'échelle du temps -------------------------------------------------------------------------------
-    sh = S.rect(22, 106, 232, 17, "#1F3A5F", radius=4, name="Étiquette chronologie")
-    S.text(0, 0, 0, 0, ["CHRONOLOGIE À L’ÉCHELLE DU TEMPS"], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE,
-           shape=sh)
+    # -- ligne « Chronologie du parcours » : badges, ce qui manque, légende -------------------------------------------
+    ry = 136
+    sh = S.rect(22, ry, 190, 20, "#1F3A5F", radius=4, name="Étiquette chronologie")
+    S.text(0, 0, 0, 0, ["CHRONOLOGIE DU PARCOURS"], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    bx_ = 218
+    badges = []
+    if v.contact:
+        badges.append((v.contact["t"] + ((" " + v.contact["src"]) if v.contact.get("src") else ""), v.contact["fill"], v.contact["ink"]))
+        if v.contact.get("todo"):
+            badges.append(("ID DU CAS SOURCE : À COMPLÉTER", "#FFFFFF", "#B3262C"))
+    for b in v.badges:
+        badges.append((b["t"].upper(), "#FFFFFF", "#B3262C") if b.get("todo") else (b["t"], b["fill"], b["ink"]))
+    for t_, fill, ink in badges:
+        bw_ = 20 + len(t_) * 6.0
+        sh = S.rect(bx_, ry, bw_, 20, fill, "#B3262C" if fill == "#FFFFFF" else None, radius=4, name="Badge")
+        S.text(0, 0, 0, 0, [t_], size=7, color=ink, bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+        bx_ += bw_ + 6
+    if x["manque"]:
+        manque = "? " + " · ".join(x["manque"])
+        mw = min(W - 22 - 330 - bx_, 22 + len(manque) * 5.0)
+        if mw > 60:
+            sh = S.rect(bx_, ry, mw, 20, "#FFF1DC", "#F0C78A", radius=9, name="À compléter")
+            S.text(0, 0, 0, 0, [manque], size=fit_pt([(manque, 1)], mw - 12, 18, 7.1, 5), color=ORANGE_T, bold=True,
+                   anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    leg = "J±n : jours depuis le J0 " + (f"retenu (date rapportée − {v.recul} j)" if v.recul else "retenu ou estimé")
     if x["frise"] and x["frise"]["adapte"]:
-        S.text(262, 106, 500, 17, ["les jours où plusieurs étapes se suivent sont agrandis"], size=6.6, color="#000000",
-               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-    fx, fw, ft = 26, W - 52, 126
+        leg += " · jours chargés agrandis"
+    S.text(W - 22 - 330, ry, 330, 20, [leg], size=6.6, color="#000000", align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
+
+    # -- bande des 5 phases (chevrons) --------------------------------------------------------------------------------
+    py_, ph_h = 163, 44
+    strip = v.phase_strip
+    if strip:
+        pw_ = (W - 44) / len(strip)
+        for i, pz in enumerate(strip):
+            px0 = 22 + i * pw_
+            forme = MSO_SHAPE.PENTAGON if i == 0 else MSO_SHAPE.CHEVRON
+            sh = S.rect(px0, py_, pw_ + 6, ph_h, pz["fill"], shape=forme, name="Phase " + pz["label"])
+            try:
+                sh.adjustments[0] = 0.25
+            except Exception:
+                pass
+            ink = TH.ink_on(pz["fill"])
+            S.text(px0 + (10 if i == 0 else 16), py_ + 2, pw_ - 26, ph_h - 4,
+                   [[(f"{i + 1}. {pz['label'].upper()}", {"bold": True}), (" · " + pz["contag"], {})],
+                    [(pz["dates"], {"bold": True})], [(pz["detail"], {"size": 5.6})]],
+                   size=6.3, color=ink, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, line_spacing=0.95)
+
+    # -- frise à l'échelle du temps (axe, points, trou, repère) --------------------------------------------------------
+    fx, fw, ft = 26, W - 52, 214
     f = x["frise"]
     if f:
         X = lambda pct: fx + fw * pct / 100.0                                                    # noqa: E731
-        for b in f["bandes"]:
-            bw = max(4, fw * b["w"] / 100.0 - 2)
-            sh = S.rect(X(b["l"]), ft + 4, bw, 20, b["bg"], radius=4, name="Phase")
-            S.text(0, 0, 0, 0, [b["t"]], size=fit_pt([(b["t"], 1)], bw - 8, 18, 7.1, 5), color=b["fg"], bold=True,
-                   align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         if f["trou"]:
             t = f["trou"]
             gw = max(30, fw * t["w"] / 100.0 - 2)
-            sh = S.rect(X(t["l"]), ft + 28, gw, 14, "#FFF6E8", "#C76A00", radius=4, line_w=1.0, name="Trou de chronologie")
+            sh = S.rect(X(t["l"]), ft, gw, 14, "#FFF6E8", "#C76A00", radius=4, line_w=1.0, name="Trou de chronologie")
             sh.line.dash_style = MSO_LINE_DASH_STYLE.DASH
             S.text(0, 0, 0, 0, [t["t"]], size=fit_pt([(t["t"], 1)], gw - 6, 13, 6.4, 4.5), color=ORANGE_T, bold=True,
                    anchor=MSO_ANCHOR.MIDDLE, shape=sh)
-        S.rect(fx, ft + 49, fw, 2, "#C9C2B3", name="Axe du temps")
+        S.rect(fx, ft + 23, fw, 2, "#C9C2B3", name="Axe du temps")
         for r in f["reperes"]:
-            S.line(X(r["x"]), ft, X(r["x"]), ft + 52, NAVY, 1.1)
-            S.text(X(r["x"]) + 2, ft - 2, 80, 11, [r["t"]], size=6, color=NAVY, bold=True, align=PP_ALIGN.LEFT)
+            S.line(X(r["x"]), ft, X(r["x"]), ft + 27, NAVY, 1.1)
+            S.text(X(r["x"]) + 3, ft - 1, 80, 11, [r["t"]], size=6, color=NAVY, bold=True, align=PP_ALIGN.LEFT)
         for p in f["points"]:
-            S.oval(X(p["x"]), ft + 50, 5.5, p["c"], FOND, 1.5)
+            S.oval(X(p["x"]), ft + 24, 5.5, p["c"], FOND, 1.5)
         for t in f["ticks"]:
-            S.text(X(t["x"]) - 24, ft + 55, 48, 11, [t["t"]], size=6.4, color="#000000")
+            S.text(X(t["x"]) - 24, ft + 29, 48, 11, [t["t"]], size=6.4, color="#000000")
     else:
         S.text(22, ft + 8, 700, 18, ["Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise."],
                size=8.2, color=GRIS, align=PP_ALIGN.LEFT)
@@ -103,46 +140,62 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     # -- zones du bas : calculées depuis le pied de page -------------------------------------------------------------
     two = len(v.rows) > 1
     foot_y = H - 6 - 16
-    bas_h = 168 if two else 214
+    bas_h = 150 if two else 190
     bas_y = foot_y - 7 - bas_h
-    cy0, cy1 = ft + 66 + 7, bas_y - 7
+    cy0, cy1 = ft + 44 + 7, bas_y - 7
 
-    # -- cartes des étapes -------------------------------------------------------------------------------------------
+    # -- cartes des étapes : ligne des phases au-dessus, barre de couleur, contenu centré ------------------------------
     cartes = x["cartes"]
     per = len(v.rows[0]) if v.rows and v.rows[0] else 1
     nrows = max(1, len(v.rows))
     cw = (W - 44 - (per - 1) * 6) / per
-    ch = (cy1 - cy0 - (nrows - 1) * 6) / nrows
+    rang_h = (cy1 - cy0 - (nrows - 1) * 6) / nrows
+    ch = rang_h - 18                                   # 15 px de ligne des phases + 3 px
     pill_h = 16 if two else 18
 
     def lignes(c):
-        out = [(c["date"] + (f"  {c['rel']}" if c["rel"] else ""), 0.92), (c["lieu"], 1.0), (c["titre"], 1.05)]
+        out = [(c["date"] + (f"  {c['rel']}" if c["rel"] else ""), 0.92), (c["lieu"], 1.0), ("●", 1.6), (c["titre"], 1.05)]
         if c["desc"] and not two:
             out.append((c["desc"], 0.82))
         out += [(("⚠ " if ch_.get("warn") else "") + ch_["t"], 0.78) for ch_ in c["chips"]]
         if c["personnes"]:
             out.append(("? personnes présentes", 0.8))
         return out
-    taille = min([fit_pt(lignes(c), cw - 14, ch - pill_h - 16, _pt(10 if two else 11.5), 4.5) for c in cartes] or [8])
+    taille = min([fit_pt(lignes(c), cw - 14, ch - pill_h - 20, _pt(10 if two else 11.5), 4.5) for c in cartes] or [8])
+    for r_ in range(nrows):
+        ry0 = cy0 + r_ * (rang_h + 6)
+        for b in (v.bands[r_] if r_ < len(v.bands) else []):
+            bc = TH.soft(TH.PHASES[b.phase]["color"])
+            sh = S.rect(22 + (b.col - 1) * (cw + 6), ry0, b.span * cw + (b.span - 1) * 6, 15, bc, radius=4, name="Phase")
+            S.text(0, 0, 0, 0, [b.label.upper()], size=6.4, color=TH.ink_on(bc), bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
     for i, c in enumerate(cartes):
         r_, col = divmod(i, per)
-        bx, by = 22 + col * (cw + 6), cy0 + r_ * (ch + 6)
+        bx, by = 22 + col * (cw + 6), cy0 + r_ * (rang_h + 6) + 18
         card = S.rect(bx, by, cw, ch, PAPIER, BORD, radius=8, name=f"Étape {i + 1}")
         if c["incertain"]:
             card.line.dash_style = MSO_LINE_DASH_STYLE.DASH
-        pars = [[(c["date"], {"bold": True, "color": BLEU, "size": taille * 0.92}),
-                 (("  " + c["rel"]) if c["rel"] else "", {"bold": True, "color": "#000000", "size": taille * 0.75})],
-                [(c["lieu"], {"bold": True, "color": ENCRE})],
-                [(c["titre"], {"color": ENCRE, "bold": True, "size": taille * 1.02})]]
+        S.rect(bx + 1, by + 1, cw - 2, 4, c["tc"], name="Barre du type")
+        # haut : date et lieu ; puis le rond du type ; puis le type, la description et les pastilles
+        px_t = taille / 0.75
+        cpl = max(4, int((cw - 14) / (px_t * 0.55)))
+        n_lieu = max(1, math.ceil(len(c["lieu"]) / cpl))
+        h_haut = (1 + n_lieu) * px_t * 1.25 + 4
+        S.text(bx + 6, by + 7, cw - 12, h_haut, [[(c["date"], {"bold": True, "color": c["tc"], "size": taille * 0.92}),
+                                                   (("  " + c["rel"]) if c["rel"] else "", {"bold": True, "color": "#000000", "size": taille * 0.75})],
+                                                  [(c["lieu"], {"bold": True, "color": ENCRE})]], size=taille, color=ENCRE)
+        r_ic = max(5, px_t * 0.85)
+        yic = by + 7 + h_haut + r_ic
+        S.oval(bx + cw / 2, yic, r_ic, c["tc"], "#FFFFFF", 1.0)
+        pars = [[(c["titre"], {"color": ENCRE, "bold": True, "size": taille * 1.02})]]
         if c["desc"] and not two:
             pars.append([(c["desc"], {"color": "#000000", "size": taille * 0.82})])
         for ch_ in c["chips"]:
             pars.append([(("⚠ " if ch_.get("warn") else "") + ch_["t"],
-                          {"color": "#8E1F24" if ch_.get("warn") else GRIS, "bold": bool(ch_.get("warn")), "size": taille * 0.78})])
+                          {"color": "#8E1F24" if ch_.get("warn") else "#1F3A5F", "bold": True, "size": taille * 0.78})])
         if c["personnes"]:
             pars.append([("? personnes présentes", {"color": ORANGE_T, "bold": True, "size": taille * 0.8})])
-        S.text(bx + 6, by + 5, cw - 12, ch - pill_h - 12, pars, size=taille, color=ENCRE, align=PP_ALIGN.LEFT)
-        S.oval(bx + cw - 13, by + 13, 7, c["tc"], "#FFFFFF", 1.0)          # couleur du type d'étape
+        y_bas = yic + r_ic + 3
+        S.text(bx + 6, y_bas, cw - 12, max(10, by + ch - pill_h - 8 - y_bas), pars, size=taille, color=ENCRE)
         sh = S.rect(bx + 6, by + ch - pill_h - 6, cw - 12, pill_h, c["r"]["c"], radius=5, name="Risque")
         S.text(0, 0, 0, 0, [f"{c['r']['s']} {c['r']['t']}"], size=_pt(8.5 if two else 9.5), color="#FFFFFF", bold=True,
                anchor=MSO_ANCHOR.MIDDLE, shape=sh)
@@ -189,7 +242,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     # PCI
     px_, pyb, pwb, phb = boite(1, "PCI / décontamination", x["pci"]["resume"])
     sites = x["pci"]["sites"]
-    extra = (2 if x["pci"]["sans"] else 0) + (1 if any(s["st"] != "Décontaminé" for s in sites) else 0)
+    extra = (3 if x["pci"]["sans"] else 0) + (1 if any(s["st"] != "Décontaminé" for s in sites) else 0)
     rh = min(20, phb / max(1, len(sites) + extra))
     fs = min(_pt(11.5), rh * 0.6)
     yy = pyb
@@ -202,9 +255,10 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         n = len(x["pci"]["sans"])
         S.text(px_, yy, pwb, rh, [f"? {n} lieu{'x' if n > 1 else ''} d’exposition sans statut PCI :"], size=fs,
                color=ORANGE_T, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
-        S.text(px_, yy + rh, pwb, rh, [" · ".join(x["pci"]["sans"])], size=fs * 0.92, color=GRIS, align=PP_ALIGN.LEFT,
-               anchor=MSO_ANCHOR.MIDDLE)
-        yy += 2 * rh
+        noms = " · ".join(x["pci"]["sans"])
+        S.text(px_, yy + rh, pwb, 2 * rh, [noms], size=fit_pt([(noms, 1)], pwb, 2 * rh, fs * 0.92, 4.5), color=GRIS,
+               align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP)
+        yy += 3 * rh
     if any(s["st"] != "Décontaminé" for s in sites):
         S.text(px_, yy, pwb, rh * 1.6, ["Priorité : fermer les sites non décontaminés ; noter date, équipe et produit."],
                size=fs * 0.9, color=GRIS, align=PP_ALIGN.LEFT)

@@ -130,7 +130,7 @@ EVENT_TYPES = {
     "Prélèvement":              {"color": TEAL,   "icon": "swab"},
     "Laboratoire":              {"color": GREEN,  "icon": "lab"},
     "Riposte":                  {"color": TEAL,   "icon": "shield"},
-    "Autre":                    {"color": MUTED,  "icon": "dot"},
+    "Autre":                    {"color": GREY,   "icon": "dot"},
 }
 EVENT_TYPE_CHOICES = list(EVENT_TYPES.keys())
 # étapes sans personnes exposées autour du cas (pas de « Personnes présentes : à compléter »)
@@ -168,7 +168,7 @@ SYMPTOM_ALIASES = {"Asthénie": "Fatigue / asthénie", "Céphalées": "Céphalé
 
 
 def risk_color(level: str) -> str:
-    return RISK_LEVELS.get(level, {"color": MUTED})["color"]
+    return RISK_LEVELS.get(level, {"color": GREY})["color"]
 
 
 def risk_rank(level: str) -> int:
