@@ -131,7 +131,7 @@ def render_svg(case: Case) -> str:
         f1, f2 = min(11, rh * .38), min(9, rh * .3)
         out.append(f'<text x="{lx}" y="{y + rh * .45:.1f}" font-size="{f1:.1f}" font-weight="800" fill="{theme.INK}">'
                    f'{K.esc(K.ellipsize(label, x0 - lx - 10, f1, 800))}</text>')
-        out.append(f'<text x="{lx}" y="{y + rh * .45 + min(10, rh * .32):.1f}" font-size="{f2:.1f}" fill="#3A4654">'
+        out.append(f'<text x="{lx}" y="{y + rh * .45 + min(10, rh * .32):.1f}" font-size="{f2:.1f}" fill="#000000">'
                    f'{K.esc(K.ellipsize(sub, x0 - lx - 10, f2, 400))}</text>')
         bx, bw = X(a), max((b - a).days + 1, 1) * px
         h = rh * .58

@@ -6,11 +6,11 @@ la modifie partout (aperçu, PNG, PDF, SVG, PPTX).
 
 NAVY = "#1F3A5F"
 NAVY_DARK = "#152B47"
-BG = "#F3F5F8"
+BG = "#FFFFFF"        # fond blanc (projection)
 CARD = "#FFFFFF"
-BORDER = "#DCE2EA"
-TEXT = "#1B2430"
-MUTED = "#6B7785"
+BORDER = "#C5CDD8"   # bordures un peu plus marquées : fond blanc
+TEXT = "#000000"      # textes en noir (projection)
+MUTED = "#000000"     # anciennement gris : noir pour la projection
 
 # Couleurs modérées (esprit des cartes épidémiologiques) : teinte « appuyée » pour les traits, icônes et textes
 BLUE = "#4A7699"     # Inconnu / À investiguer / En cours
@@ -25,7 +25,7 @@ GREY = "#6B7785"
 # … et teinte « douce » pour les badges et étiquettes (fonds), comme la légende d'une carte
 SOFT = {BLUE: "#BCCFE0", GREEN: "#A6CB91", ORANGE: "#EBAA82", RED: "#CC746C", PURPLE: "#CBBCDD",
         TEAL: "#A3D1CB", YELLOW: "#EBD68E", GREY: "#DCE1E7"}
-INK = "#111827"      # texte foncé, bien lisible
+INK = "#000000"      # texte foncé, bien lisible
 
 
 def soft(color: str) -> str:

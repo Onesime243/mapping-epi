@@ -4,7 +4,7 @@
 {% set per = v.rows[0]|length if v.rows and v.rows[0]|length else 1 %}
 {% set two = v.rows|length > 1 %}
 <style>
-.mp { background: #F4F2EC; color: #14213D; }
+.mp { background: #FFFFFF; color: #000000; }
 .mp-head { position: absolute; left: 0; right: 0; top: 0; height: 70px; background: #12213B; color: #F7F5F0;
   display: flex; align-items: center; padding: 0 22px; gap: 16px; }
 .mp-ttl { min-width: 0; flex: 1 1 auto; }
@@ -17,41 +17,41 @@
 .mp-k .s { font-size: 9px; opacity: .92; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-tri { position: absolute; left: 0; right: 0; top: 70px; height: 4px; display: flex; }
 .mp-tri i { flex: 1; }
-.mp-dates { position: absolute; left: 0; right: 0; top: 74px; height: 28px; background: #FFFDF9; border-bottom: 1px solid #E2DCCF;
-  display: flex; align-items: center; gap: 11px; padding: 0 22px; font-size: 10.5px; color: #435066; white-space: nowrap; }
-.mp-dates b { color: #14213D; }
+.mp-dates { position: absolute; left: 0; right: 0; top: 74px; height: 28px; background: #FFFFFF; border-bottom: 1px solid #B8C0CC;
+  display: flex; align-items: center; gap: 11px; padding: 0 22px; font-size: 10.5px; color: #000000; white-space: nowrap; }
+.mp-dates b { color: #000000; }
 .mp-miss { margin-left: auto; background: #FFF1DC; color: #8A4B00; border: 1px solid #F0C78A; border-radius: 999px;
   padding: 3px 10px; font-weight: 700; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; }
 .mp-wrap { position: absolute; left: 0; right: 0; top: 102px; bottom: 0; padding: 8px 22px 6px; display: flex; flex-direction: column; gap: 7px; }
 .mp-sec { font-size: 9.5px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: #12213B; display: flex; gap: 10px; align-items: baseline; }
-.mp-sec small { font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #7A8496; }
+.mp-sec small { font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #000000; }
 .mp-tl { position: relative; height: 66px; flex: none; margin: 0 4px; }
 .mp-band { position: absolute; top: 4px; height: 20px; border-radius: 4px; font-size: 9.5px; font-weight: 700; display: flex;
   align-items: center; padding: 0 6px; white-space: nowrap; overflow: hidden; }
 .mp-gap { position: absolute; top: 28px; height: 14px; border: 1.5px dashed #C76A00; border-radius: 4px; background: #FFF6E8;
   color: #8A4B00; font-size: 8.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
 .mp-line { position: absolute; left: 0; right: 0; top: 49px; height: 2px; background: #C9C2B3; }
-.mp-dot { position: absolute; top: 44px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; border: 2px solid #F4F2EC; }
-.mp-tick { position: absolute; top: 55px; font-size: 8.5px; color: #7A8496; transform: translateX(-50%); white-space: nowrap; }
+.mp-dot { position: absolute; top: 44px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; border: 2px solid #FFFFFF; }
+.mp-tick { position: absolute; top: 55px; font-size: 8.5px; color: #000000; transform: translateX(-50%); white-space: nowrap; }
 .mp-rep { position: absolute; top: 0; height: 52px; border-left: 1.5px solid #12213B; }
-.mp-rep span { position: absolute; top: -1px; left: 3px; font-size: 8px; font-weight: 800; color: #12213B; background: #F4F2EC; padding: 0 2px; white-space: nowrap; }
+.mp-rep span { position: absolute; top: -1px; left: 3px; font-size: 8px; font-weight: 800; color: #12213B; background: #FFFFFF; padding: 0 2px; white-space: nowrap; }
 .mp-cards { flex: 1 1 auto; min-height: 0; display: grid; gap: 6px; }
-.mp-c { background: #FFFDF9; border: 1px solid #E2DCCF; border-radius: 8px; padding: 6px 7px 7px; display: flex; flex-direction: column;
+.mp-c { background: #FFFFFF; border: 1px solid #B8C0CC; border-radius: 8px; padding: 6px 7px 7px; display: flex; flex-direction: column;
   gap: 2px; min-width: 0; min-height: 0; overflow: hidden; }
 .mp-c.inc { border-style: dashed; }
 .mp-c .cb { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 11px; display: flex; flex-direction: column; gap: .18em; }
 .mp-c .d { font-size: .92em; font-weight: 800; color: #3E6FA8; line-height: 1.2; }
-.mp-c .d small { color: #7A8496; font-weight: 700; margin-left: .3em; }
+.mp-c .d small { color: #000000; font-weight: 700; margin-left: .3em; }
 .mp-c .p { font-size: 1em; font-weight: 700; line-height: 1.2; }
-.mp-c .e { font-size: .92em; color: #435066; line-height: 1.25; }
-.mp-c .x { font-size: .82em; color: #5B6577; line-height: 1.25; }
+.mp-c .e { font-size: .92em; color: #000000; line-height: 1.25; }
+.mp-c .x { font-size: .82em; color: #000000; line-height: 1.25; }
 .mp-c .q { font-size: .8em; color: #8A4B00; font-weight: 700; }
 .mp-c .ch { font-size: .78em; color: #8E1F24; font-weight: 700; }
-.mp-c .ch.info { color: #435066; font-weight: 600; }
+.mp-c .ch.info { color: #000000; font-weight: 600; }
 .mp-pill { flex: none; color: #fff; font-size: {{ 8.5 if two else 9.5 }}px; font-weight: 800; border-radius: 5px; padding: {{ 2 if two else 3 }}px 4px;
   text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-bottom { flex: none; height: {{ 168 if two else 214 }}px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr; gap: 9px; }
-.mp-box { background: #FFFDF9; border: 1px solid #E2DCCF; border-radius: 9px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.mp-box { background: #FFFFFF; border: 1px solid #B8C0CC; border-radius: 9px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .mp-box .mp-sec { justify-content: space-between; margin-bottom: 5px; }
 .mp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; font-size: 11px; display: flex; flex-direction: column; gap: .32em; }
 .mp-row { display: flex; align-items: center; gap: .7em; line-height: 1.2; }
@@ -61,8 +61,8 @@
 .mp-row .v { flex: none; min-width: 6.8em; text-align: right; font-weight: 800; white-space: nowrap; }
 .mp-todo { color: #8A4B00; font-weight: 700; }
 .mp-st { flex: none; font-size: .88em; font-weight: 800; border-radius: .4em; padding: .2em .55em; white-space: nowrap; }
-.mp-note { color: #435066; font-size: .92em; line-height: 1.3; }
-.mp-foot { flex: none; height: 16px; display: flex; justify-content: space-between; font-size: 8.5px; color: #7A8496; white-space: nowrap; gap: 12px; }
+.mp-note { color: #000000; font-size: .92em; line-height: 1.3; }
+.mp-foot { flex: none; height: 16px; display: flex; justify-content: space-between; font-size: 8.5px; color: #000000; white-space: nowrap; gap: 12px; }
 .mp-foot b { color: #12213B; }
 </style>
 

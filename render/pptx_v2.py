@@ -16,8 +16,8 @@ from core.models import Case
 from render.html_renderer import MappingView, build_mapping_view
 from render.pptx_exporter import Slide, fit_pt
 
-NAVY, FOND, PAPIER, BORD = "#12213B", "#F4F2EC", "#FFFDF9", "#E2DCCF"
-ENCRE, GRIS, BLEU, ORANGE_T = "#14213D", "#435066", "#3E6FA8", "#8A4B00"
+NAVY, FOND, PAPIER, BORD = "#12213B", "#FFFFFF", "#FFFFFF", "#B8C0CC"
+ENCRE, GRIS, BLEU, ORANGE_T = "#000000", "#000000", "#3E6FA8", "#8A4B00"
 W, H = 1280, 720
 
 
@@ -68,7 +68,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     # -- frise à l'échelle du temps -------------------------------------------------------------------------------
     S.text(22, 108, 700, 14, [[("CHRONOLOGIE À L’ÉCHELLE DU TEMPS", {"bold": True, "color": NAVY}),
                                ("   les jours où plusieurs étapes se suivent sont agrandis"
-                                if x["frise"] and x["frise"]["adapte"] else "", {"color": "#7A8496", "size": 6.6})]],
+                                if x["frise"] and x["frise"]["adapte"] else "", {"color": "#000000", "size": 6.6})]],
            size=7.1, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, name="Titre frise")
     fx, fw, ft = 26, W - 52, 126
     f = x["frise"]
@@ -93,7 +93,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         for p in f["points"]:
             S.oval(X(p["x"]), ft + 50, 5.5, p["c"], FOND, 1.5)
         for t in f["ticks"]:
-            S.text(X(t["x"]) - 24, ft + 55, 48, 11, [t["t"]], size=6.4, color="#7A8496")
+            S.text(X(t["x"]) - 24, ft + 55, 48, 11, [t["t"]], size=6.4, color="#000000")
     else:
         S.text(22, ft + 8, 700, 18, ["Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise."],
                size=8.2, color=GRIS, align=PP_ALIGN.LEFT)
@@ -129,11 +129,11 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         if c["incertain"]:
             card.line.dash_style = MSO_LINE_DASH_STYLE.DASH
         pars = [[(c["date"], {"bold": True, "color": BLEU, "size": taille * 0.92}),
-                 (("  " + c["rel"]) if c["rel"] else "", {"bold": True, "color": "#7A8496", "size": taille * 0.75})],
+                 (("  " + c["rel"]) if c["rel"] else "", {"bold": True, "color": "#000000", "size": taille * 0.75})],
                 [(c["lieu"], {"bold": True, "color": ENCRE})],
                 [(c["titre"], {"color": GRIS, "size": taille * 0.92})]]
         if c["desc"] and not two:
-            pars.append([(c["desc"], {"color": "#5B6577", "size": taille * 0.82})])
+            pars.append([(c["desc"], {"color": "#000000", "size": taille * 0.82})])
         for ch_ in c["chips"]:
             pars.append([(("⚠ " if ch_.get("warn") else "") + ch_["t"],
                           {"color": "#8E1F24" if ch_.get("warn") else GRIS, "bold": bool(ch_.get("warn")), "size": taille * 0.78})])
@@ -155,7 +155,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         bx, bw = xs[i], largeurs[i]
         S.rect(bx, bas_y, bw, bas_h, PAPIER, BORD, radius=9, name=titre)
         S.text(bx + 12, bas_y + 7, bw * 0.5, 14, [titre.upper()], size=7.1, color=NAVY, bold=True, align=PP_ALIGN.LEFT)
-        S.text(bx + bw * 0.4, bas_y + 7, bw * 0.6 - 12, 14, [resume], size=6.6, color="#7A8496", align=PP_ALIGN.RIGHT)
+        S.text(bx + bw * 0.4, bas_y + 7, bw * 0.6 - 12, 14, [resume], size=6.6, color="#000000", align=PP_ALIGN.RIGHT)
         return bx + 12, bas_y + 26, bw - 24, bas_h - 34
 
     # Contacts
@@ -228,7 +228,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
 
     # -- pied de page -------------------------------------------------------------------------------------------------
     S.text(22, foot_y, W * 0.6, 16, [[(v.org, {"bold": True, "color": NAVY}),
-                                      ((" · " + v.footer) if v.footer else "", {"color": "#7A8496"})]],
+                                      ((" · " + v.footer) if v.footer else "", {"color": "#000000"})]],
            size=6.4, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, name="Pied de page")
-    S.text(W * 0.6, foot_y, W * 0.4 - 22, 16, [v.meta], size=6.4, color="#7A8496", align=PP_ALIGN.RIGHT,
+    S.text(W * 0.6, foot_y, W * 0.4 - 22, 16, [v.meta], size=6.4, color="#000000", align=PP_ALIGN.RIGHT,
            anchor=MSO_ANCHOR.MIDDLE)

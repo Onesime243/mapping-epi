@@ -34,7 +34,7 @@ def render_svg(cases: List[Case], titre: str = "LIEUX LES PLUS FRÉQUENTÉS", mi
     xc = 790                  # colonne des cas
     head_y = 96
     for x, t in ((xl, "LIEU"), (xb, "NOMBRE DE CAS"), (xc, "CAS • PÉRIODE • AIRES DE SANTÉ")):
-        out.append(f'<text x="{x}" y="{head_y}" font-size="9" font-weight="800" fill="#3A4654" letter-spacing=".6">{t}</text>')
+        out.append(f'<text x="{x}" y="{head_y}" font-size="9" font-weight="800" fill="#000000" letter-spacing=".6">{t}</text>')
     nmax = max((L.n_cas for L in top), default=1)
     rh = min(38, (640 - 112) / max(1, len(top)))
     y = 108
@@ -56,7 +56,7 @@ def render_svg(cases: List[Case], titre: str = "LIEUX LES PLUS FRÉQUENTÉS", mi
         aires = ", ".join(a for a, _ in L.aires.most_common(3))
         out.append(f'<text x="{xc}" y="{cy - 2:.1f}" font-size="10.5" font-weight="700" fill="{theme.INK}">'
                    f'{K.esc(K.ellipsize(_cas(L), 1240 - xc, 10.5, 700))}</text>')
-        out.append(f'<text x="{xc}" y="{cy + 11:.1f}" font-size="9" fill="#3A4654">'
+        out.append(f'<text x="{xc}" y="{cy + 11:.1f}" font-size="9" fill="#000000">'
                    f'{K.esc(K.ellipsize((f"{L.visites} passage{'s' if L.visites > 1 else ''} • " if L.visites else "") + f"{per} • AS : {aires} • risque max : {L.risque}", 1240 - xc, 9))}</text>')
         y += rh
     if len(lieux) > len(top):

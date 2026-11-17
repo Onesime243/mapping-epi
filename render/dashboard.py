@@ -100,7 +100,7 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
                      f'{K.esc(c.maladie)}</text></g>')
         sub = [(K.ellipsize(f"{c.aire_sante or '?'} • {c.sexe} {c.age if c.age is not None else '?'} {c.age_unite}", 150, 9.5, 600),
                 9.5, 600, theme.INK),
-               (f"J0 {c.debut_symptomes:%d/%m}" if c.debut_symptomes else "J0 ?", 9, 500, "#3A4654")]
+               (f"J0 {c.debut_symptomes:%d/%m}" if c.debut_symptomes else "J0 ?", 9, 500, "#000000")]
         dx, dy = x - cx, y - cy
         prefer = (["below", "below-right", "below-left"] if dy > 0 else ["above", "above-right", "above-left"]) \
             if abs(dy) >= abs(dx) * 0.7 else (["right"] if dx > 0 else ["left"])
@@ -123,7 +123,7 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
                    f'fill="{theme.ink_on(theme.soft(col))}">{L.n_cas} cas</text>')
         out.append(f'<text x="{x0 + 62}" y="{y + 1}" font-size="11" font-weight="800" fill="{theme.INK}">'
                    f'{K.esc(K.ellipsize(L.nom, 296, 11, 800))}</text>')
-        out.append(f'<text x="{x0 + 62}" y="{y + 16}" font-size="9.5" fill="#3A4654">'
+        out.append(f'<text x="{x0 + 62}" y="{y + 16}" font-size="9.5" fill="#000000">'
                    f'{K.esc(K.ellipsize(_labels_cas(L.cas), 296, 9.5))}</text>')
         y += 38
         shown += 1

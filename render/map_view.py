@@ -215,7 +215,7 @@ def render_svg(case: Case) -> str:
         if line2:
             y += 13
             out.append(f'<text x="{x0 + 42}" y="{y + 2}" font-size="10" font-weight="700" fill="{theme.INK}">{K.esc(line2)}</text>')
-        out.append(f'<text x="{x0 + 42}" y="{y + 16}" font-size="9.5" fill="#3A4654">{K.esc(K.ellipsize(detail, tw, 9.5))}</text>')
+        out.append(f'<text x="{x0 + 42}" y="{y + 16}" font-size="9.5" fill="#000000">{K.esc(K.ellipsize(detail, tw, 9.5))}</text>')
         y += 30 + 8
         shown += 1
     if len(legs) > shown:

@@ -171,7 +171,7 @@ def render_svg(case: Case) -> str:
             p = nd.obj
             lines = [(ln, 11, 800, theme.INK) for ln in K.wrap_px(nd.parent, 170, 11, 800, 2)]
             if p and p.population:
-                lines.append((K.ellipsize(p.population, 170, 9, 500), 9, 500, "#3A4654"))
+                lines.append((K.ellipsize(p.population, 170, 9, 500), 9, 500, "#000000"))
         else:
             lines = [(ln, 10, 700, theme.INK) for ln in K.wrap_px(nd.obj.categorie, 150, 10, 700, 2)]
         labels.append(placer.place(nd.x, nd.y, nd.r + 1, lines, prefer=prefer, gap=5))
@@ -197,7 +197,7 @@ def render_svg(case: Case) -> str:
              ("Lieux d'exposition", str(len(case.places)))]
     y = 118
     for lab_, val in stats:
-        out.append(f'<text x="{x0 + 14}" y="{y}" font-size="9.5" fill="#3A4654">{K.esc(lab_)}</text>')
+        out.append(f'<text x="{x0 + 14}" y="{y}" font-size="9.5" fill="#000000">{K.esc(lab_)}</text>')
         out.append(f'<text x="{x0 + 14}" y="{y + 24}" font-size="22" font-weight="800" fill="{theme.NAVY}">{K.esc(val)}</text>')
         y += 52
     out.append(K.pill(x0 + 10, y + 4, "Légende"))

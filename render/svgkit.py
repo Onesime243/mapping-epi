@@ -44,8 +44,8 @@ def header(title: str, subtitle: str = "") -> str:
 
 
 def footer(text: str) -> str:
-    return (f'<rect x="16" y="{H - 30}" width="{W - 32}" height="22" rx="6" fill="#E7EBF0" stroke="{theme.BORDER}"/>'
-            f'<text x="28" y="{H - 15.5}" font-size="9.5" fill="#3A4654">{esc(ellipsize(text, W - 60, 9.5))}</text>')
+    return (f'<rect x="16" y="{H - 30}" width="{W - 32}" height="22" rx="6" fill="#FFFFFF" stroke="{theme.BORDER}"/>'
+            f'<text x="28" y="{H - 15.5}" font-size="9.5" fill="#000000">{esc(ellipsize(text, W - 60, 9.5))}</text>')
 
 
 def card(x, y, w, h, rx=9) -> str:
