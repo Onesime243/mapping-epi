@@ -65,7 +65,7 @@
           <input type="hidden" name="username" value="{{ u.username }}"><button class="btn small">{{ label }}</button></form>
         {% endfor %}
         {% endif %}
-        {% if u.username != me.username and not protege and (me.is_admin or not u.is_admin) %}
+        {% if droits.super and u.username != me.username and not protege %}
         <form method="post" onsubmit="var m = prompt({{ tf('Supprimer le compte « {u} » ? Ses fiches sont conservées. Motif (facultatif) :', u=u.username)|tojson|forceescape }}, ''); if (m === null) return false; this.motif.value = m; return true;">
           <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="delete">
           <input type="hidden" name="username" value="{{ u.username }}"><input type="hidden" name="motif" value="">

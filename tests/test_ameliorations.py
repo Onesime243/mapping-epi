@@ -53,17 +53,18 @@ def test_comptes_adminone_et_historique(tmp_path):
     adm2 = us.create("admin2", PWD, "Autre admin", "admin")
     nat = us.create("nat", PWD, "National", niveau="national")
     us.create("as.x", PWD, "Agent")
-    with pytest.raises(ValueError, match="adminone"):
-        us.delete(adm2, "adminone")                     # un autre administrateur ne peut pas supprimer adminone
+    john = us.create("john", PWD, "Super admin")
     assert Users.protege(adm2, "adminone") and not Users.protege(one, "adminone")
-    with pytest.raises(ValueError):
-        us.delete(nat, "admin2")                        # le niveau national ne supprime pas un administrateur
-    us.delete(nat, "as.x", "doublon", 3)                # le niveau national supprime un compte agent
+    # seuls les trois super-administrateurs suppriment un compte, quel que soit le niveau des autres
+    for acteur, cible in ((adm2, "adminone"), (adm2, "as.x"), (nat, "admin2"), (nat, "as.x")):
+        with pytest.raises(ValueError, match="super-administrateurs"):
+            us.delete(acteur, cible)
+    us.delete(john, "as.x", "doublon", 3)               # un super-administrateur supprime un compte agent
     us.delete(one, "admin2", "départ")                  # adminone supprime n'importe quel compte
     assert us.get("as.x") is None and us.get("admin2") is None
     h = us.suppressions()
     assert [(x["username"], x["auteur"], x["fiches"], x["motif"]) for x in h] == [
-        ("admin2", "adminone", 0, "départ"), ("as.x", "nat", 3, "doublon")]
+        ("admin2", "adminone", 0, "départ"), ("as.x", "john", 3, "doublon")]
     with pytest.raises(ValueError):
         us.delete(one, "adminone")                      # pas de suppression de son propre compte
 
@@ -113,12 +114,17 @@ def test_web_suppression_et_zones(tmp_path, monkeypatch):
     assert n.get("/utilisateurs").status_code == 200
     r = n.post("/utilisateurs", data={"csrf": tn, "action": "create", "username": "zz.zz", "nom": "Z"})
     assert "réservée aux administrateurs" in r.get_data(as_text=True) and app.users.get("zz.zz") is None
-    n.post("/utilisateurs", data={"csrf": tn, "action": "delete", "username": "as.y", "motif": "test"})
-    assert app.users.get("as.y") is None
-    html = n.get("/utilisateurs").get_data(as_text=True)
-    assert "Historique des suppressions" in html and "as.y" in html
+    r = n.post("/utilisateurs", data={"csrf": tn, "action": "delete", "username": "as.y", "motif": "test"})
+    assert "super-administrateurs" in r.get_data(as_text=True) and app.users.get("as.y")   # national : refusé
+    assert 'value="delete"' not in n.get("/utilisateurs").get_data(as_text=True)          # pas de bouton
+    assert 'value="delete"' not in a2.get("/utilisateurs").get_data(as_text=True)         # admin non super : non plus
     assert n.get("/analyse/zones?ref=2026-11-11").status_code == 403      # national non admin : vue fiche seulement
     a1, _ = _login(app, "adminone")
     html = a1.get("/analyse/zones?ref=2026-11-11").get_data(as_text=True)
     assert "Bunia" in html and "Cat. 1" in html and "premier cas notifié" in html
     assert a1.get("/utilisateurs").status_code == 200
+    t1 = re.search(r'name="csrf" value="([^"]+)"', a1.get("/utilisateurs").get_data(as_text=True)).group(1)
+    a1.post("/utilisateurs", data={"csrf": t1, "action": "delete", "username": "as.y", "motif": "test"})
+    assert app.users.get("as.y") is None                                   # adminone (super-admin) : supprimé
+    html = a1.get("/utilisateurs").get_data(as_text=True)
+    assert "Historique des suppressions" in html and "as.y" in html

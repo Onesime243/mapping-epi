@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ t("Surveillance") }} · Mapping Épi{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between; margin-bottom:10px">
+  <div>
+    <a class="muted" href="{{ url_for('home') }}">{{ t("← Accueil") }}</a>
+    <h1 style="margin:2px 0 0">{{ t("Surveillance des contacts") }}</h1>
+    <div class="muted" style="font-size:14px">{{ t(me.perimetre) }}</div>
+  </div>
+  <a class="btn primary" href="{{ url_for('surveillance_xlsx') }}">⬇ {{ t("Contacts par lieu (Excel)") }}</a>
+</div>
+<div class="pci-bilan">
+  <div><b>{{ bilan.cas }}</b><span>{{ t("cas") }}</span></div>
+  <div><b>{{ bilan.contacts }}</b><span>{{ t("contacts listés") }}</span></div>
+  <div class="{{ 'manque' if bilan.a_lister_n }}"><b>{{ bilan.a_lister }}</b><span>{{ t("contacts à lister") }}</span></div>
+  <div><b>{{ bilan.en_cours }}</b><span>{{ t("cas avec un suivi en cours (21 jours)") }}</span></div>
+  <div class="{{ 'manque' if bilan.sans_contacts }}"><b>{{ bilan.sans_contacts }}</b><span>{{ t("cas sans contact saisi") }}</span></div>
+</div>
+<p class="hint">{{ t("Pour chaque lieu : contacts à lister / contacts du lieu (ex. 2/8 : 2 contacts à lister sur 8), puis la fin du suivi (dernier contact + 21 jours). « ? » : donnée non saisie dans la fiche ; « 12+? » : 12 connus, d'autres non dénombrés.") }}</p>
+{% if sans_id %}<p class="hint">{{ tf("{n} fiche(s) sans ID du cas non affichée(s) (anciennes fiches, à compléter ou à supprimer).", n=sans_id) }}</p>{% endif %}
+{% if rows %}
+<p class="hint">{{ t("Lignes") }} {{ (page - 1) * par_page + 1 }} {{ t("à") }} {{ (page - 1) * par_page + rows|length }} {{ t("sur") }} {{ n }}.</p>
+<div class="tablewrap"><table class="list surv">
+  <thead><tr><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th>
+    {% for i in range(1, n_lieux + 1) %}<th>{{ tf("Lieu {i}", i=i) }}</th>{% endfor %}
+    <th>{{ t("Contacts listés") }}</th><th>{{ t("Contacts à lister") }}</th><th>{{ t("Fin du suivi") }}</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr>
+      <td><a href="{{ url_for('editor', cid=r.cid) }}"><b>{{ r.id }}</b></a></td><td>{{ r.zs }}</td>
+      {% for i in range(n_lieux) %}<td>{% if i < r.lieux|length %}{% set x = r.lieux[i] %}
+        <div class="surv-lieu">{{ t(x.lieu) if x.lieu == sans_lieu else x.lieu }}</div>
+        <div class="surv-n {{ 'a-lister' if x.a_lister }}{{ ' inconnu' if x.a_lister is none or x.total is none }}">{{ fraction(x.a_lister, x.total) }}</div>
+        <div class="surv-fin {{ 'fini' if x.fin_suivi and x.fin_suivi < aujourdhui }}">{{ t("fin") }} {{ x.fin_suivi.strftime("%d/%m/%Y") if x.fin_suivi else "?" }}</div>
+      {% elif i == 0 %}<span class="muted">{{ t("aucun contact saisi") }}</span>{% endif %}</td>{% endfor %}
+      <td><b>{{ texte(r.total) }}</b></td>
+      <td class="{{ 'pci-manque' if r.a_lister }}"><b>{{ texte(r.a_lister) }}</b></td>
+      <td>{% if r.fin_suivi %}{{ r.fin_suivi.strftime("%d/%m/%Y") }}<br><small class="{{ 'muted' if not r.en_cours }}">{{ tf("encore {j} j", j=r.jours_restants) if r.en_cours else t("terminé") }}</small>{% else %}?{% endif %}</td>
+    </tr>
+  {% endfor %}</tbody>
+</table></div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if page > 1 %}<a class="btn small" href="{{ url_for('surveillance_page', page=page - 1) }}">← {{ t("Précédent") }}</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      {% if p == page %}<span class="btn small primary" aria-current="page">{{ p }}</span>{% else %}<a class="btn small" href="{{ url_for('surveillance_page', page=p) }}">{{ p }}</a>{% endif %}
+    {% elif p == page - 3 or p == page + 3 %}<span class="pager-gap">…</span>{% endif %}
+  {% endfor %}
+  {% if page < pages %}<a class="btn small" href="{{ url_for('surveillance_page', page=page + 1) }}">{{ t("Suivant") }} →</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}<p class="muted">{{ t("Aucun cas dans le périmètre.") }}</p>{% endif %}
+{% endblock %}

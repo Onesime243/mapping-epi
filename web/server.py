@@ -129,7 +129,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
     VUES_PARTENAIRE = ("mapping", "network", "route", "dashboard", "chains")
     FORMATS_PARTENAIRE = ("png", "png4k", "pdf", "pptx", "rapport-pdf")
     PAGES_PARTENAIRE = ("/", "/cas", "/connexion", "/deconnexion", "/mon-compte", "/sante", "/api/pyramide",
-                        "/api/schema")
+                        "/api/schema", "/pci", "/pci/lieux-adresses.xlsx", "/surveillance",
+                        "/surveillance/contacts.xlsx")
 
     def acces_partenaire(p: str, methode: str) -> bool:
         """Ce qu'un compte partenaire peut ouvrir (tout le reste est refusé, même en tapant l'adresse)."""
@@ -430,7 +431,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @login_required
     def users_admin():
         # administrateurs : gestion complète ; niveau national : consultation, suppression et historique
-        if not Users.peut_supprimer(g.user):
+        if not Users.peut_voir_comptes(g.user):
             abort(403)
         new_pwd = None
         err = None
@@ -957,7 +958,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
     def pci_page():
         """Menu PCI : lieux fréquentés par les cas du périmètre et adresse de chaque lieu."""
         from core import pci_lieux as PCI
-        rows = PCI.lignes(visible_cases())
+        cas_id, sans_id = cas_avec_id()
+        rows = PCI.lignes(cas_id)
         par_page = 20
         pages = max(1, -(-len(rows) // par_page))
         try:
@@ -965,7 +967,44 @@ def create_app(store: storage.Store | None = None) -> Flask:
         except ValueError:
             page = 1
         return render_template("pci.html", rows=rows[(page - 1) * par_page: page * par_page], bilan=PCI.bilan(rows),
-                               page=page, pages=pages, par_page=par_page, n=len(rows))
+                               page=page, pages=pages, par_page=par_page, n=len(rows), sans_id=sans_id)
+
+    def cas_avec_id():
+        """Fiches du périmètre qui ont un ID (les anciennes fiches sans ID ne sont pas de vrais cas) ; et leur nombre."""
+        tous = visible_cases()
+        avec = [c for c in tous if (c.code_cas or "").strip()]
+        return avec, len(tous) - len(avec)
+
+    def _page(n: int, par_page: int = 20) -> tuple:
+        pages = max(1, -(-n // par_page))
+        try:
+            page = min(pages, max(1, int(request.args.get("page", "1"))))
+        except ValueError:
+            page = 1
+        return page, pages
+
+    @app.route("/surveillance")
+    @login_required
+    def surveillance_page():
+        """Menu Surveillance : contacts de chaque cas, lieu par lieu (à lister / total, fin du suivi à 21 jours)."""
+        from core import surveillance as SUR
+        cas_id, sans_id = cas_avec_id()
+        rows = SUR.lignes(cas_id)
+        page, pages = _page(len(rows))
+        vue = rows[(page - 1) * 20: page * 20]
+        return render_template("surveillance.html", rows=vue, bilan=SUR.bilan(rows), page=page, pages=pages,
+                               par_page=20, n=len(rows), sans_id=sans_id, sans_lieu=SUR.SANS_LIEU,
+                               n_lieux=max([len(r["lieux"]) for r in vue] + [1]), fraction=SUR.fraction, texte=SUR.texte,
+                               aujourdhui=date.today())
+
+    @app.route("/surveillance/contacts.xlsx")
+    @login_required
+    def surveillance_xlsx():
+        from core import surveillance as SUR
+        out = data_dir() / "exports" / f"surv_{secrets.token_hex(6)}.xlsx"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        SUR.xlsx(cas_avec_id()[0], out, g.user.perimetre)
+        return _send_and_delete(out, f"Surveillance_contacts_{date.today():%Y%m%d}.xlsx")
 
     @app.route("/pci/lieux-adresses.xlsx")
     @login_required
@@ -973,7 +1012,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         from core import pci_lieux as PCI
         out = data_dir() / "exports" / f"pci_{secrets.token_hex(6)}.xlsx"
         out.parent.mkdir(parents=True, exist_ok=True)
-        PCI.xlsx(visible_cases(), out, g.user.perimetre)
+        PCI.xlsx(cas_avec_id()[0], out, g.user.perimetre)
         return _send_and_delete(out, f"PCI_lieux_adresses_{date.today():%Y%m%d}.xlsx")
 
     @app.route("/cas/nouveau", methods=["POST"])

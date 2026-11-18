@@ -251,8 +251,14 @@ class Users:
         return None
 
     @staticmethod
+    def peut_voir_comptes(actor: "User") -> bool:
+        """Page Utilisateurs : administrateurs et comptes nationaux (pas les partenaires)."""
+        return (actor.is_admin or actor.niveau == "national") and not actor.is_partenaire
+
+    @staticmethod
     def peut_supprimer(actor: "User") -> bool:
-        return actor.is_admin or actor.niveau == "national"
+        """Supprimer un compte : seulement les super-administrateurs (adminone, john, steve.ahuka)."""
+        return actor.is_super
 
     def delete(self, actor: "User", username: str, motif: str = "", fiches: int = 0) -> None:
         """Supprime un compte et garde la trace dans l'historique (les fiches du compte sont conservées)."""
@@ -261,7 +267,7 @@ class Users:
         if not u:
             raise ValueError("Utilisateur introuvable.")
         if not self.peut_supprimer(actor):
-            raise ValueError("Suppression réservée aux administrateurs et aux comptes de niveau national.")
+            raise ValueError("Suppression de compte réservée aux super-administrateurs.")
         if u.username == actor.username:
             raise ValueError("Vous ne pouvez pas supprimer votre propre compte.")
         err = self.protege(actor, u.username)

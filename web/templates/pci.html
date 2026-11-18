@@ -15,6 +15,7 @@
   <div><b>{{ bilan.avec_adresse }}</b><span>{{ t("avec adresse") }}</span></div>
   <div class="{{ 'manque' if bilan.lieux - bilan.avec_adresse }}"><b>{{ bilan.lieux - bilan.avec_adresse }}</b><span>{{ t("sans adresse (à compléter dans l'onglet PCI de la fiche)") }}</span></div>
 </div>
+{% if sans_id %}<p class="hint">{{ tf("{n} fiche(s) sans ID du cas non affichée(s) (anciennes fiches, à compléter ou à supprimer).", n=sans_id) }}</p>{% endif %}
 {% if rows %}
 <p class="hint">{{ t("Lignes") }} {{ (page - 1) * par_page + 1 }} {{ t("à") }} {{ (page - 1) * par_page + rows|length }} {{ t("sur") }} {{ n }}. {{ t("Le fichier Excel contient toutes les lignes et un résumé par cas.") }}</p>
 <div class="tablewrap"><table class="list">

@@ -274,3 +274,43 @@ def test_menu_pci_lieux_et_adresses(app, tmp_path):
     assert r.status_code == 200
     ws = load_workbook(io.BytesIO(r.data))["Lieux et adresses"]
     assert ws["A3"].value == "EQ-TUM-009" and ws["I3"].value == "Av. du Marché 12, Q. Nzala" and ws["I4"].value == "?"
+
+
+def test_surveillance_contacts_par_lieu(app):
+    import io
+    from datetime import date, timedelta
+    from openpyxl import load_workbook
+    from core.models import Case, ContactGroup
+    from core import surveillance as SUR
+    us = Users(app.store)
+    us.create("partenaire.x", "Secret123", role="partenaire")
+    us.create("agent.s", "Secret123")
+    d = date.today() - timedelta(days=5)
+    c0 = Case(code_cas="NK-BUT-777", province="Nord-Kivu", zs="Butembo",
+              contacts=[ContactGroup(categorie="Famille", lieu="Domicile", nombre=8, suivis=6, dernier_contact=d),
+                        ContactGroup(categorie="Voisins", lieu="Domicile", nombre=4, suivis=4, dernier_contact=d - timedelta(days=2)),
+                        ContactGroup(categorie="Prestataires", lieu="CS Vutike", nombre=5, suivis=None),
+                        ContactGroup(categorie="Autres", lieu="", nombre=None)])
+    sans_id = Case(code_cas="", province="Equateur", zs="Tumba")
+    app.store.save(c0, owner="agent.s")
+    app.store.save(sans_id, owner="agent.s")
+    r = SUR.lignes([c0])[0]
+    dom, cs, autre = r["lieux"]
+    assert (dom["lieu"], dom["a_lister"], dom["total"], dom["fin_suivi"]) == ("Domicile", 2, 12, d + timedelta(days=21))
+    assert SUR.fraction(dom["a_lister"], dom["total"]) == "2/12"
+    assert SUR.fraction(cs["a_lister"], cs["total"]) == "?/5" and cs["fin_suivi"] is None      # rien d'inventé
+    assert autre["lieu"] == SUR.SANS_LIEU and SUR.texte(r["total"]) == "17+?" and r["en_cours"]
+    c = app.test_client()
+    t0 = _csrf(c.get("/connexion").get_data(as_text=True))
+    c.post("/connexion", data={"csrf": t0, "username": "partenaire.x", "password": "Secret123"})
+    accueil = c.get("/").get_data(as_text=True)
+    assert "/surveillance" in accueil and "/pci" in accueil                  # partenaires : PCI et Surveillance
+    page = c.get("/surveillance").get_data(as_text=True)
+    assert "NK-BUT-777" in page and "2/12" in page and "?/5" in page and "1 fiche(s) sans ID" in page
+    assert c.get("/pci").status_code == 200
+    x = c.get("/surveillance/contacts.xlsx")
+    assert x.status_code == 200
+    ws = load_workbook(io.BytesIO(x.data)).worksheets[0]
+    assert ws["A3"].value == "NK-BUT-777" and ws["D3"].value == "Domicile" and ws["E3"].value == "2/12"
+    assert c.get("/pci/lieux-adresses.xlsx").status_code == 200
+    assert c.get("/tableau-de-bord").status_code == 403                     # le reste reste fermé
