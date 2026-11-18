@@ -495,3 +495,14 @@ def test_symptomes_par_phase():
     assert any(s == "Vomissements" for _p, s in ms)
     f = SY.frequences([c])
     assert f["seche"][0][1] == 1
+
+
+def test_carte_classes_de_delai():
+    from core.langue import utiliser
+    assert [CARTE.couleur(j) for j in (0, 3, 4, 7, 8, 14, 15, 21, 22, 90)] == [
+        "#9B1B1B", "#9B1B1B", "#E0492B", "#E0492B", "#F28C28", "#F28C28", "#F2C94C", "#F2C94C", "#5E9E6E", "#5E9E6E"]
+    assert [t for _c, t in CARTE.legende()] == ["0 à 3 jours", "4 à 7 jours", "8 à 14 jours", "15 à 21 jours",
+                                                "plus de 21 jours"]
+    with utiliser("en"):
+        assert [t for _c, t in CARTE.legende()] == ["0 to 3 days", "4 to 7 days", "8 to 14 days", "15 to 21 days",
+                                                    "over 21 days"]

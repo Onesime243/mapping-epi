@@ -133,10 +133,25 @@ def construire(cases: List[Case], coords=None) -> Carte:
     return Carte(list(pts.values()), sans, len(coords))
 
 
+# classes de délai depuis le dernier cas notifié (jours) : (jusqu'à, couleur, libellé de légende)
+CLASSES = [(3, "#9B1B1B", "0 à 3 jours"), (7, "#E0492B", "4 à 7 jours"), (14, "#F28C28", "8 à 14 jours"),
+           (21, "#F2C94C", "15 à 21 jours"), (None, "#5E9E6E", "plus de 21 jours")]
+
+
 def couleur(jours: Optional[int]) -> str:
+    """Couleur selon le délai depuis le dernier cas : 0-3, 4-7, 8-14, 15-21, plus de 21 jours."""
     if jours is None:
         return theme.GREY
-    return theme.RED if jours <= 7 else theme.ORANGE if jours <= 21 else theme.YELLOW if jours <= 42 else theme.GREEN
+    for fin, c, _l in CLASSES:
+        if fin is None or jours <= fin:
+            return c
+    return CLASSES[-1][1]
+
+
+def legende() -> list:
+    """[(couleur, libellé traduit)] des classes de délai."""
+    from core.langue import tr
+    return [(c, tr(l)) for _f, c, l in CLASSES]
 
 
 def svg(carte: Carte, ref: Optional[date] = None, width: int = 980, height: int = 640, vue: str = "cas",
@@ -230,7 +245,7 @@ def svg_niveau(carte: Carte, niveau: str, province: str = "", zs: str = "", ref:
         cas = par_forme.get(f["cle"], [])
         j = _recence(cas, ref) if cas else None
         fill = couleur(j) if cas else "#FFFFFF"
-        op = ".62" if cas else "1"
+        op = ".78" if cas else "1"
         info = f"{f['nom']} : " + (trf("{n} cas", n=len(cas)) + (
             " ; " + trf("dernier cas notifié il y a {j} j", j=j) if j is not None else "") if cas else tr("aucun cas"))
         url = None
@@ -318,13 +333,15 @@ def svg_niveau(carte: Carte, niveau: str, province: str = "", zs: str = "", ref:
     # légende (dans l'image, pour le téléchargement)
     ly = height - 14
     lx = 18
-    for c, t in ((theme.RED, tr("dernier cas ≤ 7 j")), (theme.ORANGE, tr("8 à 21 j")), (theme.YELLOW, tr("22 à 42 j")),
-                 (theme.GREEN, tr("plus de 42 j")), ("#FFFFFF", tr("aucun cas"))):
-        out.append(f'<rect x="{lx}" y="{ly - 10}" width="12" height="12" rx="3" fill="{c}" fill-opacity=".8" '
+    out.append(f'<text x="{lx}" y="{ly}" font-size="11.5" font-weight="700" fill="#1F2933">'
+               f'{e(tr("Dernier cas :"))}</text>')
+    lx += 12 + 6.4 * len(tr("Dernier cas :"))
+    for c, t in legende() + [("#FFFFFF", tr("aucun cas"))]:
+        out.append(f'<rect x="{lx}" y="{ly - 10}" width="12" height="12" rx="3" fill="{c}" fill-opacity=".9" '
                    f'stroke="#8796A6" stroke-width=".8"/><text x="{lx + 17}" y="{ly}" font-size="11.5" fill="#1F2933">{e(t)}</text>')
         lx += 30 + 6.2 * len(t)
     src = tr("Contours : aires de santé GRID3 / CIESIN, simplifiés ; Mapping Épi")
-    out.append(f'<text x="{width - 14}" y="{ly}" font-size="10" text-anchor="end" fill="#5F6B7A">{e(src)}</text>')
+    out.append(f'<text x="{width - 14}" y="24" font-size="10" text-anchor="end" fill="#5F6B7A">{e(src)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -394,6 +411,5 @@ def _svg_simple(carte: Carte, ref: date, width: int, height: int) -> str:
     out.append("</svg>")
     leg = "".join(f'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'
                   f'<span style="width:12px;height:12px;border-radius:50%;background:{c}"></span>{t}</span>'
-                  for c, t in ((theme.RED, "dernier cas ≤ 7 j"), (theme.ORANGE, "8 à 21 j"), (theme.YELLOW, "22 à 42 j"),
-                               (theme.GREEN, "plus de 42 j")))
+                  for c, t in legende())
     return "".join(out) + f'<div style="font-size:12.5px;margin-top:6px">{leg} · taille : nombre de cas</div>'

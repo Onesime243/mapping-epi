@@ -26,3 +26,6 @@ EN.update({
     "Contours livrés avec l'outil : {p} provinces, {z} zones de santé, {a} aires de santé (GRID3 / CIESIN).":
         "Outlines shipped with the tool: {p} provinces, {z} health zones, {a} health areas (GRID3 / CIESIN).",
 })
+
+EN.update({"0 à 3 jours": "0 to 3 days", "4 à 7 jours": "4 to 7 days", "8 à 14 jours": "8 to 14 days",
+           "15 à 21 jours": "15 to 21 days", "plus de 21 jours": "over 21 days", "Dernier cas :": "Last case:"})
