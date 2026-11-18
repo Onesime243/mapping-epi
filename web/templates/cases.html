@@ -12,13 +12,13 @@
     <h1 style="margin:2px 0 0">{{ t("Mes cas") if not multi else t("Tous les cas") if me.is_admin or me.niveau == "national" else t("Cas de mon périmètre") }}</h1>
     <div class="muted" style="font-size:14px">{{ t(me.niveau_label) }}{% if me.is_admin %} · {{ t("administrateur") }}{% endif %} : {{ t(me.perimetre) }}</div>
   </div>
-  <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t("＋ Nouveau cas") }}</button></form>
+  {% if not droits.partenaire %}<form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t("＋ Nouveau cas") }}</button></form>{% endif %}
 </div>
-<div class="onglets">
+{% if not droits.partenaire %}<div class="onglets">
   <a class="onglet{% if onglet == 'cas' %} on{% endif %}" href="{{ url_for('cases') }}">{{ t("Enregistrés") }} ({{ total }})</a>
   <a class="onglet{% if onglet == 'brouillons' %} on{% endif %}" href="{{ url_for('cases', onglet='brouillons') }}">{{ t("Brouillons") }} ({{ brouillons|length }})</a>
   {% if exemples %}<a class="onglet{% if onglet == 'exemples' %} on{% endif %}" href="{{ url_for('cases', onglet='exemples') }}">{{ t("Exemple fictif") }} ({{ exemples|length }})</a>{% endif %}
-</div>
+</div>{% endif %}
 {% if onglet == 'brouillons' %}
 <div class="card">
   <p class="hint">{{ t("Fiches commencées mais pas encore enregistrées. Ouvrez-en une pour la terminer. Une fiche laissée vide est supprimée automatiquement après 24 heures.") }}</p>
@@ -100,7 +100,7 @@
   {% endif %}
 </div>
 {% endif %}
-<div class="card" style="margin-top:14px">
+{% if not droits.partenaire %}<div class="card" style="margin-top:14px">
   <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <b>{{ t("Importer une fiche") }}</b> <span class="muted">(Excel rempli à partir du
@@ -111,5 +111,5 @@
     <input type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required style="max-width:340px">
     <button class="btn">{{ t("Importer") }}</button>
   </form>
-</div>
+</div>{% endif %}
 {% endblock %}

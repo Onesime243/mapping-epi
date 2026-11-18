@@ -69,6 +69,8 @@ class Access:
         return False
 
     def can_edit(self, c: Case, owner: str) -> bool:
+        if self.user.is_partenaire:
+            return False
         if owner == self.user.username:
             return True
         if self.user.is_admin:
@@ -80,6 +82,8 @@ class Access:
         return False
 
     def can_delete(self, c: Case, owner: str) -> bool:
+        if self.user.is_partenaire:
+            return False
         if owner == self.user.username:
             return True
         return self.user.is_admin and (self.user.niveau != "province" or self._in_province(c, owner))

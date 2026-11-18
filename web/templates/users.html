@@ -30,7 +30,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
     <div><label class="f">Nom complet</label><input name="nom" required></div>
     {{ scope_fields() }}
     {% if provincial %}<input type="hidden" name="role" value="agent">
-    {% else %}<div><label class="f">Rôle</label><select name="role"><option value="agent">Utilisateur</option><option value="admin">Administrateur (gère les comptes)</option></select></div>{% endif %}
+    {% else %}<div><label class="f">Rôle</label><select name="role"><option value="agent">Utilisateur</option><option value="admin">Administrateur (gère les comptes)</option><option value="partenaire">Partenaire (consultation seule, tous les cas)</option></select></div>{% endif %}
     <div><label class="f">Mot de passe</label><input name="password" value="{{ suggested }}" minlength="8"></div>
     <div style="align-self:end"><button class="btn primary" style="width:100%">Créer le compte</button></div>
   </form>
@@ -52,7 +52,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
     <tr><th>Identifiant</th><th>Nom</th><th>Niveau</th><th>Périmètre</th><th>Fiches</th><th>Statut</th><th>Dernière connexion</th><th></th></tr>
     {% for u in users %}
     <tr>
-      <td><b>{{ u.username }}</b>{% if u.is_admin %} <span class="pill">admin</span>{% endif %}</td><td>{{ u.nom }}</td><td>{{ u.niveau_label }}</td><td>{{ u.perimetre }}</td>
+      <td><b>{{ u.username }}</b>{% if u.is_admin %} <span class="pill">admin</span>{% elif u.is_partenaire %} <span class="pill">partenaire</span>{% endif %}</td><td>{{ u.nom }}</td><td>{{ u.niveau_label }}</td><td>{{ u.perimetre }}</td>
       <td>{{ counts.get(u.username, 0) }}</td>
       <td>{% if u.actif %}actif{% else %}<span style="color:var(--danger)">désactivé</span>{% endif %}</td>
       <td class="muted">{{ (u.derniere_connexion or "jamais").replace("T", " ") }}</td>
@@ -60,7 +60,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
         {% set protege = u.username == super_admin and me.username != super_admin %}
         {% set hors = provincial and (u.is_admin or u.province != me.province) %}
         {% if me.is_admin and not protege and not hors %}
-        {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer")] + ([] if provincial else [("role", "Rendre agent" if u.is_admin else "Rendre admin")]) %}
+        {% for action, label in [("reset", "Nouveau mot de passe"), ("toggle", "Désactiver" if u.actif else "Activer")] + ([] if provincial or u.is_partenaire else [("role", "Rendre agent" if u.is_admin else "Rendre admin")]) %}
         <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="{{ action }}">
           <input type="hidden" name="username" value="{{ u.username }}"><button class="btn small">{{ label }}</button></form>
         {% endfor %}
@@ -133,7 +133,7 @@ Notez-le et transmettez-le à la personne : il ne sera plus affiché.</div>
     zs.addEventListener('change', () => { fillAs(); as.value = ''; });
     niv.addEventListener('change', show); show();
     const role = form.querySelector('[name=role]');
-    if (role && role.tagName === 'SELECT') role.addEventListener('change', () => { if (role.value === 'admin' && !['national', 'province'].includes(niv.value)) { niv.value = 'national'; show(); } });
+    if (role && role.tagName === 'SELECT') role.addEventListener('change', () => { if ((role.value === 'admin' && !['national', 'province'].includes(niv.value)) || role.value === 'partenaire') { niv.value = 'national'; show(); } niv.disabled = role.value === 'partenaire'; });
   });
 })();
 </script>

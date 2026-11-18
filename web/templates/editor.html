@@ -21,7 +21,8 @@
   </div>
 </div>
 
-{% if readonly %}<div class="alert info">Fiche créée par <b>{{ owner_label }}</b> : votre niveau ({{ me.niveau_label }}) permet de la consulter et de télécharger les visuels, pas de la modifier.</div>{% endif %}
+{% if readonly and droits.partenaire %}<div class="alert info">Compte partenaire : consultation de la fiche et téléchargement des visuels.</div>
+{% elif readonly %}<div class="alert info">Fiche créée par <b>{{ owner_label }}</b> : votre niveau ({{ me.niveau_label }}) permet de la consulter et de télécharger les visuels, pas de la modifier.</div>{% endif %}
 {% if exemple %}<div class="alert ok" style="margin-bottom:10px">Exemple fictif, mode entraînement : cette fiche n'est jamais
   comptée avec les vrais cas. Exercez-vous librement.</div>{% endif %}
 <div class="missing obligatoires" id="obligatoires" hidden></div>
@@ -76,18 +77,18 @@
 
   <section class="preview">
     <div class="vtabs" id="vtabs">
-      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% endif %}{% endfor %}
+      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") or (droits.partenaire and k in droits.vues_partenaire) %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% endif %}{% endfor %}
     </div>
     <div class="frame" id="frame"><iframe id="pv" title="Aperçu" loading="eager"></iframe></div>
     <div class="dl" id="dl">
       <a class="btn small primary" data-fmt="png">⬇ PNG HD</a>
       <a class="btn small" data-fmt="png4k">PNG 4K</a>
       <a class="btn small" data-fmt="pdf">PDF</a>
-      <a class="btn small" data-fmt="pdfa4">PDF A4</a>
-      <a class="btn small" data-fmt="svg">SVG</a>
+      {% if not droits.partenaire %}<a class="btn small" data-fmt="pdfa4">PDF A4</a>
+      <a class="btn small" data-fmt="svg">SVG</a>{% endif %}
       <a class="btn small" data-fmt="pptx" data-only="mapping">PowerPoint</a>
       <a class="btn small" data-fmt="rapport-pdf" data-any="1">Rapport PDF</a>
-      <a class="btn small" data-fmt="rapport-pptx" data-any="1">Rapport PowerPoint</a>
+      {% if not droits.partenaire %}<a class="btn small" data-fmt="rapport-pptx" data-any="1">Rapport PowerPoint</a>{% endif %}
       {% if droits.admin %}<a class="btn small" data-fmt="xlsx" data-any="1">Excel</a>
       <a class="btn small" data-fmt="json" data-any="1">JSON</a>{% endif %}
     </div>

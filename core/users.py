@@ -25,7 +25,7 @@ from core.storage import Store
 ITER = 240_000
 import os
 
-ROLES = ("agent", "admin")
+ROLES = ("agent", "admin", "partenaire")     # partenaire : consultation seule, tous les cas
 # compte principal : seul lui peut se modifier ou être supprimé par lui-même ; il peut supprimer tout compte
 SUPER_ADMIN = os.environ.get("MAPPING_EPI_SUPERADMIN", "adminone").strip().lower()
 # super-administrateurs : seuls à voir le menu Riposte et les rapports détaillés (rapports par pilier)
@@ -52,6 +52,11 @@ class User:
         return self.role == "admin"
 
     @property
+    def is_partenaire(self) -> bool:
+        """Partenaire : voit tous les cas (accueil, cas, visuels, téléchargements choisis), ne modifie rien."""
+        return self.role == "partenaire"
+
+    @property
     def is_super(self) -> bool:
         """Super-administrateur (menu Riposte, rapports détaillés)."""
         return self.username in SUPER_ADMINS
@@ -67,6 +72,8 @@ class User:
 
     @property
     def niveau_label(self) -> str:
+        if self.is_partenaire:
+            return "Partenaire"
         return NIVEAUX.get(self.niveau, self.niveau)
 
     @property
@@ -235,6 +242,8 @@ class Users:
             return hors
         if role == "admin":
             return "Un administrateur provincial ne peut pas créer ni nommer d'administrateur."
+        if role == "partenaire":
+            return "Seul un administrateur national crée un compte partenaire."
         if niveau and niveau not in ("zone", "aire"):
             return "Un administrateur provincial crée des comptes de zone de santé ou d'aire de santé."
         if niveau and not _same(province, actor.province):
@@ -289,6 +298,8 @@ def normalize_scope(role: str, niveau: str, province: str, zs: str, aire: str) -
     from core import pyramide
     province, zs, aire = (province or "").strip(), (zs or "").strip(), (aire or "").strip()
     if role == "admin" and niveau not in ("national", "province"):
+        niveau = "national"
+    if role == "partenaire":            # un partenaire voit les cas de toute la RDC
         niveau = "national"
     niveau = niveau or "aire"
     if niveau not in NIVEAUX:

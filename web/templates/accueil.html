@@ -10,6 +10,13 @@
     <p>{{ t("Pour chaque cas, renseignez l'ensemble des champs obligatoires, signalés par un astérisque (*), puis enregistrez la fiche.") }}</p>
     <p>{{ t("Seules les fiches complètes et enregistrées sont prises en compte dans les analyses et partagées avec la coordination.") }}</p>
   </section>
+  {% if droits.partenaire %}
+  <div class="tuiles">
+    <a class="tuile primaire" href="{{ url_for('cases') }}"><span class="ic">☰</span>{{ t("Voir les cas") }}
+      <small>{{ n_cas }} {{ t("enregistrés" if n_cas > 1 else "enregistré") }} · {{ t("toutes les provinces") }}</small></a>
+  </div>
+  <p class="muted" style="margin-top:12px">{{ t("Compte partenaire : consultation des fiches, des visuels (mapping, réseau de contacts, carte du parcours, multi-cas, chaînes de transmission) et téléchargement des images, PDF et PowerPoint.") }}</p>
+  {% else %}
   <div class="tuiles">
     <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
       <button class="tuile primaire"><span class="ic">＋</span>{{ t("Nouveau cas") }}</button></form>
@@ -24,5 +31,6 @@
       <button class="tuile"><span class="ic">✎</span>{{ t("Exemple fictif") }}<small>{{ t("pour s'entraîner") }}</small></button></form>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 {% endblock %}

@@ -124,17 +124,46 @@ def create_app(store: storage.Store | None = None) -> Flask:
 
     VUES_AGENT = ("mapping", "network")      # vues permises à un compte non administrateur
     EXPORTS_DONNEES = ("xlsx", "json")      # exports de la fiche complète : administrateurs seulement
+    # compte partenaire : accueil et cas seulement, en lecture ; ces vues et ces téléchargements
+    VUES_PARTENAIRE = ("mapping", "network", "route", "dashboard", "chains")
+    FORMATS_PARTENAIRE = ("png", "png4k", "pdf", "pptx", "rapport-pdf")
+    PAGES_PARTENAIRE = ("/", "/cas", "/connexion", "/deconnexion", "/mon-compte", "/sante", "/api/pyramide",
+                        "/api/schema")
+
+    def acces_partenaire(p: str, methode: str) -> bool:
+        """Ce qu'un compte partenaire peut ouvrir (tout le reste est refusé, même en tapant l'adresse)."""
+        if p in PAGES_PARTENAIRE or p.startswith(("/static/", "/assets/", "/langue/")):
+            return True
+        if methode != "GET":
+            return False
+        m = re.fullmatch(r"/cas/([^/]+)(?:/(apercu|telecharger)/([^/]+))?", p)
+        if m:
+            if not m.group(2):
+                return m.group(1) not in ("nouveau", "demo", "importer")
+            if m.group(2) == "apercu":
+                return m.group(3) in VUES_PARTENAIRE
+            vis = request.args.get("visuel", "mapping")
+            return (vis in VUES_PARTENAIRE and m.group(3) in FORMATS_PARTENAIRE
+                    and (m.group(3) != "pptx" or vis == "mapping"))
+        return bool(re.fullmatch(r"/api/cas/[^/]+(/lieux|/versions)?", p))     # lecture de la fiche ouverte
 
     def droits(u) -> dict:
         """Ce que le compte voit : super-admin (Riposte, rapports), admin (analyses, données), agent (fiche)."""
         sup = bool(u and u.is_super)
         adm = bool(u and (u.is_admin or sup))
-        tdb = sup or bool(u and u.niveau in ("national", "province"))     # tableau de bord
-        return {"super": sup, "admin": adm, "tdb": tdb}
+        part = bool(u and u.is_partenaire and not sup)
+        tdb = sup or bool(u and u.niveau in ("national", "province") and not part)     # tableau de bord
+        return {"super": sup, "admin": adm, "tdb": tdb, "partenaire": part,
+                "vues_partenaire": VUES_PARTENAIRE, "formats_partenaire": FORMATS_PARTENAIRE}
 
     @app.before_request
     def controle_acces():
         p = request.path
+        u0 = current_user()
+        if u0 and droits(u0)["partenaire"]:
+            if not acces_partenaire(p, request.method):
+                abort(403)
+            return None
         reserve_super = (p.startswith("/riposte/") or p.startswith("/rapports")
                          or p == "/donnees/rapport-situation.docx")
         if p.startswith("/tableau-de-bord"):            # comptes nationaux et provinciaux aussi
@@ -448,6 +477,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     app.users.update(uname, actif=not u.actif)
                 elif action == "role":
                     u = app.users.get(uname)
+                    if u.is_partenaire:
+                        raise ValueError("Un compte partenaire reste en consultation seule.")
                     app.users.update(uname, role="agent" if u.is_admin else "admin")
             except ValueError as exc:
                 err = str(exc)

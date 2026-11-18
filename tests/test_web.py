@@ -190,3 +190,51 @@ def test_liste_cas_par_pages_de_20(app):
     p3 = c.get("/cas?tri=code&ordre=asc&page=3").get_data(as_text=True)
     assert "PAG-041" in p3 and "PAG-045" in p3 and "PAG-040" not in p3 and "Précédent" in p3
     assert "PAG-041" in c.get("/cas?tri=code&ordre=asc&page=99").get_data(as_text=True)   # page trop grande : la dernière
+
+
+def test_compte_partenaire_consultation_seule(app):
+    from core.models import Case
+    st = app.store
+    us = Users(st)
+    us.create("chef", "Secret123", role="admin")
+    us.create("agent.kv", "Secret123", niveau="zone", province="Nord-Kivu", zs="Butembo")
+    p = us.create("partenaire.oms", "Secret123", role="partenaire", niveau="aire", province="Equateur")
+    p = us.get("partenaire.oms")
+    assert p.is_partenaire and p.niveau == "national" and not p.is_admin
+    a = Case(code_cas="NK-BUT-001", province="Nord-Kivu", zs="Butembo")
+    b = Case(code_cas="EQ-TUM-001", province="Equateur", zs="Tumba")
+    st.save(a, owner="agent.kv")
+    st.save(b, owner="chef")
+    c = app.test_client()
+    t0 = _csrf(c.get("/connexion").get_data(as_text=True))
+    c.post("/connexion", data={"csrf": t0, "username": "partenaire.oms", "password": "Secret123"})
+    tok = _csrf(c.get("/mon-compte").get_data(as_text=True))
+    liste = c.get("/cas").get_data(as_text=True)
+    assert "NK-BUT-001" in liste and "EQ-TUM-001" in liste          # toutes les provinces
+    assert "Nouveau cas" not in liste and "Importer une fiche" not in liste
+    accueil = c.get("/").get_data(as_text=True)
+    assert "Tableau de bord" not in accueil and "Utilisateurs" not in accueil and "Analyses" not in accueil
+    # pages réservées : refusées même en tapant l'adresse
+    for url in ("/tableau-de-bord", "/analyse/chaines", "/donnees", "/utilisateurs", "/rapports", "/riposte/indicateurs",
+                "/analyse/zones", "/modele-excel"):
+        assert c.get(url).status_code == 403, url
+    fiche = c.get(f"/cas/{a.id}").get_data(as_text=True)
+    assert "Lecture seule" in fiche and "Carte du parcours" in fiche and "Chaînes de transmission" in fiche
+    assert "Frise temporelle" not in fiche and "Lieux communs" not in fiche
+    assert 'data-fmt="svg"' not in fiche and 'data-fmt="rapport-pptx"' not in fiche and 'data-fmt="xlsx"' not in fiche
+    for v in ("mapping", "network", "route", "dashboard", "chains"):
+        assert c.get(f"/cas/{a.id}/apercu/{v}").status_code == 200, v
+    for v in ("gantt", "common"):
+        assert c.get(f"/cas/{a.id}/apercu/{v}").status_code == 403, v
+    for fmt, vis in (("svg", "mapping"), ("pdfa4", "mapping"), ("xlsx", "mapping"), ("json", "mapping"),
+                     ("rapport-pptx", "mapping"), ("png", "gantt"), ("pptx", "network")):
+        assert c.get(f"/cas/{a.id}/telecharger/{fmt}?visuel={vis}").status_code == 403, (fmt, vis)
+    assert c.get(f"/api/cas/{a.id}").status_code == 200
+    r = c.put(f"/api/cas/{a.id}", json={}, headers={"X-CSRF": tok})
+    assert r.status_code == 403
+    assert c.post("/cas/nouveau", data={"csrf": tok}).status_code == 403
+    assert c.post(f"/cas/{a.id}/supprimer", data={"csrf": tok}).status_code == 403
+    # un administrateur provincial ne crée pas de partenaire
+    from core.users import User
+    prov = User("adm.p", "", "admin", True, "", "", "", niveau="province", province="Equateur")
+    assert Users.peut_gerer(prov, "partenaire", "national", "") is not None

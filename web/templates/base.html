@@ -31,7 +31,7 @@
   <div class="bandeau-compte">
     <span class="avatar" aria-hidden="true">{{ (me.nom or me.username)[:1]|upper }}</span>
     <span class="bandeau-qui" title="{{ me.perimetre }}"><b>{{ me.nom or me.username }}</b>
-      <small>{% if droits.super %}{{ t("Super-administrateur") }}{% elif me.is_admin and me.niveau == "province" %}{{ t("Administrateur provincial") }}{% elif me.is_admin %}{{ t("Administrateur national") }}{% else %}{{ t(me.niveau_label) }}{% endif %} · {{ t(me.perimetre) }}</small></span>
+      <small>{% if droits.super %}{{ t("Super-administrateur") }}{% elif me.is_admin and me.niveau == "province" %}{{ t("Administrateur provincial") }}{% elif me.is_admin %}{{ t("Administrateur national") }}{% elif me.is_partenaire %}{{ t("Partenaire") }}{% else %}{{ t(me.niveau_label) }}{% endif %} · {{ t(me.perimetre) }}</small></span>
     <a class="btn small" href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
   </div>
   {% endif %}
@@ -78,11 +78,11 @@
         </div>
       </div>
       {% endif %}
-      {% if me.is_admin or me.niveau == "national" %}
+      {% if (me.is_admin or me.niveau == "national") and not droits.partenaire %}
       <a href="{{ url_for('users_admin') }}">{{ t("Utilisateurs") }}</a>
       {% endif %}
-      <a class="push" href="/tutoriel/" target="_blank" rel="noopener">{{ t("Tutoriel") }}</a>
-      <a href="{{ url_for('account') }}">{{ t("Mon compte") }}</a>
+      {% if not droits.partenaire %}<a class="push" href="/tutoriel/" target="_blank" rel="noopener">{{ t("Tutoriel") }}</a>{% endif %}
+      <a {% if droits.partenaire %}class="push" {% endif %}href="{{ url_for('account') }}">{{ t("Mon compte") }}</a>
       <a class="nav-deco" href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
     {% endif %}
     <div class="menu{% if not me %} push{% endif %}">
