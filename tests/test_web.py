@@ -238,3 +238,39 @@ def test_compte_partenaire_consultation_seule(app):
     from core.users import User
     prov = User("adm.p", "", "admin", True, "", "", "", niveau="province", province="Equateur")
     assert Users.peut_gerer(prov, "partenaire", "national", "") is not None
+
+
+def test_page_importer_une_fiche(app):
+    Users(app.store).create("agent.x", "Secret123")
+    c = app.test_client()
+    _login(c, "agent.x", "Secret123")
+    assert "/cas/importer" in c.get("/").get_data(as_text=True)
+    page = c.get("/cas/importer").get_data(as_text=True)
+    assert 'name="fichier"' in page and "Modèle Word" in page
+
+
+def test_menu_pci_lieux_et_adresses(app, tmp_path):
+    import io
+    from datetime import date
+    from openpyxl import load_workbook
+    from core.models import Case, Event, IPCSite
+    from core import pci_lieux as PCI
+    us = Users(app.store)
+    us.create("agent.p", "Secret123")
+    c0 = Case(code_cas="EQ-TUM-009", province="Equateur", zs="Tumba",
+              events=[Event(lieu="CS Nzala", date_debut=date(2026, 7, 19), titre="Début maladie"),
+                      Event(lieu="CS Nzala", lieu_arrivee="HGR Tumba", date_debut=date(2026, 7, 27), titre="Référence")],
+              ipc=[IPCSite(site="CS Nzala", statut="Oui", adresse="Av. du Marché 12, Q. Nzala")])
+    app.store.save(c0, owner="agent.p")
+    rows = PCI.lignes([c0])
+    assert [r["lieu"] for r in rows] == ["CS Nzala", "HGR Tumba"]          # un lieu cité deux fois : une ligne
+    assert rows[0]["adresse"] == "Av. du Marché 12, Q. Nzala" and rows[1]["adresse"] == "?"
+    c = app.test_client()
+    _login(c, "agent.p", "Secret123")
+    assert "/pci" in c.get("/").get_data(as_text=True)
+    page = c.get("/pci").get_data(as_text=True)
+    assert "HGR Tumba" in page and "Av. du Marché 12" in page
+    r = c.get("/pci/lieux-adresses.xlsx")
+    assert r.status_code == 200
+    ws = load_workbook(io.BytesIO(r.data))["Lieux et adresses"]
+    assert ws["A3"].value == "EQ-TUM-009" and ws["I3"].value == "Av. du Marché 12, Q. Nzala" and ws["I4"].value == "?"

@@ -457,3 +457,16 @@ table.tb-table td b { white-space: nowrap; }
 .pager .btn { min-width: 38px; }
 .pager-gap { color: var(--muted); padding: 0 4px; }
 .pager-info { flex-basis: 100%; text-align: center; font-size: 13px; color: var(--muted); }
+
+/* page « Importer une fiche » */
+.import-page { max-width: 720px; }
+.import-page input[type=file] { display: block; margin-top: 6px; padding: 14px; width: 100%; border: 2px dashed var(--border); border-radius: 10px; background: var(--hover); }
+.import-modeles { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 14px; }
+
+/* menu PCI */
+.pci-bilan { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 6px 0 14px; }
+.pci-bilan > div { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; }
+.pci-bilan b { font-size: 26px; }
+.pci-bilan span { font-size: 13px; color: var(--muted); }
+.pci-bilan .manque b { color: var(--warn); }
+td.pci-manque { color: var(--warn); font-weight: 700; }

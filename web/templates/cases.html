@@ -12,7 +12,8 @@
     <h1 style="margin:2px 0 0">{{ t("Mes cas") if not multi else t("Tous les cas") if me.is_admin or me.niveau == "national" else t("Cas de mon périmètre") }}</h1>
     <div class="muted" style="font-size:14px">{{ t(me.niveau_label) }}{% if me.is_admin %} · {{ t("administrateur") }}{% endif %} : {{ t(me.perimetre) }}</div>
   </div>
-  {% if not droits.partenaire %}<form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t("＋ Nouveau cas") }}</button></form>{% endif %}
+  {% if not droits.partenaire %}<div class="row"><form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary">{{ t("＋ Nouveau cas") }}</button></form>
+  <a class="btn" href="{{ url_for('import_case') }}">{{ t("⇪ Importer une fiche (Word / Excel)") }}</a></div>{% endif %}
 </div>
 {% if not droits.partenaire %}<div class="onglets">
   <a class="onglet{% if onglet == 'cas' %} on{% endif %}" href="{{ url_for('cases') }}">{{ t("Enregistrés") }} ({{ total }})</a>

@@ -20,6 +20,7 @@
   <div class="tuiles">
     <form method="post" action="{{ url_for('new_case') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
       <button class="tuile primaire"><span class="ic">＋</span>{{ t("Nouveau cas") }}</button></form>
+    <a class="tuile" href="{{ url_for('import_case') }}"><span class="ic">⇪</span>{{ t("Importer une fiche") }}<small>{{ t("Word ou Excel déjà rempli") }}</small></a>
     <a class="tuile" href="{{ url_for('cases') }}"><span class="ic">☰</span>{{ t("Voir mes cas") if me.niveau == "aire" and not me.is_admin else t("Voir les cas") }}
       <small>{{ n_cas }} {{ t("enregistrés" if n_cas > 1 else "enregistré") }}{% if n_brouillons %} · {{ n_brouillons }} {{ t("brouillons" if n_brouillons > 1 else "brouillon") }}{% endif %}</small></a>
     {% if droits.admin %}<a class="tuile" href="{{ url_for('chains_page') }}"><span class="ic">⤳</span>{{ t("Chaînes de transmission") }}</a>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ t("PCI") }} · Mapping Épi{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between; margin-bottom:10px">
+  <div>
+    <a class="muted" href="{{ url_for('home') }}">{{ t("← Accueil") }}</a>
+    <h1 style="margin:2px 0 0">{{ t("PCI : lieux fréquentés et adresses") }}</h1>
+    <div class="muted" style="font-size:14px">{{ t(me.perimetre) }}</div>
+  </div>
+  <a class="btn primary" href="{{ url_for('pci_xlsx') }}">⬇ {{ t("Lieux fréquentés et adresses (Excel)") }}</a>
+</div>
+<div class="pci-bilan">
+  <div><b>{{ bilan.cas }}</b><span>{{ t("cas") }}</span></div>
+  <div><b>{{ bilan.lieux }}</b><span>{{ t("lieux fréquentés") }}</span></div>
+  <div><b>{{ bilan.avec_adresse }}</b><span>{{ t("avec adresse") }}</span></div>
+  <div class="{{ 'manque' if bilan.lieux - bilan.avec_adresse }}"><b>{{ bilan.lieux - bilan.avec_adresse }}</b><span>{{ t("sans adresse (à compléter dans l'onglet PCI de la fiche)") }}</span></div>
+</div>
+{% if rows %}
+<p class="hint">{{ t("Lignes") }} {{ (page - 1) * par_page + 1 }} {{ t("à") }} {{ (page - 1) * par_page + rows|length }} {{ t("sur") }} {{ n }}. {{ t("Le fichier Excel contient toutes les lignes et un résumé par cas.") }}</p>
+<div class="tablewrap"><table class="list">
+  <thead><tr><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Lieu fréquenté") }}</th><th>{{ t("Origine") }}</th><th>{{ t("Première date") }}</th><th>{{ t("Adresse") }}</th><th>{{ t("Statut PCI") }}</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr><td><b>{{ r.id }}</b></td><td>{{ r.zs }}</td><td>{{ r.lieu }}</td><td class="muted">{{ t(r.origine) }}</td>
+      <td>{{ r.date.strftime("%d/%m/%Y") if r.date else "?" }}</td>
+      <td class="{{ 'pci-manque' if r.adresse == '?' }}">{{ r.adresse }}</td><td>{{ t(r.statut) }}</td></tr>
+  {% endfor %}</tbody>
+</table></div>
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if page > 1 %}<a class="btn small" href="{{ url_for('pci_page', page=page - 1) }}">← {{ t("Précédent") }}</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      {% if p == page %}<span class="btn small primary" aria-current="page">{{ p }}</span>{% else %}<a class="btn small" href="{{ url_for('pci_page', page=p) }}">{{ p }}</a>{% endif %}
+    {% elif p == page - 3 or p == page + 3 %}<span class="pager-gap">…</span>{% endif %}
+  {% endfor %}
+  {% if page < pages %}<a class="btn small" href="{{ url_for('pci_page', page=page + 1) }}">{{ t("Suivant") }} →</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}<p class="muted">{{ t("Aucun lieu saisi dans les fiches du périmètre.") }}</p>{% endif %}
+{% endblock %}

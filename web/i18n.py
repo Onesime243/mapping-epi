@@ -81,6 +81,26 @@ EN = {
     "Importer une fiche": "Import a record", "Importer": "Import",
     "Réservé aux administrateurs": "Administrators only", "réservé aux administrateurs": "administrators only",
     "Exports réservés aux administrateurs": "Exports are for administrators only", "Rapports": "Reports",
+    "Importer une fiche": "Import a record", "Importer une fiche (Word / Excel)": "Import a record (Word / Excel)",
+    "⇪ Importer une fiche (Word / Excel)": "⇪ Import a record (Word / Excel)", "Word ou Excel déjà rempli": "Completed Word or Excel file",
+    "Fichier de la fiche": "Record file", "Importer et ouvrir la fiche": "Import and open the record", "Annuler": "Cancel",
+    "Modèle Excel": "Excel template", "Modèle Word": "Word template", "Modèle PowerPoint": "PowerPoint template",
+    "Créez un cas à partir d'un fichier déjà rempli : les champs sont remplis automatiquement, puis la fiche s'ouvre pour vérification.":
+        "Create a case from a completed file: fields are filled in automatically, then the record opens for checking.",
+    "Formats acceptés : Excel (.xlsx), Word (.docx), PowerPoint (.pptx), ou ancien narratif Word / PowerPoint libre.":
+        "Accepted formats: Excel (.xlsx), Word (.docx), PowerPoint (.pptx), or older free-text Word / PowerPoint narratives.",
+    "Pas encore de fichier ? Téléchargez un modèle vierge :": "No file yet? Download a blank template:",
+    "Si des champs obligatoires manquent, la fiche est gardée en brouillon jusqu'à ce qu'ils soient remplis.":
+        "If required fields are missing, the record is kept as a draft until they are filled in.",
+    "PCI": "IPC", "PCI : lieux fréquentés et adresses": "IPC: places visited and addresses",
+    "Lieux fréquentés et adresses (Excel)": "Places visited and addresses (Excel)", "lieux fréquentés": "places visited",
+    "avec adresse": "with address", "sans adresse (à compléter dans l'onglet PCI de la fiche)":
+        "without address (to complete in the record's IPC tab)", "Lignes": "Rows", "à": "to", "sur": "of",
+    "Le fichier Excel contient toutes les lignes et un résumé par cas.": "The Excel file contains every row and a summary per case.",
+    "ID du cas": "Case ID", "Lieu fréquenté": "Place visited", "Origine": "Source", "Première date": "First date",
+    "Adresse": "Address", "Statut PCI": "IPC status", "Parcours": "Pathway", "Lieu saisi": "Entered place",
+    "Site PCI": "IPC site", "Pas de site PCI saisi": "No IPC site entered",
+    "Aucun lieu saisi dans les fiches du périmètre.": "No place entered in the records of this scope.",
     "Tableau de bord": "Dashboard", "Précédent": "Previous", "Suivant": "Next", "Tableau de bord de la riposte": "Response dashboard",
     "Super-administrateur": "Super administrator", "Administrateur national": "National administrator",
     "Administrateur provincial": "Provincial administrator",

@@ -44,6 +44,7 @@
       <a href="/" class="{{ 'on' if request.path == '/' }}">{{ t("Accueil") }}</a>
       {% if droits.tdb %}<a href="{{ url_for('tableau_bord') }}" class="{{ 'on' if request.path.startswith('/tableau-de-bord') }}">{{ t("Tableau de bord") }}</a>{% endif %}
       <a href="{{ url_for('cases') }}">{{ t("Mes cas") if me.niveau == "aire" and not me.is_admin else t("Cas") }}</a>
+      {% if not droits.partenaire %}<a href="{{ url_for('pci_page') }}" class="{{ 'on' if request.path.startswith('/pci') }}">{{ t("PCI") }}</a>{% endif %}
       {% if droits.admin %}
       <div class="menu">
         <button type="button" class="menu-btn" aria-haspopup="true">{{ t("Analyses") }} ▾</button>

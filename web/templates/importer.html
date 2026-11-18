@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ t("Importer une fiche") }} · Mapping Épi{% endblock %}
+{% block content %}
+<a class="muted" href="{{ url_for('home') }}">{{ t("← Accueil") }}</a>
+<h1 style="margin:2px 0 4px">{{ t("Importer une fiche (Word / Excel)") }}</h1>
+<p class="muted" style="margin:0 0 16px">{{ t("Créez un cas à partir d'un fichier déjà rempli : les champs sont remplis automatiquement, puis la fiche s'ouvre pour vérification.") }}</p>
+<div class="card import-page">
+  <form method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="depuis" value="page">
+    <label class="f" for="fichier">{{ t("Fichier de la fiche") }}</label>
+    <input id="fichier" type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required>
+    <p class="hint">{{ t("Formats acceptés : Excel (.xlsx), Word (.docx), PowerPoint (.pptx), ou ancien narratif Word / PowerPoint libre.") }}</p>
+    <div class="row" style="margin-top:14px"><button class="btn primary">{{ t("Importer et ouvrir la fiche") }}</button>
+      <a class="btn" href="{{ url_for('cases') }}">{{ t("Annuler") }}</a></div>
+  </form>
+  <div class="import-modeles">
+    <b>{{ t("Pas encore de fichier ? Téléchargez un modèle vierge :") }}</b>
+    <div class="row" style="margin-top:8px">
+      <a class="btn small" href="{{ url_for('excel_model') }}">{{ t("Modèle Excel") }}</a>
+      <a class="btn small" href="{{ url_for('word_model') }}">{{ t("Modèle Word") }}</a>
+      <a class="btn small" href="{{ url_for('pptx_model') }}">{{ t("Modèle PowerPoint") }}</a>
+    </div>
+  </div>
+</div>
+<p class="hint" style="margin-top:12px">{{ t("Si des champs obligatoires manquent, la fiche est gardée en brouillon jusqu'à ce qu'ils soient remplis.") }}</p>
+{% endblock %}

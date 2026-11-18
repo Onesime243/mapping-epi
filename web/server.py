@@ -931,6 +931,30 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return Response(f"Export impossible sur ce serveur : {msg}", status=503, mimetype="text/plain; charset=utf-8")
         return _send_and_delete(out, name)
 
+    @app.route("/pci")
+    @login_required
+    def pci_page():
+        """Menu PCI : lieux fréquentés par les cas du périmètre et adresse de chaque lieu."""
+        from core import pci_lieux as PCI
+        rows = PCI.lignes(visible_cases())
+        par_page = 20
+        pages = max(1, -(-len(rows) // par_page))
+        try:
+            page = min(pages, max(1, int(request.args.get("page", "1"))))
+        except ValueError:
+            page = 1
+        return render_template("pci.html", rows=rows[(page - 1) * par_page: page * par_page], bilan=PCI.bilan(rows),
+                               page=page, pages=pages, par_page=par_page, n=len(rows))
+
+    @app.route("/pci/lieux-adresses.xlsx")
+    @login_required
+    def pci_xlsx():
+        from core import pci_lieux as PCI
+        out = data_dir() / "exports" / f"pci_{secrets.token_hex(6)}.xlsx"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        PCI.xlsx(visible_cases(), out, g.user.perimetre)
+        return _send_and_delete(out, f"PCI_lieux_adresses_{date.today():%Y%m%d}.xlsx")
+
     @app.route("/cas/nouveau", methods=["POST"])
     @login_required
     def new_case():
@@ -956,9 +980,11 @@ def create_app(store: storage.Store | None = None) -> Flask:
         app.store.save(c, version=True, auteur=g.user.username, commentaire="Exemple fictif", owner=g.user.username)
         return redirect(url_for("editor", cid=c.id))
 
-    @app.route("/cas/importer", methods=["POST"])
+    @app.route("/cas/importer", methods=["GET", "POST"])
     @login_required
     def import_case():
+        if request.method == "GET":       # page « Importer une fiche (Word / Excel) », depuis l'accueil
+            return render_template("importer.html")
         f = request.files.get("fichier")
         if not f:
             abort(400)
@@ -989,7 +1015,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 c = Case.model_validate_json(raw)
         except Exception as exc:
             flash(f"Fichier illisible : {exc}", "err")
-            return redirect(url_for("cases"))
+            return redirect(url_for("import_case") if request.form.get("depuis") == "page" else url_for("cases"))
         import uuid
         c.id = uuid.uuid4().hex
         manque = OBL.manquants(c)
