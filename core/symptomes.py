@@ -17,10 +17,21 @@ from typing import Dict, List, Optional
 
 from config import theme
 from core import rules
+from core.langue import actuelle, tr, trf
 from core.models import Case
 
 PHASES = [("seche", "Phase sèche"), ("humide", "Phase humide"), ("critique", "Phase critique")]
 LIB_PHASE = dict(PHASES) | {"avant": "Avant J0", "symptomatique": "Phase symptomatique", "non_datee": "Non datée"}
+
+
+def lib_phase(code: str) -> str:
+    """Libellé affiché (exports) d'une phase, dans la langue courante ; le code et LIB_PHASE restent en français."""
+    return tr(LIB_PHASE.get(code, code))
+
+
+def jour(j: str) -> str:
+    """« J+3 » → « D+3 » en anglais (jour depuis le J0 retenu, à l'affichage seulement)."""
+    return "D" + j[1:] if j and j.startswith("J") and actuelle() == "en" else j
 
 # symptôme → motif (texte sans accents, en minuscules)
 SYMPTOMES = [
@@ -116,7 +127,9 @@ def mentions(c: Case) -> List[Mention]:
         if not noms:
             continue
         phase = _phase_etape(ev, ph)
-        src = f"étape {ev.date_debut:%d/%m} · {ev.titre or ev.type}" if ev.date_debut else f"étape · {ev.titre or ev.type}"
+        nom_etape = ev.titre or tr(ev.type)
+        src = (trf("étape {date} · {titre}", date=f"{ev.date_debut:%d/%m}", titre=nom_etape) if ev.date_debut
+               else trf("étape · {titre}", titre=nom_etape))
         out += [Mention(phase, n, ev.date_debut, src) for n in noms]
     for s in c.symptomes:
         nom = _COCHES.get(s)
@@ -130,7 +143,7 @@ def mentions(c: Case) -> List[Mention]:
             phase, quand = "seche", ph.j0 if ph else None
         else:
             phase, quand = "non_datee", None
-        out.append(Mention(phase, nom, quand, "liste de la fiche"))
+        out.append(Mention(phase, nom, quand, tr("liste de la fiche")))
     # une seule fois chaque (phase, symptôme) : la première mention datée
     vus: Dict[tuple, Mention] = {}
     for m in sorted(out, key=lambda m: (m.date or date.max)):
@@ -179,5 +192,5 @@ def par_etape(c: Case) -> List[dict]:
             continue
         out.append({"date": ev.date_debut, "jour": rules.relative_day(ev.date_debut, ph.j0) if ph else "",
                     "phase": LIB_PHASE.get(_phase_etape(ev, ph), ""), "etape": ev.titre or ev.type,
-                    "symptomes": noms})
+                    "type": ev.type, "symptomes": noms})
     return out

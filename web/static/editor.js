@@ -4,6 +4,12 @@
   const ID = window.CASE_ID;
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+  // langue : textes de la fiche traduits par window.I18N (vide en français) ; les choix restent enregistrés en français
+  const T = s => (window.I18N && window.I18N[s]) || s;
+  const TF = (s, o) => T(s).replace(/\{(\w+)\}/g, (m, k) => (o && k in o ? o[k] : m));
+  const EN = !!(window.I18N && Object.keys(window.I18N).length);
+  const LOC = EN ? 'en-GB' : 'fr-FR';
+  const SEP = EN ? ': ' : ' : ', PCT = EN ? '%' : ' %';     // « : » et « % » : espace avant en français seulement
   let S = null, PYR = {}, C = null, CTRL = null, dirty = false, saving = null, timer = null, visual = 'mapping';
 
   // ------------------------------------------------------------------ réseau
@@ -13,7 +19,7 @@
     const r = await fetch(url, opts);
     if (r.status === 401) { location.href = '/connexion?next=' + encodeURIComponent(location.pathname); throw new Error('session'); }
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || ('Erreur ' + r.status));
+    if (!r.ok) throw new Error(j.error || (T('Erreur') + ' ' + r.status));
     return j;
   }
   function toast(msg, ms) {
@@ -31,43 +37,43 @@
   }
   function depuis(t) {
     const sec = Math.round((Date.now() - t.getTime()) / 1000);
-    if (sec < 10) return "à l'instant";
-    if (sec < 60) return 'il y a ' + sec + ' s';
+    if (sec < 10) return T("à l'instant");
+    if (sec < 60) return TF('il y a {n} s', {n: sec});
     const m = Math.round(sec / 60);
-    return m < 60 ? 'il y a ' + m + ' min' : 'à ' + t.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+    return m < 60 ? TF('il y a {n} min', {n: m}) : TF('à {heure}', {heure: t.toLocaleTimeString(LOC, {hour: '2-digit', minute: '2-digit'})});
   }
   setInterval(() => {
     const s = $('#status');
-    if (s && lastSaved && s.classList.contains('ok') && !dirty) setStatus('Enregistré ' + depuis(lastSaved), 'ok');
+    if (s && lastSaved && s.classList.contains('ok') && !dirty) setStatus(T('Enregistré') + ' ' + depuis(lastSaved), 'ok');
   }, 15000);
 
   function changed() {
     if (RO) return;
     markRequired(); renderObligatoires(); renderEtapes();
-    dirty = true; setStatus('Modifications non enregistrées…', 'pending');
+    dirty = true; setStatus(T('Modifications non enregistrées…'), 'pending');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
   async function save(version, comment) {
     if (saving) await saving.catch(() => {});
     if (!dirty && !version) return;
-    dirty = false; setStatus('Enregistrement…', 'saving');
+    dirty = false; setStatus(T('Enregistrement…'), 'saving');
     const q = version ? ('?version=1&commentaire=' + encodeURIComponent(comment || '')) : '';
     saving = api('/api/cas/' + ID + q, {method: 'PUT', body: JSON.stringify(C)}).then(j => {
       CTRL = j.controls; updateComputed(); renderControls(); renderSuggestions(); refreshPreview();
       const t = new Date(j.saved_at);
       OBLIG = j.obligatoires || []; renderObligatoires();
       if (j.brouillon) {
-        setStatus('Brouillon : ' + OBLIG.length + ' champ(s) obligatoire(s) manquant(s)', 'pending');
+        setStatus(TF('Brouillon : {n} champ(s) obligatoire(s) manquant(s)', {n: OBLIG.length}), 'pending');
         if (version) toast(j.message, 6000);
       } else {
         lastSaved = isNaN(t.getTime()) ? new Date() : t;
-        setStatus((version ? 'Version enregistrée ' : 'Enregistré ') + depuis(lastSaved), 'ok');
+        setStatus(T(version ? 'Version enregistrée' : 'Enregistré') + ' ' + depuis(lastSaved), 'ok');
       }
       updateTitle();
     }).catch(e => {
       dirty = true;
-      setStatus(navigator.onLine === false ? 'Hors connexion : non enregistré, nouvel essai automatique'
-                                           : "Échec de l'enregistrement : " + e.message, 'err');
+      setStatus(navigator.onLine === false ? T('Hors connexion : non enregistré, nouvel essai automatique')
+                                           : T("Échec de l'enregistrement : ") + e.message, 'err');
       clearTimeout(timer); timer = setTimeout(() => save(false), 15000);
     });
     return saving;
@@ -76,8 +82,8 @@
   window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   function updateTitle() {
-    const rang = (C.code_cas || '').trim() || (C.rang ? 'Cas ' + C.rang : 'Cas');
-    $('#caseTitle').textContent = rang + ' – ' + C.maladie + ' – ZS ' + (C.zs || '?') + ' (' + (C.aire_sante || '?') + ')';
+    const rang = (C.code_cas || '').trim() || TF('Cas {n}', {n: C.rang || ''}).trim();
+    $('#caseTitle').textContent = rang + ' – ' + T(C.maladie) + ' – ' + TF('ZS {zs}', {zs: C.zs || '?'}) + ' (' + (C.aire_sante || '?') + ')';
   }
 
   // ------------------------------------------------------------- utilitaires
@@ -95,14 +101,15 @@
     sel.innerHTML = '';
     const vals = list.slice();
     if (value && !vals.includes(value)) vals.unshift(value);
-    vals.forEach(v => sel.appendChild(el('option', {value: v, text: v === '' ? (emptyLabel || 'Choisir…') : v})));
+    vals.forEach(v => sel.appendChild(el('option', {value: v, text: v === '' ? T(emptyLabel || 'Choisir…') : T(v)})));
     sel.value = value || '';
   }
   function datalist(id, items) {
     let d = document.getElementById(id);
     if (!d) { d = el('datalist', {id}); document.body.appendChild(d); }
     d.innerHTML = '';
-    [...new Set(items.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(v => d.appendChild(el('option', {value: v})));
+    // la valeur proposée reste en français (enregistrée) ; la traduction s'affiche à côté (label)
+    [...new Set(items.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')).forEach(v => d.appendChild(el('option', {value: v, label: T(v) !== v ? T(v) : null})));
     return id;
   }
   const minDate = () => S.annee_min + '-01-01';
@@ -111,7 +118,7 @@
 
   // -------------------------------------------------------------- identité
   function field(label, input, wide) {
-    return el('div', {style: wide ? 'grid-column: 1 / -1' : null}, [el('label', {class: 'f', text: label}), input]);
+    return el('div', {style: wide ? 'grid-column: 1 / -1' : null}, [el('label', {class: 'f', text: T(label)}), input]);
   }
   function bindInput(inp, key, kind) {
     inp.dataset.k = key;
@@ -125,19 +132,19 @@
   }
   function renderIdentity() {
     const p = $('#p-identite'); p.innerHTML = '';
-    p.appendChild(el('p', {class: 'hint', text: "Champs marqués * : indispensables au mapping. Une information inconnue reste vide : elle s'affichera « ? »."}));
+    p.appendChild(el('p', {class: 'hint', text: T("Champs marqués * : indispensables au mapping. Une information inconnue reste vide : elle s'affichera « ? ».")}));
     const g = el('div', {class: 'grid'});
     const inp = (key, type, extra) => { const i = el('input', Object.assign({type: type || 'text', value: C[key] ?? ''}, extra || {})); bindInput(i, key, type === 'number' ? 'int' : type === 'date' ? 'date' : 'text'); return i; };
     const sel = (key, list, emptyLabel) => { const s = el('select'); options(s, list, C[key] ?? '', emptyLabel); bindInput(s, key, 'select'); return s; };
 
-    g.appendChild(field('ID du cas * (alphanumérique)', inp('code_cas', 'text', {placeholder: 'ex. RDC-HUE-WAM-26-001', maxlength: 40})));
+    g.appendChild(field('ID du cas * (alphanumérique)', inp('code_cas', 'text', {placeholder: T('ex.') + ' RDC-HUE-WAM-26-001', maxlength: 40})));
     const mal = el('input', {value: C.maladie || '', list: datalist('dl-mal', S.choices.diseases)}); bindInput(mal, 'maladie');
     g.appendChild(field('Maladie *', mal));
     g.appendChild(field('Statut', sel('statut', S.choices.status)));
     // Lien épidémiologique : le cas était-il déjà un contact connu (listé) ?
     const cbox = el('div', {class: 'seg'});
     (S.choices.contact_status || ['Inconnu', 'Contact connu', 'Contact connu suivi', 'Non contact']).forEach(v => {
-      const b = el('button', {type: 'button', class: 'seg-b' + (v === 'Inconnu' ? ' unk' : '') + ((C.contact_connu || 'Inconnu') === v ? ' on' : ''), text: v});
+      const b = el('button', {type: 'button', class: 'seg-b' + (v === 'Inconnu' ? ' unk' : '') + ((C.contact_connu || 'Inconnu') === v ? ' on' : ''), text: T(v)});
       b.addEventListener('click', () => {
         C.contact_connu = v; cbox.querySelectorAll('.seg-b').forEach(x => x.classList.toggle('on', x === b)); changed();
       });
@@ -145,7 +152,7 @@
     });
     g.appendChild(field('Contact connu ou non contact ? *', cbox, true));
     // si le cas était un contact connu, l'ID du cas source est obligatoire
-    const src = inp('id_cas_source', 'text', {placeholder: 'À compléter : ID du cas dont il est le contact', maxlength: 40});
+    const src = inp('id_cas_source', 'text', {placeholder: T('À compléter : ID du cas dont il est le contact'), maxlength: 40});
     const srcField = field('ID du cas source (contact de…) *', src);
     const majSrc = () => {
       const req = ['Contact connu', 'Contact connu suivi'].includes(C.contact_connu || '');
@@ -166,12 +173,12 @@
     g.appendChild(srcField); majSrc();
     g.appendChild(dcsField); g.appendChild(srcInfo); majSrc2();
     g.appendChild(field('Sexe *', sel('sexe', S.choices.sexes)));
-    g.appendChild(field('Âge *', inp('age', 'number', {min: 0, max: 120, placeholder: 'vide si inconnu'})));
+    g.appendChild(field('Âge *', inp('age', 'number', {min: 0, max: 120, placeholder: T('vide si inconnu')})));
     g.appendChild(field('Unité', sel('age_unite', ['ans', 'mois'])));
     g.appendChild(field('Profession', inp('profession')));
     const ouiNon = S.choices.oui_non || ['Inconnu', 'Oui', 'Non'];
     const ppl = req(sel('agent_sante', ouiNon), 'agent_sante');
-    const pplS = inp('agent_sante_structure', 'text', {placeholder: 'ex. Infirmier, CS Nzala'});
+    const pplS = inp('agent_sante_structure', 'text', {placeholder: T('ex. Infirmier, CS Nzala')});
     const pplF = field("Catégorie et structure de l'agent de santé", pplS);
     const vac = req(sel('vaccine', ouiNon), 'vaccine');
     const vacD = inp('date_vaccination', 'date', {min: minDate()});
@@ -183,7 +190,7 @@
     g.appendChild(field("Début de la vaccination de l'anneau", inp('date_debut_anneau', 'date', {min: minDate()})));
 
     // Province → ZS → AS (pyramide sanitaire RDC)
-    const prov = el('select'), zs = el('select'), as = el('input', {placeholder: 'choisir ou saisir…'});
+    const prov = el('select'), zs = el('select'), as = el('input', {placeholder: T('choisir ou saisir…')});
     const fillZs = () => {
       const pk = findKey(PYR, prov.value);
       const zones = pk ? Object.keys(PYR[pk]) : [];
@@ -204,13 +211,13 @@
     g.appendChild(field('Zone de santé (ZS) *', zs));
     g.appendChild(field('Aire de santé (AS) *', as));
     g.appendChild(field('Village / quartier', inp('village')));
-    const lat = el('input', {type: 'number', step: 'any', value: C.lat ?? '', placeholder: 'ex. 2.63'}); bindInput(lat, 'lat', 'float');
-    const lon = el('input', {type: 'number', step: 'any', value: C.lon ?? '', placeholder: 'ex. 24.38'}); bindInput(lon, 'lon', 'float');
+    const lat = el('input', {type: 'number', step: 'any', value: C.lat ?? '', placeholder: T('ex.') + ' 2.63'}); bindInput(lat, 'lat', 'float');
+    const lon = el('input', {type: 'number', step: 'any', value: C.lon ?? '', placeholder: T('ex.') + ' 24.38'}); bindInput(lon, 'lon', 'float');
     g.appendChild(field('Latitude', lat));
     g.appendChild(field('Longitude', lon));
     g.appendChild(field('Date de notification *', req(inp('date_notification', 'date', {min: minDate()}), 'date_notification')));
     g.appendChild(field('Date de confirmation *', inp('date_confirmation', 'date', {min: minDate()})));
-    g.appendChild(field('Séquençage (clade, lignée)', inp('sequencage', 'text', {placeholder: 'ex. lignée 2026-A, lié au cas …'})));
+    g.appendChild(field('Séquençage (clade, lignée)', inp('sequencage', 'text', {placeholder: T('ex. lignée 2026-A, lié au cas …')})));
     g.appendChild(field('État du cas *', req(sel('issue', S.choices.issues), 'issue')));
     g.appendChild(field('Risque global', sel('risque_global', [''].concat(S.choices.risks), 'Automatique')));
     g.appendChild(field('Investigateur *', inp('investigateur')));
@@ -232,9 +239,9 @@
     req(pd, 'phase_dds');
     g.appendChild(field('Phase des premiers signes rapportés *', pd));
     p.appendChild(g);
-    p.appendChild(el('p', {class: 'hint', text: "À quelle phase se trouvait le cas à la date rapportée ? Phase sèche (fièvre, fatigue, céphalées, douleurs) : J0 = date − 3 j. Phase humide (vomissements, diarrhée, yeux rouges) : J0 = date − 7 j. Phase critique (saignements, confusion, choc) : J0 = date − 16 j. Le J0 retenu sert au point d'infection (J-21 → J-2) et aux phases. Pour un contact connu, l'exposition vient du cas source (onglet Identité)."}));
+    p.appendChild(el('p', {class: 'hint', text: T("À quelle phase se trouvait le cas à la date rapportée ? Phase sèche (fièvre, fatigue, céphalées, douleurs) : J0 = date − 3 j. Phase humide (vomissements, diarrhée, yeux rouges) : J0 = date − 7 j. Phase critique (saignements, confusion, choc) : J0 = date − 16 j. Le J0 retenu sert au point d'infection (J-21 → J-2) et aux phases. Pour un contact connu, l'exposition vient du cas source (onglet Identité).")}));
     const j0i = el('p', {class: 'hint', id: 'j0Info'}); p.appendChild(j0i);
-    p.appendChild(el('h2', {text: 'Symptômes'}));
+    p.appendChild(el('h2', {text: T('Symptômes')}));
     const toggle = (s, on) => {
       C.symptomes = on ? C.symptomes.filter(x => x !== s).concat([s]) : C.symptomes.filter(x => x !== s); changed();
     };
@@ -242,16 +249,16 @@
     const known = [].concat(...groups.map(g => g[1]));
     const custom = C.symptomes.filter(s => !known.includes(s));
     groups.forEach(([gname, items]) => {
-      p.appendChild(el('h3', {class: 'symgroup', text: gname}));
+      p.appendChild(el('h3', {class: 'symgroup', text: T(gname)}));
       const box = el('div', {class: 'symptoms'});
       items.forEach(s => {
         const cb = el('input', {type: 'checkbox'}); cb.checked = C.symptomes.includes(s);
         cb.addEventListener('change', () => toggle(s, cb.checked));
-        box.appendChild(el('label', {}, [cb, s + (S.choices.hemorrhagic.includes(s) ? ' 🩸' : '')]));
+        box.appendChild(el('label', {}, [cb, T(s) + (S.choices.hemorrhagic.includes(s) ? ' 🩸' : '')]));
       });
       p.appendChild(box);
     });
-    p.appendChild(el('h3', {class: 'symgroup', text: 'Symptômes ajoutés'}));
+    p.appendChild(el('h3', {class: 'symgroup', text: T('Symptômes ajoutés')}));
     const cbox = el('div', {class: 'symptoms'});
     const addCustom = (s, checked) => {
       const cb = el('input', {type: 'checkbox'}); cb.checked = checked;
@@ -260,8 +267,8 @@
     };
     custom.forEach(s => addCustom(s, true));
     p.appendChild(cbox);
-    const nw = el('input', {placeholder: 'Symptôme absent de la liste (ex. douleur thoracique)'});
-    const add = el('button', {type: 'button', class: 'btn small', text: '+ Ajouter le symptôme'});
+    const nw = el('input', {placeholder: T('Symptôme absent de la liste (ex. douleur thoracique)')});
+    const add = el('button', {type: 'button', class: 'btn small', text: T('+ Ajouter le symptôme')});
     const doAdd = () => {
       let s = nw.value.trim(); if (!s) return;
       s = s.charAt(0).toUpperCase() + s.slice(1);
@@ -271,7 +278,7 @@
     add.addEventListener('click', doAdd);
     nw.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
     p.appendChild(el('div', {class: 'row', style: 'margin-top:8px'}, [nw, add]));
-    const other = el('input', {value: C.symptomes_autres || '', placeholder: 'Autres symptômes (texte libre)', style: 'margin-top:12px'});
+    const other = el('input', {value: C.symptomes_autres || '', placeholder: T('Autres symptômes (texte libre)'), style: 'margin-top:12px'});
     bindInput(other, 'symptomes_autres');
     p.appendChild(other);
   }
@@ -327,7 +334,7 @@
     if (!d) { d = el('datalist', {id: 'dl-places'}); document.body.appendChild(d); }
     d.innerHTML = '';
     lieuxConnus().forEach(l => d.appendChild(el('option', {value: l.nom,
-      label: l.fiche ? 'dans cette fiche' : (l.n + ' fiche' + (l.n > 1 ? 's' : '') + ' · ZS ' + (ZONE.zs || '?'))})));
+      label: l.fiche ? T('dans cette fiche') : (pl(l.n, 'fiche') + ' · ' + TF('ZS {zs}', {zs: ZONE.zs || '?'}))})));
   }
   function attachLieu(inp, set) {
     inp.addEventListener('focus', async () => { remplirListeLieux(); await chargerZone(); remplirListeLieux(); });
@@ -337,7 +344,7 @@
       const brut = inp.value.trim();
       if (!brut) return;
       const h = harmoniser(brut);
-      if (h !== inp.value) { inp.value = h; set(h); if (h !== brut) toast('Écriture harmonisée : « ' + brut + ' » → « ' + h + ' »', 3500); }
+      if (h !== inp.value) { inp.value = h; set(h); if (h !== brut) toast(TF('Écriture harmonisée : « {avant} » → « {apres} »', {avant: brut, apres: h}), 3500); }
       const k = cleLieu(h);
       // déjà connu : ailleurs dans la fiche (ce champ compte une fois) ou dans les fiches de la zone
       const dansFiche = placeNames().filter(n => cleLieu(n) === k).length;
@@ -354,11 +361,11 @@
       if (!best || !td) return;
       const b = best.l;
       const hint = el('div', {class: 'lieu-hint'}, [
-        el('span', {text: 'Nom proche : '}), el('b', {text: b.nom}),
-        el('span', {text: b.fiche ? ' (dans cette fiche)' : ' (' + b.n + ' fiche' + (b.n > 1 ? 's' : '') + ')'}),
-        el('button', {type: 'button', class: 'btn small primary', text: 'Remplacer', on: {click: () => {
+        el('span', {text: T('Nom proche : ')}), el('b', {text: b.nom}),
+        el('span', {text: b.fiche ? ' (' + T('dans cette fiche') + ')' : ' (' + pl(b.n, 'fiche') + ')'}),
+        el('button', {type: 'button', class: 'btn small primary', text: T('Remplacer'), on: {click: () => {
           inp.value = b.nom; set(b.nom); hint.parentNode.removeChild(hint); }}}),
-        el('button', {type: 'button', class: 'btn small', text: 'Garder', on: {click: () => hint.parentNode.removeChild(hint)}})]);
+        el('button', {type: 'button', class: 'btn small', text: T('Garder'), on: {click: () => hint.parentNode.removeChild(hint)}})]);
       td.appendChild(hint);
     });
   }
@@ -418,7 +425,7 @@
         inp = el('input', {value: v || '', style: 'min-width:' + w, list: c.complete ? 'dl-places' : null});
         inp.addEventListener('input', () => set(inp.value));
         if (c.key === 'personnes') {   // obligatoire : rouge tant que vide
-          inp.placeholder = 'À compléter';
+          inp.placeholder = T('À compléter');
           // étapes sans personnes exposées (investigation, laboratoire, riposte) : pas à compléter (même règle que le mapping)
           const mark = () => inp.classList.toggle('req-missing', !inp.value.trim() && !SANS_PERSONNES.has(row.type));
           inp.addEventListener('input', mark); mark();
@@ -438,12 +445,12 @@
       const tr = el('tr', {}, cols.map(c => cell(table, row, c, i)));
       const op = (lbl, title, fn) => el('button', {type: 'button', text: lbl, title, on: {click: fn}});
       tr.appendChild(el('td', {class: 'ops'}, [
-        op('↑', 'Monter', () => move(table, i, -1)), op('↓', 'Descendre', () => move(table, i, 1)),
-        op('⧉', 'Dupliquer', () => { const cp = JSON.parse(JSON.stringify(row)); cp.id = Math.random().toString(16).slice(2, 12); C[table].splice(i + 1, 0, cp); renderTable(table); changed(); }),
-        op('✕', 'Supprimer', () => { C[table].splice(i, 1); renderTable(table); changed(); })]));
+        op('↑', T('Monter'), () => move(table, i, -1)), op('↓', T('Descendre'), () => move(table, i, 1)),
+        op('⧉', T('Dupliquer'), () => { const cp = JSON.parse(JSON.stringify(row)); cp.id = Math.random().toString(16).slice(2, 12); C[table].splice(i + 1, 0, cp); renderTable(table); changed(); }),
+        op('✕', T('Supprimer'), () => { C[table].splice(i, 1); renderTable(table); changed(); })]));
       body.appendChild(tr);
     });
-    if (!C[table].length) body.appendChild(el('tr', {}, [el('td', {colspan: cols.length + 1, class: 'muted', text: 'Aucune ligne. Cliquez sur « Ajouter ».', style: 'padding:14px'})]));
+    if (!C[table].length) body.appendChild(el('tr', {}, [el('td', {colspan: cols.length + 1, class: 'muted', text: T('Aucune ligne. Cliquez sur « Ajouter ».'), style: 'padding:14px'})]));
     t.appendChild(body);
     updateComputed();
   }
@@ -458,9 +465,9 @@
       const comp = CTRL.computed[table] && CTRL.computed[table][+i];
       if (comp === undefined) { td.textContent = ''; return; }
       if (table === 'events') {
-        td.textContent = comp.lvl + (C.events[+i] && !C.events[+i].risque ? ' ✓' : '');
+        td.textContent = T(comp.lvl) + (C.events[+i] && !C.events[+i].risque ? ' ✓' : '');
         td.style.color = comp.color; td.title = comp.why;
-      } else td.textContent = comp;
+      } else td.textContent = table === 'places' ? T(comp) : comp;
     });
   }
 
@@ -484,12 +491,12 @@
     $$('[data-k]').forEach(x => x.classList.toggle('obl-missing', m.some(o => o.key === x.dataset.k)));
     box.hidden = !m.length;
     if (!m.length) return;
-    if (!dirty && !saving) setStatus('Brouillon : non enregistré', 'pending');
+    if (!dirty && !saving) setStatus(T('Brouillon : non enregistré'), 'pending');
     box.innerHTML = '';
     const noms = m.map(o => o.label.replace(/ \(.*\)$/, '').toLowerCase().replace(/^id /, 'ID '));
-    const liste = noms.length > 1 ? noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1] : noms[0];
-    box.appendChild(el('b', {text: 'Pas encore enregistrée : '}));
-    box.appendChild(document.createTextNode('il manque ' + liste + '.'));
+    const liste = noms.length > 1 ? noms.slice(0, -1).join(', ') + ' ' + T('et') + ' ' + noms[noms.length - 1] : noms[0];
+    box.appendChild(el('b', {text: T('Pas encore enregistrée : ')}));
+    box.appendChild(document.createTextNode(TF('il manque {liste}.', {liste})));
   }
 
   function renderMissing() {
@@ -500,7 +507,7 @@
     // éléments utiles au mapping complet : discret et replié (seuls les champs obligatoires sont en rouge)
     box.classList.add('neutre');
     const d = el('details');
-    d.appendChild(el('summary', {text: CTRL.missing.length + ' élément(s) à compléter pour un mapping complet'}));
+    d.appendChild(el('summary', {text: TF('{n} élément(s) à compléter pour un mapping complet', {n: CTRL.missing.length})}));
     d.appendChild(el('div', {text: CTRL.missing.join(' • '), style: 'margin-top:6px'}));
     box.appendChild(d);
   }
@@ -508,14 +515,14 @@
     const s = $('#srcInfo'), j = $('#j0Info'), fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
     if (s && CTRL) {
       const x = CTRL.source;
-      s.textContent = x ? ('Cas source trouvé : ' + x.code + ' (ZS ' + (x.zs || '?') + ', état ' + x.etat + ') : J0 ' + fmt(x.j0) +
-        (x.contagieux ? ', contagieux du ' + fmt(x.contagieux[0]) + ' au ' + fmt(x.contagieux[1]) : '') +
-        '. Sans date de dernier contact, l\'exposition du mapping est cette période.')
-        : (C.id_cas_source ? 'Cas source non trouvé dans l\'outil : renseignez la date du dernier contact.' : '');
+      s.textContent = x ? (TF('Cas source trouvé : {code} (ZS {zs}, état {etat}) : J0 {j0}', {code: x.code, zs: x.zs || '?', etat: T(x.etat), j0: fmt(x.j0)}) +
+        (x.contagieux ? TF(', contagieux du {debut} au {fin}', {debut: fmt(x.contagieux[0]), fin: fmt(x.contagieux[1])}) : '') +
+        T('. Sans date de dernier contact, l\'exposition du mapping est cette période.'))
+        : (C.id_cas_source ? T('Cas source non trouvé dans l\'outil : renseignez la date du dernier contact.') : '');
     }
     if (j && CTRL) {
-      j.textContent = CTRL.j0_retenu ? ('J0 retenu : ' + fmt(CTRL.j0_retenu) + ' (date rapportée − ' + CTRL.recul + ' j)' +
-        (CTRL.notif_delai !== null ? ' • notification ' + CTRL.notif_delai + ' j après le début des symptômes rapporté' : '')) : '';
+      j.textContent = CTRL.j0_retenu ? (TF('J0 retenu : {date} (date rapportée − {n} j)', {date: fmt(CTRL.j0_retenu), n: CTRL.recul}) +
+        (CTRL.notif_delai !== null ? TF(' • notification {n} j après le début des symptômes rapporté', {n: CTRL.notif_delai}) : '')) : '';
     }
   }
 
@@ -523,57 +530,58 @@
     markRequired(); renderMissing(); renderSourceInfo(); renderObligatoires();
     const p = $('#p-controles'); if (!CTRL) return; p.innerHTML = '';
     const fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
-    p.appendChild(el('div', {class: 'row'}, [el('b', {text: 'Complétude : ' + CTRL.score + ' %'})]));
+    p.appendChild(el('div', {class: 'row'}, [el('b', {text: T('Complétude : ') + CTRL.score + PCT})]));
     p.appendChild(el('div', {class: 'bar', style: 'margin:6px 0 14px'}, [el('i', {style: 'width:' + CTRL.score + '%'})]));
     const ul = el('ul');
-    ul.appendChild(el('li', {}, [el('b', {text: 'Risque global : '}), el('span', {text: CTRL.risk, style: 'color:' + CTRL.risk_color + ';font-weight:800'}), ' : ' + CTRL.risk_why]));
-    ul.appendChild(el('li', {}, [el('b', {text: "Fenêtre d'exposition : "}), CTRL.exposure ? fmt(CTRL.exposure[0]) + ' → ' + fmt(CTRL.exposure[1]) + ' (J-' + CTRL.incubation[1] + ' → J-' + CTRL.incubation[0] + ')' : 'renseigner le début des symptômes (onglet Clinique).']));
-    if (CTRL.contagious) ul.appendChild(el('li', {}, [el('b', {text: 'Période contagieuse : '}), fmt(CTRL.contagious[0]) + ' → ' + fmt(CTRL.contagious[1])]));
-    ul.appendChild(el('li', {}, [el('b', {text: 'Contacts : '}), CTRL.contacts.phrase + (CTRL.contacts.pct !== null ? ' Suivi : ' + CTRL.contacts.suivis + '/' + CTRL.contacts.total + ' (' + Math.round(CTRL.contacts.pct) + ' %).' : '')]));
-    if (CTRL.lab_delay !== null) ul.appendChild(el('li', {}, [el('b', {text: 'Délai laboratoire : '}), CTRL.lab_delay + ' h (seuil ' + CTRL.lab_threshold + ' h)']));
+    ul.appendChild(el('li', {}, [el('b', {text: T('Risque global : ')}), el('span', {text: T(CTRL.risk), style: 'color:' + CTRL.risk_color + ';font-weight:800'}), SEP + CTRL.risk_why]));
+    ul.appendChild(el('li', {}, [el('b', {text: T("Fenêtre d'exposition : ")}), CTRL.exposure ? fmt(CTRL.exposure[0]) + ' → ' + fmt(CTRL.exposure[1]) + ' (' + TF('J-{max} → J-{min}', {max: CTRL.incubation[1], min: CTRL.incubation[0]}) + ')' : T('renseigner le début des symptômes (onglet Clinique).')]));
+    if (CTRL.contagious) ul.appendChild(el('li', {}, [el('b', {text: T('Période contagieuse : ')}), fmt(CTRL.contagious[0]) + ' → ' + fmt(CTRL.contagious[1])]));
+    ul.appendChild(el('li', {}, [el('b', {text: T('Contacts : ')}), CTRL.contacts.phrase + (CTRL.contacts.pct !== null ? T(' Suivi : ') + CTRL.contacts.suivis + '/' + CTRL.contacts.total + ' (' + Math.round(CTRL.contacts.pct) + PCT + ').' : '')]));
+    if (CTRL.lab_delay !== null) ul.appendChild(el('li', {}, [el('b', {text: T('Délai laboratoire : ')}), TF('{n} h (seuil {seuil} h)', {n: CTRL.lab_delay, seuil: CTRL.lab_threshold})]));
     p.appendChild(ul);
-    p.appendChild(el('h2', {text: 'Contrôles de cohérence'}));
-    if (CTRL.issues.length) p.appendChild(el('ul', {class: 'issues'}, CTRL.issues.map(i => el('li', {}, [el('span', {class: 'lvl-' + i.level, text: i.level.toUpperCase()}), ' : ' + i.msg]))));
-    else p.appendChild(el('p', {style: 'color:var(--ok)', text: 'Aucune incohérence détectée.'}));
-    p.appendChild(el('h2', {text: 'Informations critiques manquantes'}));
+    p.appendChild(el('h2', {text: T('Contrôles de cohérence')}));
+    if (CTRL.issues.length) p.appendChild(el('ul', {class: 'issues'}, CTRL.issues.map(i => el('li', {}, [el('span', {class: 'lvl-' + i.level, text: T(i.level).toUpperCase()}), SEP + i.msg]))));
+    else p.appendChild(el('p', {style: 'color:var(--ok)', text: T('Aucune incohérence détectée.')}));
+    p.appendChild(el('h2', {text: T('Informations critiques manquantes')}));
     if (CTRL.missing.length) p.appendChild(el('ul', {}, CTRL.missing.map(m => el('li', {text: m}))));
-    else p.appendChild(el('p', {style: 'color:var(--ok)', text: 'Fiche complète.'}));
+    else p.appendChild(el('p', {style: 'color:var(--ok)', text: T('Fiche complète.')}));
     renderEtapes();
   }
 
   // ------------------------------------------------------------- fiche par étapes
   const SANS_PERSONNES = new Set(['Investigation', 'Laboratoire', 'Riposte']);     // config/theme.py SANS_PERSONNES
   const ETAPES = [['identite', '1. Identité'], ['clinique', '2. Clinique'], ['events', '3. Chronologie'], ['places', '4. Lieux'],
-    ['contacts', '5. Contacts'], ['ipc', '6. PCI'], ['labs', '7. Laboratoire'], ['actions', '8. Actions']];
-  const pl = (n, s, p) => n + ' ' + (n > 1 ? (p || s + 's') : s);
+    ['contacts', '5. Contacts'], ['ipc', '6. PCI'], ['labs', '7. Laboratoire'], ['actions', '8. Actions']].map(([k, v]) => [k, T(v)]);
+  // pluriel : le mot (singulier ou pluriel français) est traduit tel quel
+  const pl = (n, s, p) => n + ' ' + T(n > 1 ? (p || s + 's') : s);
   function etatEtape(p) {
     const pane = $('#p-' + p);
     const rouges = pane ? $$('.req-missing, .obl-missing', pane).length : 0;
     const rows = C[p];
     switch (p) {
       case 'identite': case 'clinique':
-        return rouges ? {e: 'todo', t: pl(rouges, 'champ') + ' à compléter'} : {e: 'ok', t: 'complète'};
+        return rouges ? {e: 'todo', t: pl(rouges, 'champ') + T(' à compléter')} : {e: 'ok', t: T('complète')};
       case 'events': {
-        if (!rows.length) return {e: 'no', t: 'aucune étape saisie'};
+        if (!rows.length) return {e: 'no', t: T('aucune étape saisie')};
         const sansDate = rows.filter(r => !r.date_debut).length;
         const bits = [];
         const sansPers = rows.filter(r => !SANS_PERSONNES.has(r.type) && !(r.personnes || '').trim()).length;
-        if (sansPers) bits.push(pl(sansPers, 'étape') + ' sans personnes présentes');
-        if (sansDate) bits.push(pl(sansDate, 'date') + ' manquante' + (sansDate > 1 ? 's' : ''));
-        return bits.length ? {e: 'todo', t: bits.join(' · ')} : {e: 'ok', t: pl(rows.length, 'étape') + ' · complète'};
+        if (sansPers) bits.push(pl(sansPers, 'étape') + T(' sans personnes présentes'));
+        if (sansDate) bits.push(pl(sansDate, 'date') + T(sansDate > 1 ? ' manquantes' : ' manquante'));
+        return bits.length ? {e: 'todo', t: bits.join(' · ')} : {e: 'ok', t: pl(rows.length, 'étape') + ' · ' + T('complète')};
       }
-      case 'places': return rows.length ? {e: 'ok', t: pl(rows.length, 'lieu', 'lieux')} : {e: 'no', t: 'aucun lieu saisi'};
+      case 'places': return rows.length ? {e: 'ok', t: pl(rows.length, 'lieu', 'lieux')} : {e: 'no', t: T('aucun lieu saisi')};
       case 'contacts': {
-        if (!rows.length) return {e: 'no', t: 'aucune catégorie'};
+        if (!rows.length) return {e: 'no', t: T('aucune catégorie')};
         const q = rows.filter(r => r.nombre === null || r.nombre === undefined || r.nombre === '').length;
-        return q ? {e: 'todo', t: pl(q, 'groupe') + ' à dénombrer'} : {e: 'ok', t: 'complète'};
+        return q ? {e: 'todo', t: pl(q, 'groupe') + T(' à dénombrer')} : {e: 'ok', t: T('complète')};
       }
-      case 'ipc': return rows.length ? {e: 'ok', t: pl(rows.length, 'site')} : {e: 'no', t: 'aucun site saisi'};
-      case 'labs': return rows.length ? {e: 'ok', t: pl(rows.length, 'prélèvement')} : {e: 'no', t: 'aucun prélèvement'};
+      case 'ipc': return rows.length ? {e: 'ok', t: pl(rows.length, 'site')} : {e: 'no', t: T('aucun site saisi')};
+      case 'labs': return rows.length ? {e: 'ok', t: pl(rows.length, 'prélèvement')} : {e: 'no', t: T('aucun prélèvement')};
       case 'actions': {
         if (rows.length) return {e: 'ok', t: pl(rows.length, 'action')};
         const n = CTRL && CTRL.suggestions ? CTRL.suggestions.length : 0;
-        return {e: 'no', t: 'facultatif' + (n ? ' · ' + pl(n, 'suggestion') : '')};
+        return {e: 'no', t: T('facultatif') + (n ? ' · ' + pl(n, 'suggestion') : '')};
       }
     }
     return {e: 'no', t: ''};
@@ -589,7 +597,7 @@
     ETAPES.forEach(([p, nom], i) => {
       const s = etatEtape(p);
       if (s.e === 'ok') ok++;
-      if (s.e === 'todo') manques.push([p, nom.replace(/^\d+\. /, '') + ' : ' + s.t]);
+      if (s.e === 'todo') manques.push([p, nom.replace(/^\d+\. /, '') + SEP + s.t]);
       const b = $('#tabs button[data-p="' + p + '"]'); if (!b) return;
       b.className = s.e + (b.classList.contains('on') ? ' on' : '');
       b.innerHTML = '';
@@ -604,17 +612,17 @@
         nav.appendChild(i > 0 ? el('button', {type: 'button', class: 'btn small', text: '← ' + ETAPES[i - 1][1], on: {click: () => allerA(ETAPES[i - 1][0])}}) : el('span'));
         nav.appendChild(i < ETAPES.length - 1
           ? el('button', {type: 'button', class: 'btn small primary', text: ETAPES[i + 1][1] + ' →', on: {click: () => allerA(ETAPES[i + 1][0])}})
-          : el('button', {type: 'button', class: 'btn small primary', text: 'Contrôles →', on: {click: () => allerA('controles')}}));
+          : el('button', {type: 'button', class: 'btn small primary', text: T('Contrôles') + ' →', on: {click: () => allerA('controles')}}));
         pane.appendChild(nav);
       }
       if (tete) {
         tete.innerHTML = '';
         tete.appendChild(el('b', {text: nom}));
-        tete.appendChild(el('span', {text: 'Étape ' + (i + 1) + ' sur ' + ETAPES.length}));
+        tete.appendChild(el('span', {text: TF('Étape {i} sur {n}', {i: i + 1, n: ETAPES.length})}));
         let m = $('.etape-manque', pane);
         if (s.e === 'todo') {
           if (!m) { m = el('div', {class: 'etape-manque'}); tete.after(m); }
-          m.textContent = 'À compléter ici : ' + s.t + '.';
+          m.textContent = T('À compléter ici : ') + s.t + '.';
         } else if (m) { m.parentNode.removeChild(m); }
       }
     });
@@ -625,17 +633,17 @@
       cb.className = 'ctl' + (al ? ' todo' : ' ok') + (cb.classList.contains('on') ? ' on' : '');
       cb.innerHTML = '';
       cb.appendChild(el('span', {class: 'n', text: '✔'}));
-      cb.appendChild(el('span', {class: 'lb'}, [el('span', {text: 'Contrôles'}),
-        el('small', {text: (al ? pl(al, 'alerte') : 'aucune alerte') + (inf ? ' · ' + pl(inf, 'information') : '')})]));
+      cb.appendChild(el('span', {class: 'lb'}, [el('span', {text: T('Contrôles')}),
+        el('small', {text: (al ? pl(al, 'alerte') : T('aucune alerte')) + (inf ? ' · ' + pl(inf, 'information') : '')})]));
     }
     const box = $('#progression');
     if (box) {
       box.hidden = false; box.innerHTML = '';
-      box.appendChild(el('b', {text: ok + ' étape' + (ok > 1 ? 's' : '') + ' sur ' + ETAPES.length + ' complète' + (ok > 1 ? 's' : '')}));
+      box.appendChild(el('b', {text: TF(ok > 1 ? '{ok} étapes sur {n} complètes' : '{ok} étape sur {n} complète', {ok, n: ETAPES.length})}));
       box.appendChild(el('span', {class: 'pb'}, [el('i', {style: 'width:' + Math.round(100 * ok / ETAPES.length) + '%'})]));
-      if (CTRL) box.appendChild(el('b', {text: 'Complétude ' + CTRL.score + ' %'}));
+      if (CTRL) box.appendChild(el('b', {text: T('Complétude') + ' ' + CTRL.score + PCT}));
       if (manques.length) {
-        const m = el('span', {class: 'manque'}, [el('span', {text: 'Il manque :'})]);
+        const m = el('span', {class: 'manque'}, [el('span', {text: T('Il manque :')})]);
         manques.forEach(([p, t], j) => {
           m.appendChild(el('a', {text: t, on: {click: () => allerA(p)}}));
           if (j < manques.length - 1) m.appendChild(document.createTextNode('·'));
@@ -649,15 +657,15 @@
     const box = $('#suggestions'); if (!CTRL) return; box.innerHTML = '';
     const have = new Set(C.actions.map(a => a.texte));
     const list = CTRL.suggestions.filter(s => !have.has(s.texte));
-    if (!list.length) { box.appendChild(el('p', {class: 'muted', text: 'Aucune suggestion en attente.'})); }
+    if (!list.length) { box.appendChild(el('p', {class: 'muted', text: T('Aucune suggestion en attente.')})); }
     list.forEach(s => {
       box.appendChild(el('div', {class: 'sugg' + (s.priorite === 'Urgent' ? ' urgent' : ''), title: s.raison}, [
-        el('span', {}, [el('b', {text: '[' + s.priorite + '] '}), s.texte]),
+        el('span', {}, [el('b', {text: '[' + T(s.priorite) + '] '}), s.affiche || s.texte]),
         el('span', {class: 'row'}, [
-          el('button', {class: 'btn small', text: 'Ajouter', on: {click: () => { C.actions.push(Object.assign(blankRow('actions'), {texte: s.texte, priorite: s.priorite, auto: true, id: Math.random().toString(16).slice(2, 12)})); renderTable('actions'); renderSuggestions(); changed(); }}}),
-          el('button', {class: 'btn small', text: 'Ignorer', on: {click: () => { C.suggestions_rejetees.push(s.texte); CTRL.suggestions = CTRL.suggestions.filter(x => x !== s); renderSuggestions(); changed(); }}})])]));
+          el('button', {class: 'btn small', text: T('Ajouter'), on: {click: () => { C.actions.push(Object.assign(blankRow('actions'), {texte: s.texte, priorite: s.priorite, auto: true, id: Math.random().toString(16).slice(2, 12)})); renderTable('actions'); renderSuggestions(); changed(); }}}),
+          el('button', {class: 'btn small', text: T('Ignorer'), on: {click: () => { C.suggestions_rejetees.push(s.texte); CTRL.suggestions = CTRL.suggestions.filter(x => x !== s); renderSuggestions(); changed(); }}})])]));
     });
-    if (C.suggestions_rejetees.length) box.appendChild(el('button', {class: 'btn small', text: 'Rétablir les suggestions ignorées', on: {click: () => { C.suggestions_rejetees = []; changed(); }}}));
+    if (C.suggestions_rejetees.length) box.appendChild(el('button', {class: 'btn small', text: T('Rétablir les suggestions ignorées'), on: {click: () => { C.suggestions_rejetees = []; changed(); }}}));
   }
 
   // ---------------------------------------------------------------- aperçu
@@ -688,7 +696,7 @@
     try {
       const [schema, pyr, data] = await Promise.all([api('/api/schema'), api('/api/pyramide'), api('/api/cas/' + ID)]);
       S = schema; PYR = pyr; C = data.case; CTRL = data.controls;
-    } catch (e) { setStatus('Chargement impossible : ' + e.message, true); return; }
+    } catch (e) { setStatus(T('Chargement impossible : ') + e.message, true); return; }
     renderIdentity(); renderClinic();
     ['events', 'places', 'contacts', 'ipc', 'labs', 'actions'].forEach(renderTable);
     renderControls(); renderSuggestions(); updateTitle();
@@ -713,20 +721,20 @@
     $('#fillGaps').addEventListener('click', async () => {
       await flush();
       const j = await api('/api/cas/' + ID + '/trous', {method: 'POST', body: '{}'});
-      if (!j.events.length) { toast('Aucune période non couverte détectée.'); return; }
-      C.events = C.events.concat(j.events); renderTable('events'); changed(); toast(j.events.length + ' période(s) à documenter ajoutée(s).');
+      if (!j.events.length) { toast(T('Aucune période non couverte détectée.')); return; }
+      C.events = C.events.concat(j.events); renderTable('events'); changed(); toast(TF('{n} période(s) à documenter ajoutée(s).', {n: j.events.length}));
     });
     $('#prefill').addEventListener('click', async () => {
       await flush();
       const j = await api('/api/cas/' + ID + '/places-depuis-chronologie', {method: 'POST', body: '{}'});
-      if (!j.places.length) { toast('Tous les lieux de la chronologie sont déjà listés.'); return; }
-      C.places = C.places.concat(j.places); renderTable('places'); changed(); toast(j.places.length + ' lieu(x) ajouté(s).');
+      if (!j.places.length) { toast(T('Tous les lieux de la chronologie sont déjà listés.')); return; }
+      C.places = C.places.concat(j.places); renderTable('places'); changed(); toast(TF('{n} lieu(x) ajouté(s).', {n: j.places.length}));
     });
     if (RO) lockEditor();
     if ($('#saveVersion')) $('#saveVersion').addEventListener('click', async () => {
-      const com = prompt('Commentaire de version (facultatif) :', '');
+      const com = prompt(T('Commentaire de version (facultatif) :'), '');
       if (com === null) return;
-      clearTimeout(timer); await save(true, com); toast('Version enregistrée dans l\'historique.');
+      clearTimeout(timer); await save(true, com); toast(T('Version enregistrée dans l\'historique.'));
     });
     // téléchargement : le bouton affiche « Génération… » jusqu'à ce que le fichier soit prêt, ou dit pourquoi il a échoué
     $$('#dl a').forEach(a => a.addEventListener('click', async ev => {
@@ -734,12 +742,12 @@
       if (a.classList.contains('busy')) return;
       await flush();
       const label = a.textContent;
-      a.classList.add('busy'); a.textContent = ' Génération…';
+      a.classList.add('busy'); a.textContent = ' ' + T('Génération…');
       try {
         const r = await fetch(a.href, {credentials: 'same-origin'});
         if (!r.ok) {
           const txt = (await r.text().catch(() => '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          throw new Error(r.status === 403 ? 'réservé aux administrateurs' : (txt.slice(0, 160) || ('erreur ' + r.status)));
+          throw new Error(r.status === 403 ? T('réservé aux administrateurs') : (txt.slice(0, 160) || (T('erreur') + ' ' + r.status)));
         }
         const blob = await r.blob();
         const cd = r.headers.get('Content-Disposition') || '';
@@ -750,9 +758,9 @@
         lien.href = url; lien.download = nom; lien.style.display = 'none';
         document.body.appendChild(lien); lien.click(); document.body.removeChild(lien);
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        toast('Fichier prêt : ' + nom, 3500);
+        toast(T('Fichier prêt : ') + nom, 3500);
       } catch (e) {
-        toast('Téléchargement impossible : ' + e.message, 7000);
+        toast(T('Téléchargement impossible : ') + e.message, 7000);
       } finally {
         a.classList.remove('busy'); a.textContent = label;
       }

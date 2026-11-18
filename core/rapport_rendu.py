@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from config import theme
+from core.langue import actuelle, tr, trf
 from core.piliers import Graphique, Rapport
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +24,10 @@ def _rgb(h: str):
 
 
 def _couleur(nom: str, i: int) -> str:
-    return COULEURS_NOMMEES.get(nom, PALETTE[i % len(PALETTE)])
+    """Couleur d'une série : les noms de série arrivent traduits dans la langue courante."""
+    nommees = {tr(k): v for k, v in COULEURS_NOMMEES.items()}
+    nommees.update(COULEURS_NOMMEES)
+    return nommees.get(nom, PALETTE[i % len(PALETTE)])
 
 
 def _police(taille: int, gras: bool = False):
@@ -36,7 +40,9 @@ def _police(taille: int, gras: bool = False):
 
 
 def _fmt(v: float) -> str:
-    return f"{v:.0f}" if abs(v - round(v)) < 0.05 else f"{v:.1f}".replace(".", ",")
+    if abs(v - round(v)) < 0.05:
+        return f"{v:.0f}"
+    return f"{v:.1f}" if actuelle() == "en" else f"{v:.1f}".replace(".", ",")
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +57,7 @@ def graphique_png(g: Graphique, w: int = 1600, h: int = 800) -> bytes:
     noms = list(g.series)
     ncat = len(g.categories)
     if not ncat:
-        d.text((40, 120), "Aucune donnée sur la période.", font=fl, fill=(100, 110, 120))
+        d.text((40, 120), tr("Aucune donnée sur la période."), font=fl, fill=(100, 110, 120))
         return _png(im)
     # légende
     x, y = 40, 76
@@ -220,7 +226,7 @@ def rapport_docx(r: Rapport, path) -> None:
     # pied de page numéroté
     fp = sec.footer.paragraphs[0]
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = fp.add_run("Mapping Épi · rapport par pilier · page ")
+    run = fp.add_run(tr("Mapping Épi · rapport par pilier · page "))
     run.font.size = Pt(8.5)
     for kind, txt in (("begin", None), (None, " PAGE "), ("end", None)):
         r_ = fp.add_run()
@@ -231,33 +237,35 @@ def rapport_docx(r: Rapport, path) -> None:
             e = OxmlElement("w:instrText"); e.set(qn("xml:space"), "preserve"); e.text = txt; r_._r.append(e)
 
     # page de garde
-    for txt, size, bold in (("RÉPUBLIQUE DÉMOCRATIQUE DU CONGO", 12, True),
-                            ("Système de gestion de l'incident (SGI) : riposte à la Maladie à Virus Ebola", 11, False)):
+    for txt, size, bold in ((tr("RÉPUBLIQUE DÉMOCRATIQUE DU CONGO"), 12, True),
+                            (tr("Système de gestion de l'incident (SGI) : riposte à la Maladie à Virus Ebola"), 11, False)):
         p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         ru = p.add_run(txt); ru.bold = bold; ru.font.size = Pt(size); ru.font.color.rgb = NAV
     doc.add_paragraph().paragraph_format.space_after = Pt(70)
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    ru = p.add_run("RAPPORT D'ANALYSE PAR PILIER"); ru.bold = True; ru.font.size = Pt(24); ru.font.color.rgb = NAV
+    ru = p.add_run(tr("RAPPORT D'ANALYSE PAR PILIER")); ru.bold = True; ru.font.size = Pt(24); ru.font.color.rgb = NAV
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    ru = p.add_run("Suivi des mappings épidémiologiques des cas de MVE"); ru.font.size = Pt(13)
+    ru = p.add_run(tr("Suivi des mappings épidémiologiques des cas de MVE")); ru.font.size = Pt(13)
     doc.add_paragraph().paragraph_format.space_after = Pt(30)
-    info = [("Période", f"du {r.debut:%d/%m/%Y} au {r.fin:%d/%m/%Y}"), ("Périmètre", r.perimetre + (f" · {r.province}" if r.province else "")),
-            ("Cas analysés", f"{r.n_cas} cas notifiés sur la période ({r.n_total} au total)"),
-            ("Piliers", ", ".join(s.titre for s in r.sections)), ("Généré le", f"{r.genere_le:%d/%m/%Y à %H:%M}")]
+    info = [(tr("Période"), trf("du {debut} au {fin}", debut=f"{r.debut:%d/%m/%Y}", fin=f"{r.fin:%d/%m/%Y}")),
+            (tr("Périmètre"), r.perimetre + (f" · {r.province}" if r.province else "")),
+            (tr("Cas analysés"), trf("{n} cas notifiés sur la période ({total} au total)", n=r.n_cas, total=r.n_total)),
+            (tr("Piliers"), ", ".join(s.titre for s in r.sections)),
+            (tr("Généré le"), trf("{date} à {heure}", date=f"{r.genere_le:%d/%m/%Y}", heure=f"{r.genere_le:%H:%M}"))]
     table(["", ""], [[k, v] for k, v in info], [4, 13])
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    ru = p.add_run("Généré automatiquement par Mapping Épi à partir des fiches de cas enregistrées. "
-                   "À valider par les responsables des piliers avant diffusion.")
+    ru = p.add_run(tr("Généré automatiquement par Mapping Épi à partir des fiches de cas enregistrées. "
+                      "À valider par les responsables des piliers avant diffusion."))
     ru.italic = True; ru.font.size = Pt(9); ru.font.color.rgb = RGBColor(0x6B, 0x77, 0x85)
     doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
 
     # résumé exécutif et méthode
-    doc.add_heading("Résumé exécutif", level=1)
+    doc.add_heading(tr("Résumé exécutif"), level=1)
     for m in r.resume:
         doc.add_paragraph(m, style="List Bullet")
     t = doc.add_table(rows=1, cols=4)
     t.style = "Table Grid"
-    for i, h in enumerate(["Pilier", "Indicateur clé", "Valeur", "Points d'attention"]):
+    for i, h in enumerate([tr("Pilier"), tr("Indicateur clé"), tr("Valeur"), tr("Points d'attention")]):
         cell(t.rows[0].cells[i], h, True, 9.5, RGBColor(255, 255, 255)); shade(t.rows[0].cells[i], "1F3A5F")
     for s in r.sections:
         cs = t.add_row().cells
@@ -266,7 +274,7 @@ def rapport_docx(r: Rapport, path) -> None:
     for row in t.rows:
         for i, wd in enumerate([5.5, 5.5, 3, 3]):
             row.cells[i].width = Cm(wd)
-    doc.add_heading("Méthode", level=2)
+    doc.add_heading(tr("Méthode"), level=2)
     for m in ("Période : cas dont la date de notification (à défaut de confirmation, puis de début des symptômes) tombe "
               "entre les deux dates choisies. Les exemples fictifs et les brouillons sont exclus.",
               "Source : fiches de cas enregistrées dans Mapping Épi, dans le périmètre du compte.",
@@ -274,7 +282,7 @@ def rapport_docx(r: Rapport, path) -> None:
               "le dénominateur est indiqué entre parenthèses.",
               "Questions : sélection du cadre d'analyse des mappings MVE (UMIE-INRB) ; celles qui demandent des données "
               "absentes de l'outil sont listées en annexe."):
-        doc.add_paragraph(m, style="List Bullet")
+        doc.add_paragraph(tr(m), style="List Bullet")
 
     fig = 0
     for n, s in enumerate(r.sections, 1):
@@ -291,22 +299,22 @@ def rapport_docx(r: Rapport, path) -> None:
         for g in s.graphiques:
             fig += 1
             doc.add_picture(io.BytesIO(graphique_png(g)), width=Cm(16.5))
-            cap = doc.add_paragraph(f"Figure {fig}. {g.titre}")
+            cap = doc.add_paragraph(f"{tr('Figure')} {fig}. {g.titre}")
             cap.runs[0].italic = True; cap.runs[0].font.size = Pt(9)
-        doc.add_heading("Questions d'analyse", level=2)
-        table(["Question", "Réponse"], s.questions, [7.5, 9.5])
+        doc.add_heading(tr("Questions d'analyse"), level=2)
+        table([tr("Question"), tr("Réponse")], s.questions, [7.5, 9.5])
         for titre, headers, rows in s.tableaux:
             doc.add_heading(titre, level=3)
             table(headers, rows, [17 / len(headers)] * len(headers))
-        doc.add_heading("Points d'attention", level=2)
-        for a in s.attention or ["Aucun point d'attention majeur sur la période."]:
+        doc.add_heading(tr("Points d'attention"), level=2)
+        for a in s.attention or [tr("Aucun point d'attention majeur sur la période.")]:
             doc.add_paragraph(a, style="List Bullet")
 
     doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
-    doc.add_heading("Annexe : questions non couvertes faute de données", level=1)
-    doc.add_paragraph("Ces questions du cadre d'analyse demandent des informations que l'outil ne recueille pas encore. "
-                      "Les ajouter permettrait d'y répondre dans les prochains rapports.")
-    table(["Axe", "Question", "Donnée nécessaire"], [list(x) for x in r.non_couverts], [3, 8, 6])
+    doc.add_heading(tr("Annexe : questions non couvertes faute de données"), level=1)
+    doc.add_paragraph(tr("Ces questions du cadre d'analyse demandent des informations que l'outil ne recueille pas encore. "
+                         "Les ajouter permettrait d'y répondre dans les prochains rapports."))
+    table([tr("Axe"), tr("Question"), tr("Donnée nécessaire")], [list(x) for x in r.non_couverts], [3, 8, 6])
     doc.save(str(path))
 
 
@@ -349,22 +357,23 @@ def rapport_pptx(r: Rapport, path) -> None:
         texte(sl, 0.5, 0.18, 12.3, 0.6, titre, 26, True, RGBColor(255, 255, 255))
         if sous:
             texte(sl, 0.5, 1.02, 12.3, 0.4, sous, 12, False, GRIS)
-        pied = f"Mapping Épi · {r.debut:%d/%m/%Y} au {r.fin:%d/%m/%Y}" + (f" · {r.province}" if r.province else "")
+        pied = "Mapping Épi · " + trf("{debut} au {fin}", debut=f"{r.debut:%d/%m/%Y}", fin=f"{r.fin:%d/%m/%Y}") \
+            + (f" · {r.province}" if r.province else "")
         texte(sl, 0.5, 7.05, 12.3, 0.3, pied, 9, False, GRIS)
 
     # 1. titre
     sl = prs.slides.add_slide(vide)
     fond = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, prs.slide_height)
     fond.fill.solid(); fond.fill.fore_color.rgb = NAV; fond.line.fill.background()
-    texte(sl, 0.8, 2.2, 11.7, 1, "Rapport d'analyse par pilier", 40, True, RGBColor(255, 255, 255))
-    texte(sl, 0.8, 3.3, 11.7, 0.6, "Riposte à la Maladie à Virus Ebola · suivi des mappings épidémiologiques", 18, False,
+    texte(sl, 0.8, 2.2, 11.7, 1, tr("Rapport d'analyse par pilier"), 40, True, RGBColor(255, 255, 255))
+    texte(sl, 0.8, 3.3, 11.7, 0.6, tr("Riposte à la Maladie à Virus Ebola · suivi des mappings épidémiologiques"), 18, False,
           RGBColor(0xDD, 0xE6, 0xEF))
-    texte(sl, 0.8, 4.4, 11.7, 1.2, [f"Période : du {r.debut:%d/%m/%Y} au {r.fin:%d/%m/%Y}",
-                                     f"Périmètre : {r.perimetre}" + (f" · {r.province}" if r.province else ""),
-                                     f"{r.n_cas} cas analysés"], 16, False, RGBColor(255, 255, 255))
+    texte(sl, 0.8, 4.4, 11.7, 1.2, [trf("Période : du {debut} au {fin}", debut=f"{r.debut:%d/%m/%Y}", fin=f"{r.fin:%d/%m/%Y}"),
+                                     trf("Périmètre : {p}", p=r.perimetre) + (f" · {r.province}" if r.province else ""),
+                                     trf("{n} cas analysés", n=r.n_cas)], 16, False, RGBColor(255, 255, 255))
     # 2. résumé exécutif
     sl = prs.slides.add_slide(vide)
-    bandeau(sl, "Messages clés", "Généré à partir des fiches enregistrées ; à valider en réunion")
+    bandeau(sl, tr("Messages clés"), tr("Généré à partir des fiches enregistrées ; à valider en réunion"))
     texte(sl, 0.7, 1.6, 12, 5.2, [f"•  {m}" for m in r.resume], 18)
 
     for s in r.sections:
@@ -412,11 +421,11 @@ def rapport_pptx(r: Rapport, path) -> None:
             pl.data_labels.font.size = Pt(10)
             pl.data_labels.number_format = '0'
             pl.data_labels.number_format_is_linked = False
-        msgs = s.attention[:3] or ["Aucun point d'attention majeur sur la période."]
-        texte(sl, 8.4, 3.0, 4.5, 0.4, "Points d'attention", 15, True, NAV)
+        msgs = s.attention[:3] or [tr("Aucun point d'attention majeur sur la période.")]
+        texte(sl, 8.4, 3.0, 4.5, 0.4, tr("Points d'attention"), 15, True, NAV)
         texte(sl, 8.4, 3.45, 4.5, 3.5, [f"•  {m}" for m in msgs], 13)
 
     sl = prs.slides.add_slide(vide)
-    bandeau(sl, "Questions non couvertes et prochaines étapes", "Données à ajouter dans l'outil pour répondre au cadre complet")
+    bandeau(sl, tr("Questions non couvertes et prochaines étapes"), tr("Données à ajouter dans l'outil pour répondre au cadre complet"))
     texte(sl, 0.7, 1.6, 12, 5.3, [f"•  {a} : {q} ({dn})" for a, q, dn in r.non_couverts[:9]], 13)
     prs.save(str(path))

@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 
 from core import pyramide
+from core.langue import actuelle, tr, trf
 from core.models import Case
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,14 +44,19 @@ def date_notification(c: Case) -> Tuple[Optional[date], str]:
     return None, ""
 
 
+def sigle(niveau: str) -> str:
+    """« ZS » / « AS » dans la langue courante (HZ / HA en anglais)."""
+    return {"ZS": "HZ", "AS": "HA"}.get(niveau, niveau) if actuelle() == "en" else niveau
+
+
 def categorie(jours: Optional[int]) -> dict:
     cats = config()["categories"]
     if jours is None:
-        return {"num": None, "nom": "Aucun cas daté", "couleur": "#6B7785"}
+        return {"num": None, "nom": tr("Aucun cas daté"), "couleur": "#6B7785"}
     for cat in cats:
         if cat["max_jours"] is None or jours <= cat["max_jours"]:
-            return cat
-    return cats[-1]
+            return dict(cat, nom=tr(cat["nom"]))          # copie : la configuration lue reste en français
+    return dict(cats[-1], nom=tr(cats[-1]["nom"]))
 
 
 @dataclass
@@ -115,11 +121,13 @@ def alertes_foyers(cases: List[Case]) -> List[Alerte]:
         prev_zs = last.get(zs_key)
         if c.zs:
             if prev_zs is None:
-                out.append(Alerte(c, d, "ZS", c.zs, "premier cas notifié dans la ZS : nouveau foyer possible"))
+                out.append(Alerte(c, d, sigle("ZS"), c.zs, tr("premier cas notifié dans la ZS : nouveau foyer possible")))
             elif (d - prev_zs).days > seuil:
-                out.append(Alerte(c, d, "ZS", c.zs, f"reprise après {(d - prev_zs).days} jours sans cas dans la ZS"))
+                out.append(Alerte(c, d, sigle("ZS"), c.zs, trf("reprise après {n} jours sans cas dans la ZS",
+                                                            n=(d - prev_zs).days)))
             elif c.aire_sante and as_key not in last:
-                out.append(Alerte(c, d, "AS", c.aire_sante, f"première aire touchée : AS {c.aire_sante} (ZS {c.zs})"))
+                out.append(Alerte(c, d, sigle("AS"), c.aire_sante, trf("première aire touchée : AS {a} (ZS {z})",
+                                                                     a=c.aire_sante, z=c.zs)))
         last[zs_key] = d
         last[as_key] = d
     return sorted(out, key=lambda a: a.quand, reverse=True)
@@ -140,7 +148,7 @@ class Stat:
         if not self.valeurs:
             return "?"
         v = self.valeurs
-        return f"médiane {median(v):g} j (moyenne {mean(v):.1f} ; {min(v)} à {max(v)} j)"
+        return trf("médiane {m:g} j (moyenne {moy:.1f} ; {a} à {b} j)", m=median(v), moy=mean(v), a=min(v), b=max(v))
 
 
 def delais(cases: List[Case]) -> List[Stat]:
@@ -168,11 +176,11 @@ def delais(cases: List[Case]) -> List[Stat]:
             else:
                 ex["serial"] += 1
     return [
-        Stat("Début des symptômes → notification", notif, ex["notif"],
-             "délai de détection : plus il est court, moins le cas a eu de contacts non suivis"),
-        Stat("Notification → confirmation", conf, ex["conf"], "circuit d'alerte, prélèvement et laboratoire"),
-        Stat("Incubation observée", incub, ex["incub"],
-             "contacts connus : début des symptômes − dernier contact avec le cas source"),
-        Stat("Intervalle sériel", serial, ex["serial"],
-             "début des symptômes du cas − celui de son cas source enregistré dans l'outil"),
+        Stat(tr("Début des symptômes → notification"), notif, ex["notif"],
+             tr("délai de détection : plus il est court, moins le cas a eu de contacts non suivis")),
+        Stat(tr("Notification → confirmation"), conf, ex["conf"], tr("circuit d'alerte, prélèvement et laboratoire")),
+        Stat(tr("Incubation observée"), incub, ex["incub"],
+             tr("contacts connus : début des symptômes − dernier contact avec le cas source")),
+        Stat(tr("Intervalle sériel"), serial, ex["serial"],
+             tr("début des symptômes du cas − celui de son cas source enregistré dans l'outil")),
     ]

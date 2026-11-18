@@ -15,6 +15,7 @@ from core import links
 from core.models import Case
 from render import svgkit as K
 from render.html_renderer import render_svg_page
+from render.libelles import cas, cas_long, jour, tr, trf, val
 
 PHASE_COLOR = {"contagieux": theme.RED, "exposition": theme.BLUE, "": "#9AA6B5"}
 MAX_COLS, MAX_ROWS = 12, 12
@@ -30,17 +31,17 @@ def _fmt(v: links.Visit) -> str:
 
 def render_svg(cases: List[Case], focus: Optional[Case] = None, zone: str = "") -> str:
     shared = links.shared_places(cases, focus)
-    title = "LIEUX COMMUNS FRÉQUENTÉS PAR LES CAS" + (f" | {zone.upper()}" if zone else "")
-    sub = ("Lieux partagés par la fiche ouverte et les autres cas" if focus else
-           "Lieux fréquentés par au moins deux cas") + " • date du passage et période du cas à ce moment"
+    title = tr("LIEUX COMMUNS FRÉQUENTÉS PAR LES CAS") + (f" | {tr(zone).upper()}" if zone else "")
+    sub = (tr("Lieux partagés par la fiche ouverte et les autres cas") if focus else
+           tr("Lieux fréquentés par au moins deux cas")) + " • " + tr("date du passage et période du cas à ce moment")
     out = [K.svg_open(), K.header(title, sub)]
     out.append(K.card(16, 66, 1248, 616))
     if not shared:
-        msg = ["Aucun lieu commun entre les cas de votre périmètre.",
-               "Les lieux sont comparés à partir de la chronologie (Lieu / Arrivée) et de l'onglet Lieux",
-               "(casse, accents et précisions entre parenthèses ignorés)."]
+        msg = [tr("Aucun lieu commun entre les cas de votre périmètre."),
+               tr("Les lieux sont comparés à partir de la chronologie (Lieu / Arrivée) et de l'onglet Lieux"),
+               tr("(casse, accents et précisions entre parenthèses ignorés).")]
         out.append(K.multiline(640, 340, msg, 13, 600, theme.MUTED, lh=1.6))
-        out.append(K.footer("Un lieu commun n'établit pas un lien de transmission : il oriente l'investigation."))
+        out.append(K.footer(tr("Un lieu commun n'établit pas un lien de transmission : il oriente l'investigation.")))
         out.append("</svg>")
         return "".join(out)
 
@@ -72,25 +73,25 @@ def render_svg(cases: List[Case], focus: Optional[Case] = None, zone: str = "") 
             out.append(f'<rect x="{gx0 + col_w * i + 2:.1f}" y="{head_y - 4}" width="{col_w - 4:.1f}" '
                        f'height="{row_y0 - head_y + len(rows) * row_h:.1f}" rx="7" fill="{theme.TEAL}" fill-opacity=".07" '
                        f'stroke="{theme.TEAL}" stroke-opacity=".5"/>')
-        lines = [K.ellipsize(links.case_label(c), col_w - 8, 11.5, 800), (c.zs or "ZS ?")[:int(col_w / 6)],
-                 f"J0 {c.debut_symptomes:%d/%m}" if c.debut_symptomes else "J0 ?"]
+        lines = [K.ellipsize(cas(c), col_w - 8, 11.5, 800), K.ellipsize(c.zs or tr("ZS ?"), col_w - 6, 9.5),
+                 jour(f"J0 {c.debut_symptomes:%d/%m}" if c.debut_symptomes else "J0 ?")]
         out.append(f'<text x="{cx:.1f}" y="{head_y + 14}" text-anchor="middle" font-size="11.5" font-weight="800" '
-                   f'fill="{theme.NAVY}">{K.esc(lines[0])}<title>{K.esc(links.case_long_label(c) + ", AS " + (c.aire_sante or "?"))}</title></text>')
+                   f'fill="{theme.NAVY}">{K.esc(lines[0])}<title>{K.esc(cas_long(c) + ", " + tr("AS") + " " + (c.aire_sante or "?"))}</title></text>')
         out.append(f'<text x="{cx:.1f}" y="{head_y + 29}" text-anchor="middle" font-size="9.5" fill="{theme.MUTED}">{K.esc(lines[1])}</text>')
         out.append(f'<text x="{cx:.1f}" y="{head_y + 43}" text-anchor="middle" font-size="9.5" font-weight="700" fill="{theme.TEXT}">{K.esc(lines[2])}</text>')
-    out.append(f'<text x="30" y="{head_y + 29}" font-size="10" font-weight="800" fill="{theme.MUTED}" letter-spacing=".6">LIEU</text>')
+    out.append(f'<text x="30" y="{head_y + 29}" font-size="10" font-weight="800" fill="{theme.MUTED}" letter-spacing=".6">{K.esc(tr("LIEU"))}</text>')
     out.append(f'<text x="{1264 - 14 - flag_w + 10}" y="{head_y + 29}" font-size="10" font-weight="800" fill="{theme.MUTED}" '
-               'letter-spacing=".6">LECTURE</text>')
+               f'letter-spacing=".6">{K.esc(tr("LECTURE"))}</text>')
 
     for r, sp in enumerate(rows):
         y = row_y0 + r * row_h
         cy = y + row_h / 2
         if r % 2 == 0:
             out.append(f'<rect x="24" y="{y:.1f}" width="1232" height="{row_h:.1f}" rx="5" fill="{theme.BG}"/>')
-        nm = K.wrap(sp.name, 34, 1)[0]
+        nm = K.ellipsize(sp.name, name_w - 12, 11.5, 800)
         out.append(f'<text x="32" y="{cy - 2:.1f}" font-size="11.5" font-weight="800" fill="{theme.TEXT}">{K.esc(nm)}'
                    f'<title>{K.esc(sp.name)}</title></text>')
-        out.append(f'<text x="32" y="{cy + 12:.1f}" font-size="9.5" fill="{theme.MUTED}">{len(sp.cases)} cas</text>')
+        out.append(f'<text x="32" y="{cy + 12:.1f}" font-size="9.5" fill="{theme.MUTED}">{K.esc(trf("{n} cas", n=len(sp.cases)))}</text>')
         for i, c in enumerate(cols):
             vs = [v for v in sp.visits if v.case.id == c.id]
             if not vs:
@@ -99,37 +100,43 @@ def render_svg(cases: List[Case], focus: Optional[Case] = None, zone: str = "") 
             dated = [v for v in vs if v.debut]
             v = next((x for x in dated if x.phase == "contagieux"), None) or (dated[0] if dated else vs[0])
             col = PHASE_COLOR.get(v.phase, PHASE_COLOR[""])
-            tip = "; ".join(f"{_fmt(x)} {x.quoi} ({x.phase or 'hors fenêtres'})" for x in vs)
+            tip = "; ".join(f"{_fmt(x)} {val(x.quoi)} ({tr(x.phase or 'hors fenêtres')})" for x in vs)
             out.append(f'<circle cx="{cx:.1f}" cy="{cy - 6:.1f}" r="6.5" fill="{col}"><title>{K.esc(tip)}</title></circle>')
             lab = _fmt(v) + (f" +{len(vs) - 1}" if len(vs) > 1 else "")
             out.append(f'<text x="{cx:.1f}" y="{cy + 11:.1f}" text-anchor="middle" font-size="9" font-weight="700" '
                        f'fill="{theme.TEXT}">{K.esc(lab)}</text>')
         fx = 1264 - 14 - flag_w + 10
+        fw = 1264 - 24 - fx
         if sp.pistes:
             a, b = sp.pistes[0]
             more = f" (+{len(sp.pistes) - 1})" if len(sp.pistes) > 1 else ""
             out.append(f'<text x="{fx}" y="{cy - 2:.1f}" font-size="10.5" font-weight="800" fill="{theme.RED}">'
-                       f'⚠ Transmission possible{more}</text>')
+                       f'{K.esc(K.ellipsize("⚠ " + tr("Transmission possible") + more, fw, 10.5, 800))}</text>')
             out.append(f'<text x="{fx}" y="{cy + 12:.1f}" font-size="9.5" fill="{theme.TEXT}">'
-                       f'{K.esc(links.case_label(a))} contagieux → {K.esc(links.case_label(b))} exposé</text>')
+                       f'{K.esc(K.ellipsize(trf("{a} contagieux → {b} exposé", a=cas(a), b=cas(b)), fw, 9.5))}</text>')
         else:
-            out.append(f'<text x="{fx}" y="{cy + 4:.1f}" font-size="10" fill="{theme.MUTED}">Lieu commun à vérifier</text>')
+            out.append(f'<text x="{fx}" y="{cy + 4:.1f}" font-size="10" fill="{theme.MUTED}">{K.esc(tr("Lieu commun à vérifier"))}</text>')
 
     ly = 662
-    out.append(K.legend_item(32, ly, theme.RED, "Cas contagieux lors du passage", kind="circle"))
-    out.append(K.legend_item(262, ly, theme.BLUE, "Dans sa fenêtre d'exposition", kind="circle"))
-    out.append(K.legend_item(482, ly, "#9AA6B5", "Autre période / date inconnue", kind="circle"))
+    lx = 32
+    for col_, txt_ in ((theme.RED, "Cas contagieux lors du passage"), (theme.BLUE, "Dans sa fenêtre d'exposition"),
+                       ("#9AA6B5", "Autre période / date inconnue")):
+        txt_ = tr(txt_)
+        out.append(K.legend_item(lx, ly, col_, txt_, kind="circle"))
+        lx += max(220, 26 + K.text_width(txt_, 10) + 24)
     extra = []
     if len(shared) > MAX_ROWS:
-        extra.append(f"+ {len(shared) - MAX_ROWS} lieu(x)")
+        extra.append(trf("+ {n} lieu(x)", n=len(shared) - MAX_ROWS))
     if hidden_cols:
-        extra.append(f"+ {hidden_cols} cas")
+        extra.append(trf("+ {n} cas", n=hidden_cols))
     if extra:
+        note = K.ellipsize(trf("{x} non affichés : filtrez par zone", x=" • ".join(extra)), 1248 - lx - 8, 10, 700)
         out.append(f'<text x="1248" y="{ly + 4}" text-anchor="end" font-size="10" font-weight="700" fill="{theme.RED}">'
-                   f'{K.esc(" • ".join(extra))} non affichés : filtrez par zone</text>')
+                   f'{K.esc(note)}</text>')
     n_pistes = sum(1 for s in shared if s.pistes)
-    out.append(K.footer(f"{len(shared)} lieu(x) commun(s) • {n_pistes} avec transmission possible. Comparaison sur le nom du lieu "
-                        "(casse et accents ignorés). Un lieu commun oriente l'investigation, il ne prouve pas la transmission."))
+    out.append(K.footer(trf("{n} lieu(x) commun(s) • {p} avec transmission possible. ", n=len(shared), p=n_pistes)
+                        + tr("Comparaison sur le nom du lieu (casse et accents ignorés). Un lieu commun oriente l'investigation, "
+                             "il ne prouve pas la transmission.")))
     out.append("</svg>")
     return "".join(out)
 

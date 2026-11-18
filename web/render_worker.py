@@ -32,6 +32,8 @@ def visual_html(c: Case, key: str, others, zone: str = "", focus: bool = True) -
 
 def main() -> int:
     job = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    from core import langue as _LG
+    _LG.definir(job.get("langue", "fr"))          # images et PDF dans la langue de l'utilisateur
     app = QApplication(sys.argv[:1])
     from ui.exporter import Exporter, pdf_pages_to_png
     c = Case.model_validate(job["case"])

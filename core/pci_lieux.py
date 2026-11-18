@@ -12,6 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from core.langue import actuelle, tr, trf
 from core.models import Case
 
 COLONNES = [("ID du cas", 22), ("Province", 14), ("Zone de santé", 16), ("Aire de santé", 16),
@@ -55,7 +56,7 @@ def lignes(cases: List[Case]) -> List[dict]:
                 d["etapes"].append(etape)
 
         for ev in c.sorted_events():
-            etape = (f"{ev.date_debut:%d/%m} · " if ev.date_debut else "") + (ev.titre or ev.type or "")
+            etape = (f"{ev.date_debut:%d/%m} · " if ev.date_debut else "") + (ev.titre or tr(ev.type or ""))
             ajoute(ev.lieu, "Parcours", ev.date_debut, etape)
             ajoute(ev.lieu_arrivee, "Parcours", ev.date_debut, etape)
         for p in c.places:
@@ -67,7 +68,7 @@ def lignes(cases: List[Case]) -> List[dict]:
             out.append({
                 "id": c.code_cas or "?", "province": c.province or "?", "zs": c.zs or "?",
                 "as": c.aire_sante or "?", "lieu": d["lieu"], "origine": " + ".join(d["origines"]),
-                "date": d["date"], "etapes": " ; ".join(d["etapes"]) or "?",
+                "date": d["date"], "etapes": ("; " if actuelle() == "en" else " ; ").join(d["etapes"]) or "?",
                 "adresse": (s.adresse.strip() if s and s.adresse.strip() else "?"),
                 "statut": (s.statut if s and s.statut else "?") if s else "Pas de site PCI saisi",
                 "date_pci": s.date if s and s.date else None,
@@ -90,12 +91,12 @@ def xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> int:
     b = bilan(rows)
     wb = Workbook()
     ws = wb.active
-    ws.title = "Lieux et adresses"
-    ws.append([f"PCI : lieux fréquentés et adresses · {perimetre}".strip(" ·") +
-               f" · {b['cas']} cas · {b['lieux']} lieux ({b['avec_adresse']} avec adresse)"
-               f" · extrait le {datetime.now():%d/%m/%Y %H:%M}"])
+    ws.title = tr("Lieux et adresses")
+    ws.append([tr("PCI : lieux fréquentés et adresses") + (f" · {perimetre}" if perimetre.strip() else "") +
+               trf(" · {cas} cas · {lieux} lieux ({adr} avec adresse) · extrait le {quand}", cas=b['cas'], lieux=b['lieux'],
+                   adr=b['avec_adresse'], quand=f"{datetime.now():%d/%m/%Y %H:%M}")])
     ws["A1"].font = Font(bold=True, size=12, color="1F3A5F")
-    ws.append([n for n, _w in COLONNES])
+    ws.append([tr(n) for n, _w in COLONNES])
     for i, (_n, w) in enumerate(COLONNES, 1):
         cell = ws.cell(row=2, column=i)
         cell.font = Font(bold=True, color="FFFFFF")
@@ -105,8 +106,8 @@ def xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> int:
     ws.row_dimensions[2].height = 32
     manque = PatternFill("solid", fgColor="FFF1DC")
     for r in rows:
-        ws.append([r["id"], r["province"], r["zs"], r["as"], r["lieu"], r["origine"], r["date"] or "?",
-                   r["etapes"], r["adresse"], r["statut"], r["date_pci"] or "?", r["equipe"]])
+        ws.append([r["id"], r["province"], r["zs"], r["as"], r["lieu"], tr(r["origine"]), r["date"] or "?",
+                   r["etapes"], r["adresse"], tr(r["statut"]), r["date_pci"] or "?", r["equipe"]])
         for cell in ws[ws.max_row]:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
             if isinstance(cell.value, date):
@@ -116,8 +117,8 @@ def xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> int:
     ws.freeze_panes = "B3"
     ws.auto_filter.ref = f"A2:{get_column_letter(len(COLONNES))}{max(2, ws.max_row)}"
     # résumé par cas
-    rs = wb.create_sheet("Résumé par cas")
-    rs.append(["ID du cas", "Province", "Zone de santé", "Lieux fréquentés", "Avec adresse", "Sans adresse"])
+    rs = wb.create_sheet(tr("Résumé par cas"))
+    rs.append([tr(h) for h in ("ID du cas", "Province", "Zone de santé", "Lieux fréquentés", "Avec adresse", "Sans adresse")])
     for cell in rs[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="1F3A5F")

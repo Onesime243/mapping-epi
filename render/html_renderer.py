@@ -17,6 +17,7 @@ from config import theme
 from core import rules
 from core.models import Case, Event, NOTE_PIED_DEFAUT
 from render.icons import icon_svg
+from render.libelles import en, jour, regle, tr, trf, val
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
@@ -35,6 +36,8 @@ _env = Environment(loader=FileSystemLoader(str(ROOT / "render" / "templates")),
                    autoescape=select_autoescape(["html", "j2"]), trim_blocks=True, lstrip_blocks=True)
 _env.filters["soft"] = theme.soft
 _env.filters["ink"] = theme.ink_on
+_env.filters["tr"] = tr
+_env.globals["tr"] = tr
 
 
 
@@ -55,6 +58,8 @@ def assets_uri() -> str:
 def ordinal(n: Optional[int]) -> str:
     if not n:
         return ""
+    if en():
+        return f"{n}{'st' if n % 10 == 1 and n % 100 != 11 else 'nd' if n % 10 == 2 and n % 100 != 12 else 'rd' if n % 10 == 3 and n % 100 != 13 else 'th'}"
     return "1er" if n == 1 else f"{n}e"
 
 
@@ -92,6 +97,11 @@ def find_source(case: Case) -> Optional[Case]:
     return src if src is not None and src.id != case.id else None
 
 
+def _sources(src: str) -> str:
+    """Repères d'estimation du J0 (« début maladie + décès ») dans la langue courante."""
+    return " + ".join(val(x) for x in (src or "").split(" + "))
+
+
 def fmt_date(d) -> str:
     return d.strftime("%d/%m/%Y") if d else "?"
 
@@ -107,63 +117,68 @@ def build_phase_strip(case: Case, ph: "rules.Phases") -> List[dict]:
 
     def add(key, dates, detail):
         c = P[key]["color"]
-        out.append({"key": key, "label": P[key]["label"], "contag": P[key]["contag"], "dates": dates,
-                    "detail": detail, "color": c, "fill": theme.soft(c)})
+        out.append({"key": key, "label": tr(P[key]["label"]), "contag": tr(P[key]["contag"]), "dates": jour(dates),
+                    "detail": jour(detail), "color": c, "fill": theme.soft(c)})
 
     j0, inc = ph.j0, ph.incubation
     estime = ph.j0_source not in ("", "rapportée")
     if ph.exposition_source == "à rechercher":
-        add("infection", "contact connu : dates du cas source à rechercher",
-            "renseigner la date du dernier contact avec le cas source (pas d'estimation pour un contact connu)")
+        add("infection", tr("contact connu : dates du cas source à rechercher"),
+            tr("renseigner la date du dernier contact avec le cas source (pas d'estimation pour un contact connu)"))
     elif ph.exposition and ph.exposition_source in ("dernier contact", "cas source"):
         d1, d2 = ph.exposition
         quand = _dm(d1) if d1 == d2 else f"{_dm(d1)} → {_dm(d2)}"
         if ph.exposition_source == "dernier contact":
-            add("infection", f"{quand} (dernier contact avec le cas source)",
-                f"contact connu de {case.id_cas_source.strip() or 'cas source ?'} : exposition datée par l'investigation")
+            add("infection", trf("{quand} (dernier contact avec le cas source)", quand=quand),
+                trf("contact connu de {src} : exposition datée par l'investigation",
+                    src=case.id_cas_source.strip() or tr("cas source ?")))
         else:
-            add("infection", f"{quand} (cas source contagieux)",
-                f"période contagieuse de {ph.source_label or case.id_cas_source.strip()} dans la fenêtre d'incubation")
+            add("infection", trf("{quand} (cas source contagieux)", quand=quand),
+                trf("période contagieuse de {src} dans la fenêtre d'incubation",
+                    src=ph.source_label or case.id_cas_source.strip()))
     elif ph.exposition:
-        base = f"J0 estimé depuis : {ph.j0_source}" if estime else "J0 retenu"
-        add("infection", f"{_dm(ph.exposition[0])} → {_dm(ph.exposition[1])} (date estimée)",
-            f"exposition à un malade ou un corps, J-{inc[1]} → J-{inc[0]} du {base}")
+        add("infection", trf("{d1} → {d2} (date estimée)", d1=_dm(ph.exposition[0]), d2=_dm(ph.exposition[1])),
+            trf("exposition à un malade ou un corps, J-{a} → J-{b} du J0 estimé depuis : {src}", a=inc[1], b=inc[0],
+                src=_sources(ph.j0_source)) if estime else
+            trf("exposition à un malade ou un corps, J-{a} → J-{b} du J0 retenu", a=inc[1], b=inc[0]))
     else:
-        add("infection", "? (aucune date pour estimer)", "renseigner le début des symptômes, la phase humide ou le décès")
+        add("infection", tr("? (aucune date pour estimer)"), tr("renseigner le début des symptômes, la phase humide ou le décès"))
     fin = ph.deces
 
     def signes(groupe: set, defaut: str) -> str:
-        vus = [x for x in case.symptomes if x in groupe]
+        vus = [val(x) for x in case.symptomes if x in groupe]
         if not vus:
-            return f"signes habituels : {defaut}"
-        return "signes rapportés : " + ", ".join(x[0].lower() + x[1:] if not x[:2].isupper() else x for x in vus)
+            return trf("signes habituels : {s}", s=tr(defaut))
+        return trf("signes rapportés : {s}", s=", ".join(x[0].lower() + x[1:] if not x[:2].isupper() else x for x in vus))
     dry = signes(theme.SYMPTOMES_SECS, theme.SIGNES_SECS)
     wet = signes(theme.SYMPTOMES_HUMIDES, theme.SIGNES_HUMIDES)
     if ph.deux_phases:
         if j0:
             sec_end = (ph.humide - timedelta(days=1)) if ph.humide and ph.humide > j0 else None
             if estime:
-                suffixe = f" (estimé, {ph.j0_source})"
+                suffixe = " " + trf("(estimé, {src})", src=_sources(ph.j0_source))
             else:
-                suffixe = f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)"
+                suffixe = " " + (trf("(rapporté {d})", d=_dm(ph.j0_rapporte)) if ph.recul else tr("(rapporté)"))
             add("seche", f"J0 {'~' if estime else ''}{_dm(j0)}" + (f" → {_dm(sec_end)}" if sec_end else "") + suffixe, dry)
             rel = rules.relative_day(ph.humide, j0)
             hum_end = (ph.critique - timedelta(days=1)) if ph.critique and ph.humide and ph.critique > ph.humide else None
-            add("humide", (f"dès le {_dm(ph.humide)} ({rel}, {ph.humide_source})" if ph.humide else "?")
+            add("humide", (trf("dès le {d} ({rel}, {src})", d=_dm(ph.humide), rel=rel, src=val(ph.humide_source))
+                           if ph.humide else "?")
                 + (f" → {_dm(hum_end)}" if hum_end else ""), wet)
             if ph.critique:
                 crit = signes(theme.HEMORRHAGIC, theme.SIGNES_CRITIQUES)
-                add("critique", f"dès le {_dm(ph.critique)} ({rules.relative_day(ph.critique, j0)}, {ph.critique_source})",
-                    "guérison ou aggravation ; " + crit)
+                add("critique", trf("dès le {d} ({rel}, {src})", d=_dm(ph.critique),
+                                    rel=rules.relative_day(ph.critique, j0), src=val(ph.critique_source)),
+                    tr("guérison ou aggravation ; ") + crit)
         else:
             add("seche", "J0 ?", dry)
             add("humide", "?", wet)
     else:
-        add("symptomes", (f"J0 {_dm(j0)}" + (f" (rapporté {_dm(ph.j0_rapporte)})" if ph.recul else " (rapporté)")) if j0 else "J0 ?",
-            "période contagieuse")
+        add("symptomes", (f"J0 {_dm(j0)} " + (trf("(rapporté {d})", d=_dm(ph.j0_rapporte)) if ph.recul else tr("(rapporté)")))
+            if j0 else "J0 ?", tr("période contagieuse"))
     if fin:
         add("deces", f"{_dm(fin)}" + (f" ({rules.relative_day(fin, j0)})" if j0 else ""),
-            "charge virale maximale : corps très contagieux")
+            tr("charge virale maximale : corps très contagieux"))
     return out
 
 
@@ -171,18 +186,18 @@ def event_chips(ev: Event) -> list:
     out = []
     if ev.transport and ev.transport.lower() not in ev.description.lower():
         icon = "moto" if ev.transport.lower() == "moto" else "arrow"
-        out.append({"t": ev.transport, "icon": icon_svg(icon, 10, theme.NAVY, 2.2), "warn": False})
+        out.append({"t": val(ev.transport), "icon": icon_svg(icon, 10, theme.NAVY, 2.2), "warn": False})
     if ev.contact_corps:
-        out.append({"t": "Contact corps", "icon": icon_svg("cross", 10, theme.RED, 2.2), "warn": True})
+        out.append({"t": tr("Contact corps"), "icon": icon_svg("cross", 10, theme.RED, 2.2), "warn": True})
     if ev.liquides and not any(k in ev.description.lower() for k in ("méléna", "hématémèse", "saign", "vomi")):
-        out.append({"t": "Liquides biol.", "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
+        out.append({"t": tr("Liquides biol."), "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
     if ev.sans_pci:
-        out.append({"t": "Sans PCI", "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
+        out.append({"t": tr("Sans PCI"), "icon": icon_svg("alert", 10, theme.RED, 2.2), "warn": True})
     if ev.personnes.strip():
         out.append({"t": ev.personnes, "icon": icon_svg("people", 10, theme.NAVY, 2.2), "warn": False})
     elif ev.type not in theme.SANS_PERSONNES:
         # information obligatoire : affichée en premier pour rester visible même sur deux rangées
-        out.insert(0, {"t": "Personnes : à compléter", "icon": icon_svg("people", 10, theme.RED, 2.2), "warn": True,
+        out.insert(0, {"t": tr("Personnes : à compléter"), "icon": icon_svg("people", 10, theme.RED, 2.2), "warn": True,
                        "todo": True})
     return out[:3]
 
@@ -245,19 +260,19 @@ def _badges(case: Case) -> List[dict]:
     """Vaccination et agent de santé (PPL), affichés à côté du statut de contact."""
     out = []
     if case.vaccine == "Oui":
-        t = "Vacciné" + (f" le {_dm(case.date_vaccination)}" if case.date_vaccination else "")
-        out.append({"t": t.upper(), "fill": theme.soft(theme.GREEN)})
+        t = (trf("Vacciné le {d}", d=_dm(case.date_vaccination)) if case.date_vaccination else tr("Vacciné")).upper()
+        out.append({"t": t, "fill": theme.soft(theme.GREEN)})
     elif case.vaccine == "Non":
-        out.append({"t": "NON VACCINÉ", "fill": theme.soft(theme.ORANGE)})
+        out.append({"t": tr("NON VACCINÉ"), "fill": theme.soft(theme.ORANGE)})
     else:
-        out.append({"t": "Vaccination : à compléter", "todo": True})
+        out.append({"t": tr("Vaccination : à compléter"), "todo": True})
     if case.agent_sante == "Oui":
-        t = "PPL : oui" + (f" · {case.agent_sante_structure.strip()}" if case.agent_sante_structure.strip() else "")
+        t = tr("PPL : oui") + (f" · {case.agent_sante_structure.strip()}" if case.agent_sante_structure.strip() else "")
         out.append({"t": t.upper(), "fill": theme.soft(theme.RED)})
     elif case.agent_sante == "Non":
-        out.append({"t": "PPL : NON", "fill": theme.soft(theme.BLUE)})
+        out.append({"t": tr("PPL : NON"), "fill": theme.soft(theme.BLUE)})
     else:
-        out.append({"t": "PPL : à compléter", "todo": True})
+        out.append({"t": tr("PPL : à compléter"), "todo": True})
     for b in out:
         if b.get("fill"):
             b["ink"] = theme.ink_on(b["fill"])
@@ -268,11 +283,11 @@ def _notification(case: Case, ph: "rules.Phases") -> dict:
     ref = case.debut_symptomes or ph.j0
     if case.date_notification and ref:
         n = (case.date_notification - ref).days
-        return {"k": f"Notifié (J0{n:+d} j)" if case.debut_symptomes else f"Notifié (J0 ~{n:+d} j)",
+        return {"k": trf("Notifié (J0{n} j)", n=f"{n:+d}") if case.debut_symptomes else trf("Notifié (J0 ~{n} j)", n=f"{n:+d}"),
                 "v": fmt_date(case.date_notification),
-                "tip": f"{n} jour(s) entre le début des symptômes rapporté et la notification",
+                "tip": trf("{n} jour(s) entre le début des symptômes rapporté et la notification", n=n),
                 "color": theme.RED if n > 7 else (theme.ORANGE if n > 3 else None)}
-    return {"k": "Notifié le", "v": fmt_date(case.date_notification)}
+    return {"k": tr("Notifié le"), "v": fmt_date(case.date_notification)}
 
 
 def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView:
@@ -288,11 +303,11 @@ def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView
         risk = ev.risque or sug
         et = theme.EVENT_TYPES.get(ev.type, theme.EVENT_TYPES["Autre"])
         cards.append(Card(
-            date=date_label(ev), place=place_label(ev), title=ev.titre or ev.type,
+            date=date_label(ev), place=place_label(ev), title=val(ev.titre) or val(ev.type),
             desc=ev.description, risk=risk, risk_color=theme.risk_color(risk), type_color=et["color"],
             icon=icon_svg(et["icon"], 13, "#fff", 2.2), rel=rules.relative_day(ev.date_debut, w.j0),
             phase=rules.event_stage(ev, ph), uncertain=ev.date_incertaine or not ev.date_debut,
-            reason=("Saisi" if ev.risque else "Suggéré") + f" : {why}", auto=not ev.risque,
+            reason=(tr("Saisi") if ev.risque else tr("Suggéré")) + f" : {regle(why)}", auto=not ev.risque,
             chips=event_chips(ev)))
 
     n = len(cards)
@@ -304,10 +319,11 @@ def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView
     def band_label(stage: str, span: int) -> str:
         d = theme.PHASES[stage]
         if span == 1 and len(rows[0]) > 5:
-            return d["label"]
+            return tr(d["label"])
         if stage == "infection":
-            return f"{d['label']} · exposition J-{params['incubation_max']} → J-{params['incubation_min']}"
-        return f"{d['label']} · {d['contag']}"
+            return tr(d["label"]) + " · " + jour(trf("exposition J-{a} → J-{b}", a=params["incubation_max"],
+                                                      b=params["incubation_min"]))
+        return f"{tr(d['label'])} · {tr(d['contag'])}"
     for row in rows:
         rb: List[Band] = []
         i = 0
@@ -322,80 +338,87 @@ def build_mapping_view(case: Case, source: Optional[Case] = None) -> MappingView
         bands.append(rb)
 
     identity = [
-        {"k": "Sexe", "v": case.sexe if case.sexe != "Inconnu" else "?"},
-        {"k": "Âge", "v": f"{case.age} {case.age_unite}" if case.age is not None else "?"},
-        {"k": "AS", "v": case.aire_sante or "?"},
-        {"k": "ZS", "v": case.zs or "?"},
+        {"k": tr("Sexe"), "v": case.sexe if case.sexe != "Inconnu" else "?"},
+        {"k": tr("Âge"), "v": f"{case.age} {val(case.age_unite)}" if case.age is not None else "?"},
+        {"k": tr("AS"), "v": case.aire_sante or "?"},
+        {"k": tr("ZS"), "v": case.zs or "?"},
         _exposition_cell(ph),
-        {"k": "J0 rapporté", "v": fmt_date(case.debut_symptomes), "tip": "Date rapportée par l'équipe d'investigation"},
-        ({"k": "J0 estimé", "v": "~" + fmt_date(ph.j0),
-          "tip": "Pas de date rapportée : J0 remonté depuis la phase où le cas a été trouvé"}
+        {"k": jour(tr("J0 rapporté")), "v": fmt_date(case.debut_symptomes), "tip": tr("Date rapportée par l'équipe d'investigation")},
+        ({"k": jour(tr("J0 estimé")), "v": "~" + fmt_date(ph.j0),
+          "tip": jour(tr("Pas de date rapportée : J0 remonté depuis la phase où le cas a été trouvé"))}
          if ph.j0_source not in ("", "rapportée") else
-         {"k": f"J0 retenu (−{ph.recul} j)" if ph.recul else "J0 retenu", "v": fmt_date(ph.j0),
-          "tip": (f"Premiers signes rapportés en {case.phase_dds.lower()} : J0 = date rapportée − {ph.recul} j"
-                  if ph.phase_dds else "Phase des premiers signes non précisée : J0 = date rapportée − "
-                  f"{ph.recul} j (phase sèche)")}),
+         {"k": jour(trf("J0 retenu (−{n} j)", n=ph.recul) if ph.recul else tr("J0 retenu")), "v": fmt_date(ph.j0),
+          "tip": jour(trf("Premiers signes rapportés en {p} : J0 = date rapportée − {n} j", p=val(case.phase_dds).lower(), n=ph.recul)
+                      if ph.phase_dds else trf("Phase des premiers signes non précisée : J0 = date rapportée − {n} j (phase sèche)",
+                                               n=ph.recul))}),
         _notification(case, ph),
-        {"k": case.statut if case.statut != "Confirmé" else "Confirmation", "v": fmt_date(case.date_confirmation)},
-        {"k": "État", "v": case.issue, "color": theme.ISSUE_COLORS.get(case.issue)},
-        {"k": "Risque", "v": grisk.upper(), "color": theme.risk_color(grisk), "tip": grisk_why},
+        {"k": val(case.statut) if case.statut != "Confirmé" else tr("Confirmation"), "v": fmt_date(case.date_confirmation)},
+        {"k": tr("État"), "v": val(case.issue), "color": theme.ISSUE_COLORS.get(case.issue)},
+        {"k": tr("Risque"), "v": val(grisk).upper(), "color": theme.risk_color(grisk), "tip": regle(grisk_why)},
     ]
 
     places = []
     for i, p in enumerate(case.places, 1):
         r = rules.suggest_place_risk(p, case)
-        places.append({"n": i, "name": p.nom, "popu": p.population or "?", "risk": r.upper(),
+        places.append({"n": i, "name": p.nom, "popu": p.population or "?", "risk": val(r).upper(),
                        "color": theme.risk_color(r), "count": p.nombre})
 
-    contacts = [{"name": g.categorie, "n": "?" if g.nombre is None else str(g.nombre),
-                 "suffix": g.libelle_nombre, "risk": g.risque,
+    contacts = [{"name": val(g.categorie), "n": "?" if g.nombre is None else str(g.nombre),
+                 "suffix": val(g.libelle_nombre), "risk": val(g.risque),
                  "color": theme.CONTACT_RISKS.get(g.risque, theme.BLUE), "unknown": g.nombre is None}
                 for g in case.contacts]
     cs = rules.contact_summary(case)
 
-    ipc = [{"site": x.site, "status": "DÉCONTAMINÉ" if x.statut == "Décontaminé" else x.statut.upper(),
+    ipc = [{"site": x.site, "status": tr("DÉCONTAMINÉ") if x.statut == "Décontaminé" else val(x.statut).upper(),
             "color": theme.IPC_STATUS.get(x.statut, theme.BLUE)} for x in case.ipc]
     if any(x.statut != "Décontaminé" for x in case.ipc):
-        ipc_phrase = "Priorité : fermer les sites non décontaminés et documenter la date / équipe / produit."
+        ipc_phrase = tr("Priorité : fermer les sites non décontaminés et documenter la date / équipe / produit.")
     elif case.ipc:
-        ipc_phrase = "Tous les sites sont décontaminés : vérifier la traçabilité (date / équipe / produit)."
+        ipc_phrase = tr("Tous les sites sont décontaminés : vérifier la traçabilité (date / équipe / produit).")
     else:
-        ipc_phrase = "Aucun site renseigné."
+        ipc_phrase = tr("Aucun site renseigné.")
 
     actions_auto = False
     if case.actions:
         prio = {k: i for i, k in enumerate(theme.ACTION_PRIORITY_CHOICES)}
-        actions = [{"t": a.texte + (" (en cours)" if a.statut == "En cours" else ""),
+        actions = [{"t": val(a.texte) + (" " + tr("(en cours)") if a.statut == "En cours" else ""),
                     "color": theme.ACTION_PRIORITY.get(a.priorite, theme.BLUE), "done": a.statut == "Fait",
                     "k": (a.statut == "Fait", prio.get(a.priorite, 9), i)}
                    for i, a in enumerate(case.actions) if a.texte.strip()]
         actions.sort(key=lambda d: d["k"])
     else:
         actions_auto = True
-        actions = [{"t": s.texte, "color": theme.ACTION_PRIORITY.get(s.priorite, theme.BLUE), "done": False}
+        actions = [{"t": regle(s.texte), "color": theme.ACTION_PRIORITY.get(s.priorite, theme.BLUE), "done": False}
                    for s in rules.suggest_actions(case)[:7]]
 
     statut = {"Confirmé": "CONFIRMÉ", "Probable": "PROBABLE", "Suspect": "SUSPECT"}.get(case.statut, case.statut.upper())
     rang = f"DU {ordinal(case.rang)} CAS" if case.rang else "DU CAS"
     title = f"MAPPING COMPLET – PARCOURS THÉRAPEUTIQUE {rang} {statut} {case.maladie.upper()} | ZS {(case.zs or '?').upper()}"
+    if en():
+        st_en = {"Confirmé": "CONFIRMED", "Probable": "PROBABLE", "Suspect": "SUSPECTED"}.get(case.statut, val(case.statut).upper())
+        rang_en = f"OF THE {ordinal(case.rang).upper()} " if case.rang else "OF THE "
+        title = (f"FULL MAPPING – CARE PATHWAY {rang_en}{st_en} {val(case.maladie).upper()} CASE"
+                 f" | HZ {(case.zs or '?').upper()}")
     contact = None
     if case.contact_connu and case.contact_connu != "Inconnu":
         cc = theme.soft(theme.CONTACT_STATUS_COLORS.get(case.contact_connu, theme.RED))
-        contact = {"t": case.contact_connu.replace(" suivi", " · suivi").upper(), "fill": cc, "ink": theme.ink_on(cc)}
+        contact = {"t": (case.contact_connu.replace(" suivi", " · suivi") if not en() else
+                         {"Contact connu suivi": "Known contact · followed up"}.get(case.contact_connu, val(case.contact_connu))).upper(),
+                   "fill": cc, "ink": theme.ink_on(cc)}
         if case.contact_connu in theme.CONTACT_AVEC_SOURCE:
             src = case.id_cas_source.strip()
-            contact["src"] = f"de {src}" if src else ""
+            contact["src"] = trf("de {src}", src=src) if src else ""
             contact["todo"] = not src
     score, _ = rules.completeness(case)
-    meta = (f"Généré le {datetime.now():%d/%m/%Y à %H:%M} • Complétude de la fiche : {score} % • "
-            f"Mapping Épi v{APP_VERSION}")
+    meta = trf("Généré le {d} à {h} • Complétude de la fiche : {score} % • Mapping Épi v{v}",
+               d=f"{datetime.now():%d/%m/%Y}", h=f"{datetime.now():%H:%M}", score=score, v=APP_VERSION)
     from render import mapping_v2
     v2 = mapping_v2.vue(case, ph, cards, grisk, grisk_why, score)
     return MappingView(
         title=title, subtitle=(f"ID {case.code_cas.strip()} • " if case.code_cas.strip() else "")
-        + "Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions",
-        identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=cs.phrase,
-        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=NOTE_PIED_DEFAUT, recul=ph.recul if ph.j0_source == "rapportée" else 0,
+        + tr("Lecture décisionnelle : chronologie • lieux • contacts • risque • PCI • laboratoire • actions"),
+        identity=identity, rows=rows, bands=bands, places=places, contacts=contacts, contact_phrase=regle(cs.phrase),
+        ipc=ipc, ipc_phrase=ipc_phrase, actions=actions, actions_auto=actions_auto, footer=_note_libre(case.note_pied), org=tr(NOTE_PIED_DEFAUT), recul=ph.recul if ph.j0_source == "rapportée" else 0,
         meta=meta, phase_strip=build_phase_strip(case, ph), contact=contact, badges=_badges(case), v2=v2)
 
 
@@ -410,29 +433,29 @@ def page(body: str, title: str = "Mapping", extra_css: str = "", assets: Optiona
     """assets : adresse du dossier assets/ (fichier local par défaut, « /assets/ » pour la version web)."""
     tpl = _env.get_template("base.html.j2")
     return tpl.render(body=body, title=title, extra_css=extra_css, assets=assets or assets_uri(), t=theme_ctx(),
-                      W=PAGE_W, H=PAGE_H)
+                      W=PAGE_W, H=PAGE_H, lang="en" if en() else "fr", tr=tr)
 
 
 def _exposition_cell(ph: "rules.Phases") -> dict:
     if ph.exposition_source == "à rechercher":
-        return {"k": "Exposition", "v": "à rechercher", "color": theme.RED,
-                "tip": "Contact connu : renseigner la date du dernier contact avec le cas source"}
+        return {"k": tr("Exposition"), "v": tr("à rechercher"), "color": theme.RED,
+                "tip": tr("Contact connu : renseigner la date du dernier contact avec le cas source")}
     if not ph.exposition:
-        return {"k": "Exposition estimée", "v": "?"}
+        return {"k": tr("Exposition estimée"), "v": "?"}
     d1, d2 = ph.exposition
     v = _dm(d1) if d1 == d2 else f"{_dm(d1)} → {_dm(d2)}"
     if ph.exposition_source == "dernier contact":
-        return {"k": "Dernier contact", "v": v, "tip": "Date du dernier contact avec le cas source"}
+        return {"k": tr("Dernier contact"), "v": v, "tip": tr("Date du dernier contact avec le cas source")}
     if ph.exposition_source == "cas source":
-        return {"k": "Expo. (cas source)", "v": v,
-                "tip": "Période contagieuse du cas source dans la fenêtre d'incubation du cas"}
-    return {"k": "Exposition estimée", "v": v,
-            "tip": "Calculée depuis le J0 retenu ou estimé (J-21 → J-2 pour la MVE), quelle que soit la phase du cas"}
+        return {"k": tr("Expo. (cas source)"), "v": v,
+                "tip": tr("Période contagieuse du cas source dans la fenêtre d'incubation du cas")}
+    return {"k": tr("Exposition estimée"), "v": v,
+            "tip": jour(tr("Calculée depuis le J0 retenu ou estimé (J-21 → J-2 pour la MVE), quelle que soit la phase du cas"))}
 
 
 def render_mapping_body(case: Case) -> str:
     view = build_mapping_view(case)
-    return _env.get_template("mapping.html.j2").render(v=view, t=theme_ctx())
+    return _env.get_template("mapping.html.j2").render(v=view, t=theme_ctx(), tr=tr, jour=jour, val=val, trf=trf)
 
 
 def render_mapping_html(case: Case, assets: Optional[str] = None) -> str:
@@ -442,7 +465,7 @@ def render_mapping_html(case: Case, assets: Optional[str] = None) -> str:
 def render_report_html(case: Case, svgs: List[str]) -> str:
     """Rapport multi-pages : mapping + visuels complémentaires (une page 16:9 chacun)."""
     body = render_mapping_body(case) + "".join(f'<div class="page"><div class="svgpage">{s}</div></div>' for s in svgs)
-    return page(body, title="Rapport complet").replace(
+    return page(body, title=tr("Rapport complet")).replace(
         "html, body { width: 1280px; height: 720px; overflow: hidden; }", "html, body { width: 1280px; }")
 
 
@@ -456,7 +479,7 @@ def with_css(html: str, css: str) -> str:
 
 
 def render_svg_page(svg: str, title: str, assets: Optional[str] = None) -> str:
-    return page(f'<div class="svgpage">{svg}</div>', title=title, assets=assets)
+    return page(f'<div class="svgpage">{svg}</div>', title=tr(title), assets=assets)
 
 
 def html_to_svg_wrapper(html: str) -> str:

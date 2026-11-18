@@ -129,11 +129,11 @@
   </div>
 
   <div class="mp-wrap">
-    <div class="mp-sec mp-chrono"><span class="mp-lab">Chronologie du parcours</span>
-      {% if v.contact %}<span class="mp-badge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="mp-badge todo">ID du cas source : à compléter</span>{% endif %}{% endif %}
+    <div class="mp-sec mp-chrono"><span class="mp-lab">{{ tr("Chronologie du parcours") }}</span>
+      {% if v.contact %}<span class="mp-badge" style="background: {{ v.contact.fill }}; color: {{ v.contact.ink }};">{{ v.contact.t }}{% if v.contact.src %} {{ v.contact.src }}{% endif %}</span>{% if v.contact.todo %}<span class="mp-badge todo">{{ tr("ID du cas source : à compléter") }}</span>{% endif %}{% endif %}
       {% for b in v.badges %}{% if b.todo %}<span class="mp-badge todo">{{ b.t }}</span>{% else %}<span class="mp-badge" style="background: {{ b.fill }}; color: {{ b.ink }};">{{ b.t }}</span>{% endif %}{% endfor %}
       {% if x.manque %}<span class="mp-miss">? {{ x.manque|join(' · ') }}</span>{% endif %}
-      <small class="mp-leg">J±n : jours depuis le J0 {% if v.recul %}retenu (date rapportée − {{ v.recul }} j){% else %}retenu ou estimé{% endif %}{% if x.frise and x.frise.adapte %} · jours chargés agrandis{% endif %}</small></div>
+      <small class="mp-leg">{% if v.recul %}{{ jour(trf("J±n : jours depuis le J0 retenu (date rapportée − {n} j)", n=v.recul)) }}{% else %}{{ jour(tr("J±n : jours depuis le J0 retenu ou estimé")) }}{% endif %}{% if x.frise and x.frise.adapte %} · {{ tr("jours chargés agrandis") }}{% endif %}</small></div>
     {% if v.phase_strip %}
     <div class="mp-phases" style="grid-template-columns: repeat({{ v.phase_strip|length }}, minmax(0,1fr));">
       {% for p in v.phase_strip %}
@@ -154,7 +154,7 @@
       {% for t in x.frise.ticks %}<div class="mp-tick" style="left: {{ t.x }}%;">{{ t.t }}</div>{% endfor %}
     </div>
     {% else %}
-    <div class="mp-note" style="font-size: 11px; height: 24px;">Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise.</div>
+    <div class="mp-note" style="font-size: 11px; height: 24px;">{{ tr("Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise.") }}</div>
     {% endif %}
 
     <div class="mp-rows">
@@ -175,7 +175,7 @@
           {% if c.desc and not two %}<div class="x">{{ c.desc }}</div>{% endif %}
           {% if c.chips or c.personnes %}<div class="chips">
             {% for ch in c.chips %}<span class="chip{% if ch.warn %} warn{% endif %}">{{ ch.icon|safe }}{{ ch.t }}</span>{% endfor %}
-            {% if c.personnes %}<span class="chip todo">{{ x.icone_personnes|safe }}? personnes présentes</span>{% endif %}
+            {% if c.personnes %}<span class="chip todo">{{ x.icone_personnes|safe }}? {{ tr("personnes présentes") }}</span>{% endif %}
           </div>{% endif %}
         </div>
         <div class="mp-pill" style="background: {{ c.r.c }};">{{ c.r.s }} {{ c.r.t }}</div>
@@ -184,57 +184,57 @@
         </div>
       </div>
     {% else %}
-      <div class="mp-note">Aucune étape dans la chronologie.</div>
+      <div class="mp-note">{{ tr("Aucune étape dans la chronologie.") }}</div>
     {% endfor %}
     </div>
 
     <div class="mp-bottom">
       <div class="mp-box">
-        <div class="mp-sec"><span class="mp-lab">Contacts à identifier / suivre</span> <small>{{ x.contacts.resume }}</small></div>
+        <div class="mp-sec"><span class="mp-lab">{{ tr("Contacts à identifier / suivre") }}</span> <small>{{ x.contacts.resume }}</small></div>
         <div class="mp-body" data-fit="6.5" data-max="11.5" data-group="mpb">
           {% for g in x.contacts.lignes %}
           <div class="mp-row"><span class="n">{{ g.t }}</span><span class="mp-bar"><i style="width: {{ g.w }}%; background: {{ g.c }};"></i></span>
-            {% if g.n is none %}<span class="v mp-todo">? à dénombrer</span>{% else %}<span class="v">{{ g.n }}{% if g.s is not none %} · {{ g.s }} suivis{% endif %}</span>{% endif %}</div>
+            {% if g.n is none %}<span class="v mp-todo">? {{ tr("à dénombrer") }}</span>{% else %}<span class="v">{{ g.n }}{% if g.s is not none %} · {{ trf("{n} suivis", n=g.s) }}{% endif %}</span>{% endif %}</div>
           {% else %}
-          <div class="mp-note">Aucun groupe de contacts renseigné.</div>
+          <div class="mp-note">{{ tr("Aucun groupe de contacts renseigné.") }}</div>
           {% endfor %}
         </div>
       </div>
       <div class="mp-box">
-        <div class="mp-sec"><span class="mp-lab">PCI / décontamination</span> <small>{{ x.pci.resume }}</small></div>
+        <div class="mp-sec"><span class="mp-lab">{{ tr("PCI / décontamination") }}</span> <small>{{ x.pci.resume }}</small></div>
         <div class="mp-body" data-fit="6.5" data-max="11.5" data-group="mpb">
           {% for s in x.pci.sites %}
           <div class="mp-row"><span style="flex: 1; min-width: 0;">{{ s.t }}</span><span class="mp-st" style="background: {{ s.bg }}; color: {{ s.fg }};">{{ s.lib }}</span></div>
           {% endfor %}
           {% if x.pci.sans %}
-          <div class="mp-todo" style="margin-top: .3em;">? {{ x.pci.sans|length }} lieu{{ 'x' if x.pci.sans|length > 1 }} d’exposition sans statut PCI :</div>
+          <div class="mp-todo" style="margin-top: .3em;">? {{ trf("{n} lieux d’exposition sans statut PCI :", n=x.pci.sans|length) if x.pci.sans|length > 1 else trf("{n} lieu d’exposition sans statut PCI :", n=x.pci.sans|length) }}</div>
           <div class="mp-note">{{ x.pci.sans|join(' · ') }}</div>
           {% endif %}
-          {% if x.pci.sites|rejectattr('st', 'equalto', 'Décontaminé')|list %}<div class="mp-note" style="margin-top: .3em;">Priorité : fermer les sites non décontaminés ; noter date, équipe et produit.</div>{% endif %}
+          {% if x.pci.sites|rejectattr('st', 'equalto', 'Décontaminé')|list %}<div class="mp-note" style="margin-top: .3em;">{{ tr("Priorité : fermer les sites non décontaminés ; noter date, équipe et produit.") }}</div>{% endif %}
         </div>
       </div>
       <div class="mp-box">
-        <div class="mp-sec"><span class="mp-lab">Actions</span> <small>{% if x.actions.auto %}suggérées, à valider{% else %}responsable · échéance{% endif %}</small></div>
+        <div class="mp-sec"><span class="mp-lab">{{ tr("Actions") }}</span> <small>{% if x.actions.auto %}{{ tr("suggérées, à valider") }}{% else %}{{ tr("responsable · échéance") }}{% endif %}</small></div>
         <div class="mp-body" data-fit="6" data-max="11.5" data-group="mpb">
           {% set afaire = x.actions.lignes|rejectattr('fait')|list %}
           {% set faites = x.actions.lignes|selectattr('fait')|list %}
           {% if afaire %}
-          {% if not x.actions.auto %}<div class="ac-h todo">À réaliser immédiatement</div>{% endif %}
+          {% if not x.actions.auto %}<div class="ac-h todo">{{ tr("À réaliser immédiatement") }}</div>{% endif %}
           {% for a in afaire %}
           <div class="mp-row">
             <span class="mp-st" style="background: {{ a.c }}; color: #fff; min-width: 5.6em; text-align: center;">{{ a.p }}</span>
-            <span style="flex: 1; min-width: 0;">{{ a.t }}{% if a.cours %} <span class="mp-note">(en cours)</span>{% endif %}</span>
-            {% if not x.actions.auto %}<span class="{{ '' if a.resp else 'mp-todo' }}" style="white-space: nowrap; font-size: .9em;">{{ a.resp or 'à désigner' }} · {{ a.ech or '—' }}</span>{% endif %}
+            <span style="flex: 1; min-width: 0;">{{ a.t }}{% if a.cours %} <span class="mp-note">{{ tr("(en cours)") }}</span>{% endif %}</span>
+            {% if not x.actions.auto %}<span class="{{ '' if a.resp else 'mp-todo' }}" style="white-space: nowrap; font-size: .9em;">{{ a.resp or tr('à désigner') }} · {{ a.ech or '?' }}</span>{% endif %}
           </div>
           {% endfor %}
           {% endif %}
           {% if faites %}
-          <div class="ac-h done">Déjà réalisées</div>
+          <div class="ac-h done">{{ tr("Déjà réalisées") }}</div>
           {% for a in faites %}
           <div class="mp-row"><span class="ac-ok">✓</span><span style="flex: 1; min-width: 0;">{{ a.t }}</span></div>
           {% endfor %}
           {% endif %}
-          {% if not afaire and not faites %}<div class="mp-note">Aucune action.</div>{% endif %}
+          {% if not afaire and not faites %}<div class="mp-note">{{ tr("Aucune action.") }}</div>{% endif %}
         </div>
       </div>
     </div>

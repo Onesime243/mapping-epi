@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 from config import theme
 from core import indicateurs as IND
 from core import rules
+from core.langue import actuelle, tr, trf
 from core.models import Action, Case
 
 CONTACTS = ("Contact connu", "Contact connu suivi")
@@ -96,6 +97,11 @@ class Indic:
     note: str = ""
     cas: List[str] = field(default_factory=list)    # N° EPID des cas qui posent problème
 
+    def __post_init__(self):
+        # textes affichés dans la langue courante (les indicateurs sont recalculés à chaque requête)
+        self.groupe, self.nom, self.cible = tr(self.groupe), tr(self.nom), tr(self.cible)
+        self.note, self.unite = tr(self.note), tr(self.unite)
+
     @property
     def valeur(self) -> Optional[float]:
         if self.den is None:
@@ -156,7 +162,7 @@ def indicateurs(cases: List[Case]) -> List[Indic]:
             sans_iso.append(c)
     out.append(Indic("Délais", "Délai médian début des symptômes → isolement", median(iso) if iso else None, None,
                      len(sans_iso), "≤ 3 j", "bas", 3, 5, unite="j",
-                     note=f"{len(iso)} cas avec une hospitalisation datée dans la chronologie"))
+                     note=trf("{n} cas avec une hospitalisation datée dans la chronologie", n=len(iso))))
     rapides = [x for x in iso if x <= 3]
     out.append(Indic("Délais", "Cas isolés dans les 3 jours suivant le début des symptômes", len(rapides), len(iso),
                      len(sans_iso), "≥ 80 %", "haut", 80, 50,
@@ -248,11 +254,11 @@ def reproduction(cases: List[Case], ref: Optional[date] = None, recul: int = 42)
         if d and (ref - d).days > recul and c.code_cas.strip():
             anciens.append(c)
     if not anciens:
-        return Reproduction(None, 0, 0, f"aucun cas avec un début de maladie de plus de {recul} jours")
+        return Reproduction(None, 0, 0, trf("aucun cas avec un début de maladie de plus de {j} jours", j=recul))
     sec = sum(enfants.get(_id(c.code_cas), 0) for c in anciens)
     return Reproduction(sec / len(anciens), len(anciens), sec,
-                        f"{sec} cas secondaires reliés à {len(anciens)} cas de plus de {recul} jours ; sous-estimé si "
-                        "des liens (ID du cas source) ne sont pas saisis")
+                        trf("{s} cas secondaires reliés à {n} cas de plus de {j} jours ; sous-estimé si "
+                            "des liens (ID du cas source) ne sont pas saisis", s=sec, n=len(anciens), j=recul))
 
 
 # ---------------------------------------------------------------------------
@@ -286,13 +292,13 @@ def courbe(cases: List[Case], max_zs: int = 6) -> Courbe:
         weeks.append(w)
         w += timedelta(days=7)
     idx = {w: i for i, w in enumerate(weeks)}
-    tot = Counter(c.zs or "ZS ?" for _w, c in dated)
+    tot = Counter(c.zs or tr("ZS ?") for _w, c in dated)
     top = [z for z, _n in tot.most_common(max_zs)]
     series: "OrderedDict[str, List[int]]" = OrderedDict((z, [0] * len(weeks)) for z in top)
     deces = [0] * len(weeks)
     for wk, c in dated:
-        z = c.zs or "ZS ?"
-        key = z if z in series else "Autres ZS"
+        z = c.zs or tr("ZS ?")
+        key = z if z in series else tr("Autres ZS")
         series.setdefault(key, [0] * len(weeks))[idx[wk]] += 1
         deces[idx[wk]] += c.issue == "Décès"
     return Courbe(weeks, series, deces, sans, notif)
@@ -303,7 +309,7 @@ PALETTE = [theme.BLUE, theme.ORANGE, theme.TEAL, theme.PURPLE, theme.YELLOW, the
 
 def courbe_svg(cb: Courbe, width: int = 980, height: int = 330) -> str:
     if not cb.semaines:
-        return '<p class="muted">Aucun cas daté : la courbe ne peut pas être tracée.</p>'
+        return f'<p class="muted">{html.escape(tr("Aucun cas daté : la courbe ne peut pas être tracée."))}</p>'
     ml, mr, mt, mb = 44, 16, 16, 64
     pw, ph = width - ml - mr, height - mt - mb
     n = len(cb.semaines)
@@ -313,7 +319,7 @@ def courbe_svg(cb: Courbe, width: int = 980, height: int = 330) -> str:
     ytop = ((ymax + step - 1) // step) * step
     bw = pw / n
     e = html.escape
-    out = [f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" aria-label="Courbe épidémique" '
+    out = [f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" aria-label="{e(tr("Courbe épidémique"))}" '
            f'style="font-family:{e(theme.FONT_STACK)}; max-width:{width}px">']
     for v in range(0, ytop + 1, step):
         y = mt + ph - ph * v / ytop
@@ -330,7 +336,7 @@ def courbe_svg(cb: Courbe, width: int = 980, height: int = 330) -> str:
                 h = ph * vals[i] / ytop
                 y -= h
                 out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" fill="{colors[z]}">'
-                           f'<title>{e(z)} : {vals[i]} cas (semaine du {cb.semaines[i]:%d/%m/%Y})</title></rect>')
+                           f'<title>{e(z)}{': ' if actuelle() == 'en' else ' : '}{e(trf("{n} cas (semaine du {d})", n=vals[i], d=f"{cb.semaines[i]:%d/%m/%Y}"))}</title></rect>')
         if cb.deces[i]:
             out.append(f'<text x="{x + w / 2:.1f}" y="{y - 4:.1f}" font-size="10.5" text-anchor="middle" '
                        f'fill="{theme.RED}" font-weight="700">†{cb.deces[i]}</text>')
@@ -344,7 +350,7 @@ def courbe_svg(cb: Courbe, width: int = 980, height: int = 330) -> str:
     leg = "".join(f'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'
                   f'<span style="width:12px;height:12px;border-radius:3px;background:{colors[z]}"></span>{e(z)} '
                   f'({sum(v)})</span>' for z, v in cb.series.items())
-    leg += f'<span style="color:{theme.RED};font-weight:700">† décès</span>'
+    leg += f'<span style="color:{theme.RED};font-weight:700">† {e(tr("décès"))}</span>'
     return "".join(out) + f'<div style="font-size:12.5px;margin-top:6px">{leg}</div>'
 
 
@@ -386,16 +392,16 @@ def points_attention(ind: List[Indic], zones, alertes, actions: List[ActionSuivi
     pts = []
     for i in ind:
         if i.statut == "alerte":
-            pts.append(f"{i.nom} : {i.texte()} (cible {i.cible}).")
+            pts.append(trf("{nom} : {v} (cible {c}).", nom=i.nom, v=i.texte(), c=i.cible))
     c1 = [z.zs for z in zones if z.cat.get("num") == 1]
     if c1:
-        pts.append("Transmission active (catégorie 1) : ZS " + ", ".join(c1) + ".")
+        pts.append(trf("Transmission active (catégorie 1) : ZS {zs}.", zs=", ".join(c1)))
     if alertes:
-        pts.append(f"{len(alertes)} alerte(s) de nouveau foyer possible à investiguer.")
+        pts.append(trf("{n} alerte(s) de nouveau foyer possible à investiguer.", n=len(alertes)))
     r = sum(1 for a in actions if a.retard)
     if r:
-        pts.append(f"{r} action(s) en retard sur les fiches de cas.")
-    return pts or ["Aucun indicateur en alerte sur la période."]
+        pts.append(trf("{n} action(s) en retard sur les fiches de cas.", n=r))
+    return pts or [tr("Aucun indicateur en alerte sur la période.")]
 
 
 # ---------------------------------------------------------------------------
@@ -431,12 +437,12 @@ def html_indicateurs(ind: List[Indic]) -> str:
         c = STATUT_COULEUR[i.statut]
         info = []
         if i.cible:
-            info.append(f"cible {e(i.cible)} · <b>{STATUT_LIBELLE[i.statut]}</b>")
+            info.append(f"{e(tr('cible'))} {e(i.cible)} · <b>{e(tr(STATUT_LIBELLE[i.statut]))}</b>")
         if i.inconnus:
-            info.append(f"{i.inconnus} non renseigné(s)")
+            info.append(e(trf("{n} non renseigné(s)", n=i.inconnus)))
         det = ""
         if i.cas and i.statut != "ok":
-            det = (f"<details><summary>{len(i.cas)} cas concerné(s)</summary>{e(', '.join(i.cas[:60]))}"
+            det = (f"<details><summary>{e(trf('{n} cas concerné(s)', n=len(i.cas)))}</summary>{e(', '.join(i.cas[:60]))}"
                    f"{' …' if len(i.cas) > 60 else ''}</details>")
         note = f'<div class="s">{e(i.note)}</div>' if i.note else ""
         out.append(f'<div class="rip-k" style="--c:{c}"><div class="n">{e(i.nom)}</div>'
@@ -450,7 +456,7 @@ def html_actions(items: List[ActionSuivi], lien=None) -> str:
     """Tableau des actions ; `lien(case)` renvoie l'adresse de la fiche (version web) ou None."""
     e = html.escape
     if not items:
-        return '<p class="muted">Aucune action ouverte dans ce périmètre.</p>'
+        return f'<p class="muted">{e(tr("Aucune action ouverte dans ce périmètre."))}</p>'
     pc = {"Urgent": theme.RED, "Important": theme.ORANGE, "Normal": theme.BLUE}
     rows = []
     for x in items:
@@ -458,21 +464,23 @@ def html_actions(items: List[ActionSuivi], lien=None) -> str:
         nom = e(c.code_cas or c.titre_court())
         if lien:
             nom = f'<a href="{e(lien(c))}">{nom}</a>'
-        ret = (f'<span class="rip-pill" style="--c:{theme.RED}">{x.retard} j de retard</span>' if x.retard else "")
-        st = a.statut if a.statut != "Fait" else "Fait ✓"
+        ret = (f'<span class="rip-pill" style="--c:{theme.RED}">{e(trf("{n} j de retard", n=x.retard))}</span>'
+               if x.retard else "")
+        st = tr(a.statut) if a.statut != "Fait" else tr("Fait") + " ✓"
         rows.append(f"<tr><td style='white-space:nowrap'>{nom}</td><td>{e(c.zs)}</td><td>{e(a.texte)}</td>"
-                    f'<td><span class="rip-pill" style="--c:{pc.get(a.priorite, theme.GREY)}">{e(a.priorite)}</span></td>'
-                    f"<td>{e(a.responsable) or '<span class=muted>à désigner</span>'}</td>"
+                    f'<td><span class="rip-pill" style="--c:{pc.get(a.priorite, theme.GREY)}">{e(tr(a.priorite))}</span></td>'
+                    f"<td>{e(a.responsable) or '<span class=muted>' + e(tr('à désigner')) + '</span>'}</td>"
                     f"<td>{a.echeance.strftime('%d/%m/%Y') if a.echeance else '<span class=muted>?</span>'}</td>"
                     f"<td style='white-space:nowrap'>{e(st)}</td><td>{ret}</td></tr>")
-    return (f"<style>{CSS}</style><div style='overflow-x:auto'><table class='list'><tr><th>Cas</th><th>ZS</th>"
-            "<th>Action</th><th>Priorité</th><th>Responsable</th><th>Échéance</th><th>Statut</th><th></th></tr>"
+    tete = "".join(f"<th>{e(t)}</th>" for t in (tr("Cas"), IND.sigle("ZS"), tr("Action"), tr("Priorité"),
+                                                    tr("Responsable"), tr("Échéance"), tr("Statut")))
+    return (f"<style>{CSS}</style><div style='overflow-x:auto'><table class='list'><tr>{tete}<th></th></tr>"
             + "".join(rows) + "</table></div>")
 
 
 def page_bureau(titre: str, corps: str) -> str:
     """Page complète pour l'application de bureau (même contenu que la version web)."""
-    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+    return f"""<!doctype html><html lang="{actuelle()}"><head><meta charset="utf-8"><style>
 body {{ font-family:{theme.FONT_STACK}; color:#1B2430; background:#F3F5F8; margin:18px; font-size:14px; }}
 h1 {{ font-size:20px; color:{theme.NAVY}; margin:0 0 4px; }} h2 {{ font-size:16px; color:{theme.NAVY}; }}
 .card {{ background:#fff; border:1px solid #D3DAE3; border-radius:12px; padding:16px; margin-top:12px; }}

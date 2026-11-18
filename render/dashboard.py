@@ -10,10 +10,11 @@ from typing import Dict, List, Set
 
 from config import theme
 from core import rules
-from core.lieux import VAGUES, _noms_du_cas as _noms, case_label, cle, frequentes
+from core.lieux import VAGUES, _noms_du_cas as _noms, cle, frequentes
 from core.models import Case
 from render import svgkit as K
 from render.html_renderer import render_svg_page
+from render.libelles import cas, titre_zone, tr, trf, val
 
 
 def _norm(s: str) -> str:
@@ -49,19 +50,19 @@ def shared_places(cases: List[Case]) -> Dict[str, List[int]]:
 def _labels_cas(cs: List[Case]) -> str:
     cnt: Dict[str, int] = defaultdict(int)
     for c in cs:
-        cnt[case_label(c)] += 1
+        cnt[cas(c)] += 1
     return ", ".join(f"{k} ×{v}" if v > 1 else k for k, v in cnt.items())
 
 
 def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
     cases = sorted(cases, key=lambda c: (c.debut_symptomes or date.max, c.rang or 999))
-    titre = titre or f"TABLEAU DE BORD MULTI-CAS{(' | ZS ' + zone.upper()) if zone else ''}"
-    out = [K.svg_open(), K.header(titre, "Cas reliés lorsqu'ils ont fréquenté un même lieu • épaisseur ∝ nombre de lieux communs")]
+    titre = titre_zone(titre) or (tr("TABLEAU DE BORD MULTI-CAS") + ((f" | {tr('ZS')} " + zone.upper()) if zone else ""))
+    out = [K.svg_open(), K.header(titre, tr("Cas reliés lorsqu'ils ont fréquenté un même lieu • épaisseur ∝ nombre de lieux communs"))]
     out.append('<style>.halo text{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}</style>')
     out.append(K.card(16, 66, 860, 616))
     n = len(cases)
     if n == 0:
-        out.append(f'<text x="446" y="380" text-anchor="middle" font-size="14" fill="{theme.MUTED}">Aucun cas enregistré.</text></svg>')
+        out.append(f'<text x="446" y="380" text-anchor="middle" font-size="14" fill="{theme.MUTED}">{K.esc(tr("Aucun cas enregistré."))}</text></svg>')
         return "".join(out)
     cx, cy = 446, 360
     rx, ry = (300, 205) if n > 1 else (0, 0)
@@ -91,16 +92,16 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
         x, y = pos[i]
         risk, _ = rules.global_risk(c)
         col = theme.risk_color(risk)
-        lab = K.ellipsize(c.code_cas.strip() or (f"Cas {c.rang}" if c.rang else "Cas ?"), 2 * r - 8, 11 if r > 25 else 9, 800)
-        nodes.append(f'<g><title>{K.esc(case_label(c))}, {K.esc(c.aire_sante or "?")}, risque {K.esc(risk)}</title>'
+        lab = K.ellipsize(c.code_cas.strip() or (trf("Cas {n}", n=c.rang) if c.rang else tr("Cas ?")), 2 * r - 8, 11 if r > 25 else 9, 800)
+        nodes.append(f'<g><title>{K.esc(cas(c))}, {K.esc(c.aire_sante or "?")}, {K.esc(trf("risque {r}", r=val(risk)))}</title>'
                      f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{theme.NAVY}" stroke="{col}" stroke-width="5" filter="url(#sh)"/>'
                      f'<text x="{x:.1f}" y="{y + 1:.1f}" text-anchor="middle" fill="#fff" font-size="{11 if r > 25 else 9}" '
                      f'font-weight="800">{K.esc(lab)}</text>'
                      f'<text x="{x:.1f}" y="{y + 13:.1f}" text-anchor="middle" fill="#fff" fill-opacity=".8" font-size="8">'
-                     f'{K.esc(c.maladie)}</text></g>')
-        sub = [(K.ellipsize(f"{c.aire_sante or '?'} • {c.sexe} {c.age if c.age is not None else '?'} {c.age_unite}", 150, 9.5, 600),
+                     f'{K.esc(val(c.maladie))}</text></g>')
+        sub = [(K.ellipsize(f"{c.aire_sante or '?'} • {c.sexe} {c.age if c.age is not None else '?'} {val(c.age_unite)}", 150, 9.5, 600),
                 9.5, 600, theme.INK),
-               (f"J0 {c.debut_symptomes:%d/%m}" if c.debut_symptomes else "J0 ?", 9, 500, "#000000")]
+               ((tr("J0") + f" {c.debut_symptomes:%d/%m}") if c.debut_symptomes else tr("J0") + " ?", 9, 500, "#000000")]
         dx, dy = x - cx, y - cy
         prefer = (["below", "below-right", "below-left"] if dy > 0 else ["above", "above-right", "above-left"]) \
             if abs(dy) >= abs(dx) * 0.7 else (["right"] if dx > 0 else ["left"])
@@ -109,10 +110,10 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
     # panneau : lieux les plus fréquentés
     x0 = 888
     out.append(K.card(x0, 66, 376, 616))
-    out.append(K.pill(x0 + 12, 78, "Lieux les plus fréquentés"))
+    out.append(K.pill(x0 + 12, 78, tr("Lieux les plus fréquentés")))
     y = 122
     if not lieux:
-        out.append(f'<text x="{x0 + 16}" y="{y}" font-size="11" fill="{theme.MUTED}">Aucun lieu commun entre les cas.</text>')
+        out.append(f'<text x="{x0 + 16}" y="{y}" font-size="11" fill="{theme.MUTED}">{K.esc(tr("Aucun lieu commun entre les cas."))}</text>')
     shown = 0
     for L in lieux:
         if y > 640:
@@ -120,7 +121,7 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
         col = theme.risk_color(L.risque)
         out.append(f'<rect x="{x0 + 16}" y="{y - 12}" width="38" height="18" rx="4" fill="{theme.soft(col)}"/>'
                    f'<text x="{x0 + 35}" y="{y + 1}" text-anchor="middle" font-size="10" font-weight="800" '
-                   f'fill="{theme.ink_on(theme.soft(col))}">{L.n_cas} cas</text>')
+                   f'fill="{theme.ink_on(theme.soft(col))}">{K.esc(trf("{n} cas", n=L.n_cas))}</text>')
         out.append(f'<text x="{x0 + 62}" y="{y + 1}" font-size="11" font-weight="800" fill="{theme.INK}">'
                    f'{K.esc(K.ellipsize(L.nom, 296, 11, 800))}</text>')
         out.append(f'<text x="{x0 + 62}" y="{y + 16}" font-size="9.5" fill="#000000">'
@@ -128,10 +129,10 @@ def render_svg(cases: List[Case], zone: str = "", titre: str = "") -> str:
         y += 38
         shown += 1
     if len(lieux) > shown:
-        out.append(f'<text x="{x0 + 62}" y="{y - 6}" font-size="9.5" fill="{theme.MUTED}">… {len(lieux) - shown} autre(s) lieu(x)</text>')
+        out.append(f'<text x="{x0 + 62}" y="{y - 6}" font-size="9.5" fill="{theme.MUTED}">… {K.esc(trf("{n} autre(s) lieu(x)", n=len(lieux) - shown))}</text>')
     total = sum(rules.contact_summary(c).total_connu for c in cases)
-    out.append(K.footer(f"{n} cas • {total} contacts dénombrés • {len(lieux)} lieu(x) fréquenté(s) par au moins 2 cas. "
-                        "Un lieu commun n'établit pas un lien de transmission : il oriente l'investigation."))
+    out.append(K.footer(trf("{n} cas • {total} contacts dénombrés • {l} lieu(x) fréquenté(s) par au moins 2 cas. ", n=n, total=total, l=len(lieux))
+                        + tr("Un lieu commun n'établit pas un lien de transmission : il oriente l'investigation.")))
     out.append("</svg>")
     return "".join(out)
 

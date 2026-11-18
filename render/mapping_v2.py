@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from config import theme
 from core import rules
 from core.models import Case
+from render.libelles import en, jour, regle, tr, trf, val
 
 SEUIL_CONFIRMATION = 5          # jours entre premiers signes et confirmation (même seuil que le tableau de bord)
 
@@ -45,34 +46,34 @@ def _norm(s: str) -> str:
 
 def risque(level: str) -> dict:
     c, sym = RISQUE.get(level, ("#6B7586", "?"))
-    return {"t": level or "Inconnu", "c": c, "s": sym}
+    return {"t": val(level or "Inconnu"), "c": c, "s": sym}
 
 
 # -- en-tête ---------------------------------------------------------------------------------------------------------
 def _hero(case: Case, ph, grisk: str, why: str) -> List[dict]:
     from core import riposte as R
     r = risque(grisk)
-    out = [{"k": "Risque", "v": f"{r['s']} {grisk}", "s": (why or "")[:70], "bg": r["c"], "fg": "#FFFFFF"}]
+    out = [{"k": tr("Risque"), "v": f"{r['s']} {val(grisk)}", "s": regle(why or "")[:70], "bg": r["c"], "fg": "#FFFFFF"}]
     if case.issue == "Décès":
         rel = rules.relative_day(case.date_deces, case.debut_symptomes) if case.date_deces and case.debut_symptomes else ""
         comm = R.deces_communautaire(case)
-        detail = " · ".join(x for x in (rel, "hors structure de soins" if comm else ("en structure de soins" if comm is False else "")) if x)
-        out.append({"k": "Issue", "v": f"† Décès {_dm(case.date_deces)}" if case.date_deces else "† Décès",
-                    "s": detail or "date du décès à compléter", "bg": "#2A3D5F", "fg": "#FFFFFF"})
+        detail = " · ".join(x for x in (jour(rel), tr("hors structure de soins") if comm else (tr("en structure de soins") if comm is False else "")) if x)
+        out.append({"k": tr("Issue"), "v": f"† {tr('Décès')} {_dm(case.date_deces)}" if case.date_deces else f"† {tr('Décès')}",
+                    "s": detail or tr("date du décès à compléter"), "bg": "#2A3D5F", "fg": "#FFFFFF"})
     else:
-        out.append({"k": "Issue", "v": case.issue if case.issue != "Inconnu" else "? à compléter",
-                    "s": "état du cas", "bg": "#2A3D5F", "fg": "#FFFFFF"})
+        out.append({"k": tr("Issue"), "v": val(case.issue) if case.issue != "Inconnu" else tr("? à compléter"),
+                    "s": tr("état du cas"), "bg": "#2A3D5F", "fg": "#FFFFFF"})
     if case.debut_symptomes and case.date_confirmation and case.date_confirmation >= case.debut_symptomes:
         n = (case.date_confirmation - case.debut_symptomes).days
         if n > SEUIL_CONFIRMATION:
             bg, fg = "#F2B705", "#2B2100"
         else:
             bg, fg = "#2E7D4F", "#FFFFFF"
-        out.append({"k": "Signes → confirmation", "v": f"{n} jour{'s' if n > 1 else ''}",
-                    "s": f"seuil d’alerte : {SEUIL_CONFIRMATION} jours", "bg": bg, "fg": fg})
+        out.append({"k": tr("Signes → confirmation"), "v": trf("{n} jours", n=n) if n > 1 else trf("{n} jour", n=n),
+                    "s": trf("seuil d’alerte : {n} jours", n=SEUIL_CONFIRMATION), "bg": bg, "fg": fg})
     else:
-        out.append({"k": "Signes → confirmation", "v": "? à compléter",
-                    "s": "début des symptômes ou confirmation manquant", "bg": "#E6E9EE", "fg": "#2B3A55"})
+        out.append({"k": tr("Signes → confirmation"), "v": tr("? à compléter"),
+                    "s": tr("début des symptômes ou confirmation manquant"), "bg": "#E6E9EE", "fg": "#2B3A55"})
     return out
 
 
@@ -81,19 +82,19 @@ def _sous_titre(case: Case) -> str:
     if case.code_cas.strip():
         bits.append(f"ID {case.code_cas.strip()}")
     ident = ", ".join(x for x in (case.sexe if case.sexe != "Inconnu" else "",
-                                   f"{case.age} {case.age_unite}" if case.age is not None else "") if x)
+                                   f"{case.age} {val(case.age_unite)}" if case.age is not None else "") if x)
     if ident:
         bits.append(ident)
     if case.aire_sante:
-        bits.append(f"AS {case.aire_sante}")
-    bits.append({"Oui": "Vacciné", "Non": "Non vacciné"}.get(case.vaccine, "Vaccination ?"))
-    bits.append({"Oui": "Agent de santé", "Non": "Agent de santé : non"}.get(case.agent_sante, "Agent de santé ?"))
+        bits.append(f"{tr('AS')} {case.aire_sante}")
+    bits.append(tr({"Oui": "Vacciné", "Non": "Non vacciné"}.get(case.vaccine, "Vaccination ?")))
+    bits.append(tr({"Oui": "Agent de santé", "Non": "Agent de santé : non"}.get(case.agent_sante, "Agent de santé ?")))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE:
-        bits.append(f"{case.contact_connu} de {case.id_cas_source.strip() or '?'}")
+        bits.append(trf("{statut} de {src}", statut=val(case.contact_connu), src=case.id_cas_source.strip() or "?"))
     elif case.contact_connu and case.contact_connu != "Inconnu":
-        bits.append(case.contact_connu)
+        bits.append(val(case.contact_connu))
     else:
-        bits.append("Lien avec un cas connu : inconnu")
+        bits.append(tr("Lien avec un cas connu : inconnu"))
     return " · ".join(bits)
 
 
@@ -101,22 +102,22 @@ def _dates(case: Case, ph, score: int) -> List[dict]:
     out = []
     if ph.exposition:
         d1, d2 = ph.exposition
-        out.append({"k": "Exposition", "v": _dm(d1) if d1 == d2 else f"{_dm(d1)}→{_dm(d2)}"})
-    out.append({"k": "J0 rapporté", "v": _dm(case.debut_symptomes)})
+        out.append({"k": tr("Exposition"), "v": _dm(d1) if d1 == d2 else f"{_dm(d1)}→{_dm(d2)}"})
+    out.append({"k": jour(tr("J0 rapporté")), "v": _dm(case.debut_symptomes)})
     if ph.j0 and ph.j0 != case.debut_symptomes:
-        out.append({"k": "J0 retenu", "v": _dm(ph.j0), "x": f"(−{ph.recul} j)" if ph.recul else "(estimé)"})
+        out.append({"k": jour(tr("J0 retenu")), "v": _dm(ph.j0), "x": trf("(−{n} j)", n=ph.recul) if ph.recul else tr("(estimé)")})
     if case.date_notification:
         x = rules.relative_day(case.date_notification, case.debut_symptomes) if case.debut_symptomes else ""
-        out.append({"k": "Notifié", "v": _dm(case.date_notification), "x": f"({x})" if x else ""})
+        out.append({"k": tr("Notifié"), "v": _dm(case.date_notification), "x": f"({jour(x)})" if x else ""})
     prel = [l.prelevement.date() for l in case.labs if l.prelevement]
     if prel:
-        out.append({"k": "Prélevé", "v": _dm(min(prel))})
-    out.append({"k": "Confirmé" if case.statut == "Confirmé" else case.statut, "v": _dm(case.date_confirmation)})
+        out.append({"k": tr("Prélevé"), "v": _dm(min(prel))})
+    out.append({"k": val(case.statut), "v": _dm(case.date_confirmation)})
     ent = [e for e in case.events if e.type == "Enterrement" and e.date_debut]
     if ent:
         e = ent[0]
-        out.append({"k": "Enterré", "v": _dm(e.date_debut), "x": "(sécurisé)" if e.securise else "(non sécurisé)"})
-    out.append({"k": "Complétude", "v": f"{score} %"})
+        out.append({"k": tr("Enterré"), "v": _dm(e.date_debut), "x": tr("(sécurisé)") if e.securise else tr("(non sécurisé)")})
+    out.append({"k": tr("Complétude"), "v": f"{score} %"})
     return out
 
 
@@ -124,14 +125,14 @@ def _a_completer(case: Case, cards) -> List[str]:
     out = []
     n = sum(1 for g in case.contacts if g.nombre is None)
     if n:
-        out.append(f"{n} groupe{'s' if n > 1 else ''} de contacts à dénombrer" if n == 1 else f"{n} groupes de contacts à dénombrer")
+        out.append(trf("{n} groupe de contacts à dénombrer", n=n) if n == 1 else trf("{n} groupes de contacts à dénombrer", n=n))
     n = sum(1 for c in cards if any(ch.get("todo") for ch in c.chips))
     if n:
-        out.append(f"{n} étape{'s' if n > 1 else ''} sans personnes")
+        out.append(trf("{n} étapes sans personnes", n=n) if n > 1 else trf("{n} étape sans personnes", n=n))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
-        out.append("ID du cas source")
+        out.append(tr("ID du cas source"))
     if not case.events:
-        out.append("chronologie vide")
+        out.append(tr("chronologie vide"))
     return out
 
 
@@ -173,13 +174,14 @@ def _frise(case: Case, ph, cards) -> Optional[dict]:
         if a and b and b >= a:
             bg, fg = PHASE_STYLE.get(cle, ("#E6E9EE", "#2B3A55"))
             w_ = max(0.6, x(b, True) - x(a))
-            court = {"infection": "Exposition", "seche": "Sèche", "humide": "Humide", "critique": "Critique",
-                     "symptomes": "Contagieux", "deces": "Corps contagieux"}.get(cle, libelle)
+            court = tr({"infection": "Exposition", "seche": "Sèche", "humide": "Humide", "critique": "Critique",
+                        "symptomes": "Contagieux", "deces": "Corps contagieux"}.get(cle, libelle))
+            libelle = tr(libelle)
             bandes.append({"l": x(a), "w": w_, "bg": bg, "fg": fg, "t": libelle if w_ * 12.8 > len(libelle) * 6.2 else court})
     fin_vie = ph.deces or max(jours)
     if ph.exposition:
         e1, e2 = ph.exposition
-        bande("infection", max(e1, d0), min(e2, d1), f"Exposition {_dm(e1)}→{_dm(e2)}")
+        bande("infection", max(e1, d0), min(e2, d1), trf("Exposition {d1}→{d2}", d1=_dm(e1), d2=_dm(e2)))
     if ph.j0:
         # phases successives : chacune s'arrête la veille de la suivante (deux phases le même jour : la plus grave)
         suite = []
@@ -228,7 +230,7 @@ def _frise(case: Case, ph, cards) -> Optional[dict]:
     trou_v = None
     if trou and (trou[1] - trou[0]).days + 1 >= 4:
         n = (trou[1] - trou[0]).days + 1
-        trou_v = {"l": x(trou[0]), "w": x(trou[1], True) - x(trou[0]), "t": f"? {n} jours sans information"}
+        trou_v = {"l": x(trou[0]), "w": x(trou[1], True) - x(trou[0]), "t": "? " + trf("{n} jours sans information", n=n)}
     # points des étapes (décalés quand plusieurs le même jour)
     points, vus = [], {}
     for e, c in evs:
@@ -252,7 +254,7 @@ def _frise(case: Case, ph, cards) -> Optional[dict]:
             dernier = t["x"]
     reperes = []
     if case.date_confirmation and d0 <= case.date_confirmation <= d1:
-        reperes.append({"x": xc(case.date_confirmation), "t": "Confirmation"})
+        reperes.append({"x": xc(case.date_confirmation), "t": tr("Confirmation")})
     return {"bandes": bandes, "trou": trou_v, "points": points, "ticks": filtres, "reperes": reperes,
             "adapte": adapte}
 
@@ -263,12 +265,12 @@ def _contacts(case: Case) -> dict:
     m = max(connus) if connus else 1
     lignes = []
     for g in case.contacts:
-        lignes.append({"t": g.categorie or "?", "n": g.nombre, "s": g.suivis,
+        lignes.append({"t": val(g.categorie) or "?", "n": g.nombre, "s": g.suivis,
                        "w": 0 if g.nombre is None else round(100 * g.nombre / m), "c": CONTACT_RISQUE.get(g.risque, "#6B7586")})
     cs = rules.contact_summary(case)
     suivis = sum(g.suivis for g in case.contacts if g.suivis is not None)
     a_suivi = any(g.suivis is not None for g in case.contacts)
-    resume = f"{cs.haut_risque_connu} à haut risque · suivis : {suivis if a_suivi else 'non renseigné'}"
+    resume = trf("{n} à haut risque · suivis : {s}", n=cs.haut_risque_connu, s=suivis if a_suivi else tr("non renseigné"))
     return {"lignes": lignes, "resume": resume}
 
 
@@ -276,7 +278,7 @@ def _pci(case: Case) -> dict:
     sites = [{"t": s.site or "?", "st": s.statut, "bg": PCI_STYLE.get(s.statut, PCI_STYLE["Inconnu"])[0],
               "fg": PCI_STYLE.get(s.statut, PCI_STYLE["Inconnu"])[1],
               "lib": f"{PCI_STYLE.get(s.statut, PCI_STYLE['Inconnu'])[2]} "
-                     + {"Décontaminé": "Décontaminé", "Partiel": "Partiel", "Non": "Non fait"}.get(s.statut, "Inconnu")}
+                     + tr({"Décontaminé": "Décontaminé", "Partiel": "Partiel", "Non": "Non fait"}.get(s.statut, "Inconnu"))}
              for s in case.ipc]
     noms = [_norm(s.site) for s in case.ipc if s.site.strip()]
     sans = []
@@ -285,8 +287,10 @@ def _pci(case: Case) -> dict:
         if n and not any(n in s or s in n for s in noms):
             sans.append(p.nom)
     ok = sum(1 for s in case.ipc if s.statut == "Décontaminé")
-    return {"sites": sites, "sans": sans, "resume": f"{ok} sur {len(case.ipc)} décontaminé{'s' if ok > 1 else ''}"
-            if case.ipc else "aucun site renseigné"}
+    return {"sites": sites, "sans": sans,
+            "resume": (trf("{ok} sur {n} décontaminés", ok=ok, n=len(case.ipc)) if ok > 1
+                       else trf("{ok} sur {n} décontaminé", ok=ok, n=len(case.ipc)))
+            if case.ipc else tr("aucun site renseigné")}
 
 
 def _actions(case: Case) -> dict:
@@ -294,11 +298,11 @@ def _actions(case: Case) -> dict:
         ordre = {k: i for i, k in enumerate(theme.ACTION_PRIORITY_CHOICES)}
         acts = sorted((a for a in case.actions if a.texte.strip()),
                       key=lambda a: (a.statut == "Fait", ordre.get(a.priorite, 9)))
-        lignes = [{"p": a.priorite, "c": PRIO.get(a.priorite, "#3E6FA8"), "t": a.texte, "fait": a.statut == "Fait",
+        lignes = [{"p": val(a.priorite), "c": PRIO.get(a.priorite, "#3E6FA8"), "t": val(a.texte), "fait": a.statut == "Fait",
                    "cours": a.statut == "En cours", "resp": a.responsable.strip(),
                    "ech": _dm(a.echeance) if a.echeance else ""} for a in acts]
         return {"lignes": lignes, "auto": False}
-    lignes = [{"p": s.priorite, "c": PRIO.get(s.priorite, "#3E6FA8"), "t": s.texte, "fait": False, "cours": False,
+    lignes = [{"p": val(s.priorite), "c": PRIO.get(s.priorite, "#3E6FA8"), "t": regle(s.texte), "fait": False, "cours": False,
                "resp": "", "ech": ""} for s in rules.suggest_actions(case)[:6]]
     return {"lignes": lignes, "auto": True}
 
@@ -311,14 +315,20 @@ def _icone_personnes() -> str:
 def vue(case: Case, ph, cards, grisk: str, why: str, score: int) -> dict:
     statut = {"Confirmé": "cas confirmé", "Probable": "cas probable", "Suspect": "cas suspect"}.get(case.statut, case.statut.lower())
     rang = f"{'1er' if case.rang == 1 else f'{case.rang}e'} " if case.rang else ""
+    titre = f"Parcours thérapeutique · {rang}{statut} {case.maladie} · ZS {case.zs or '?'}"
+    if en():
+        from render.html_renderer import ordinal
+        st_en = {"Confirmé": "confirmed", "Probable": "probable", "Suspect": "suspected"}.get(case.statut, val(case.statut).lower())
+        titre = (f"Care pathway · {ordinal(case.rang) + ' ' if case.rang else ''}{st_en} {val(case.maladie)} case"
+                 f" · HZ {case.zs or '?'}")
     return {
-        "titre": f"Parcours thérapeutique · {rang}{statut} {case.maladie} · ZS {case.zs or '?'}",
+        "titre": titre,
         "sous": _sous_titre(case),
         "hero": _hero(case, ph, grisk, why),
         "dates": _dates(case, ph, score),
         "manque": _a_completer(case, cards),
         "frise": _frise(case, ph, cards),
-        "cartes": [{"date": c.date, "rel": c.rel, "lieu": c.place, "titre": c.title, "desc": c.desc,
+        "cartes": [{"date": c.date, "rel": jour(c.rel), "lieu": c.place, "titre": c.title, "desc": c.desc,
                     "icon": c.icon, "tc": c.type_color,                  # icône et couleur du type d'étape
                     "r": risque(c.risk), "personnes": any(ch.get("todo") for ch in c.chips),
                     "chips": [ch for ch in c.chips if not ch.get("todo")][:3], "incertain": c.uncertain}

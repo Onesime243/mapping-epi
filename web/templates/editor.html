@@ -4,82 +4,81 @@
 {% block content %}
 <div class="row ed-head" style="justify-content:space-between; margin-bottom:10px">
   <div>
-    <a href="{{ url_for('cases') }}" class="muted" style="text-decoration:none">← Liste des cas</a>
+    <a href="{{ url_for('cases') }}" class="muted" style="text-decoration:none">{{ t("← Liste des cas") }}</a>
     <h1 id="caseTitle" style="margin:4px 0 0">{{ case.titre_court() }}</h1>
   </div>
   <div class="row">
     {% if readonly %}
-    <span class="pill ro">Lecture seule</span>
+    <span class="pill ro">{{ t("Lecture seule") }}</span>
     {% else %}
-    <span id="status" class="status ok" role="status" aria-live="polite">✓ Enregistré</span>
-    <button class="btn primary" id="saveVersion" title="Enregistre une version dans l'historique">Enregistrer une version</button>
+    <span id="status" class="status ok" role="status" aria-live="polite">✓ {{ t("Enregistré") }}</span>
+    <button class="btn primary" id="saveVersion" title="{{ t("Enregistre une version dans l'historique") }}">{{ t("Enregistrer une version") }}</button>
     {% endif %}
     {% if can_delete %}
-    <form method="post" action="{{ url_for('delete_case', cid=case.id) }}" onsubmit="return confirm('Supprimer cette fiche ?')">
-      <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger">Supprimer</button></form>
+    <form method="post" action="{{ url_for('delete_case', cid=case.id) }}" onsubmit="return confirm({{ t('Supprimer cette fiche ?')|tojson|forceescape }})">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn danger">{{ t("Supprimer") }}</button></form>
     {% endif %}
   </div>
 </div>
 
-{% if readonly and droits.partenaire %}<div class="alert info">Compte partenaire : consultation de la fiche et téléchargement des visuels.</div>
-{% elif readonly %}<div class="alert info">Fiche créée par <b>{{ owner_label }}</b> : votre niveau ({{ me.niveau_label }}) permet de la consulter et de télécharger les visuels, pas de la modifier.</div>{% endif %}
-{% if exemple %}<div class="alert ok" style="margin-bottom:10px">Exemple fictif, mode entraînement : cette fiche n'est jamais
-  comptée avec les vrais cas. Exercez-vous librement.</div>{% endif %}
+{% if readonly and droits.partenaire %}<div class="alert info">{{ t("Compte partenaire : consultation de la fiche et téléchargement des visuels.") }}</div>
+{% elif readonly %}<div class="alert info">{{ t("Fiche créée par") }} <b>{{ owner_label }}</b> : {{ t("votre niveau") }} ({{ me.niveau_label }}) {{ t("permet de la consulter et de télécharger les visuels, pas de la modifier.") }}</div>{% endif %}
+{% if exemple %}<div class="alert ok" style="margin-bottom:10px">{{ t("Exemple fictif, mode entraînement : cette fiche n'est jamais comptée avec les vrais cas. Exercez-vous librement.") }}</div>{% endif %}
 <div class="missing obligatoires" id="obligatoires" hidden></div>
 <div class="missing" id="missing" hidden></div>
 <div class="progression" id="progression" hidden></div>
 <div class="editor{% if readonly %} readonly{% endif %}">
   <section class="card etapes">
     <div class="tabs" id="tabs">
-      <button data-p="identite" class="on">1. Identité</button><button data-p="clinique">2. Clinique</button>
-      <button data-p="events">3. Chronologie</button><button data-p="places">4. Lieux</button>
-      <button data-p="contacts">5. Contacts</button><button data-p="ipc">6. PCI</button>
-      <button data-p="labs">7. Laboratoire</button><button data-p="actions">8. Actions</button>
-      <button data-p="controles">✔ Contrôles</button>
+      <button data-p="identite" class="on">{{ t("1. Identité") }}</button><button data-p="clinique">{{ t("2. Clinique") }}</button>
+      <button data-p="events">{{ t("3. Chronologie") }}</button><button data-p="places">{{ t("4. Lieux") }}</button>
+      <button data-p="contacts">{{ t("5. Contacts") }}</button><button data-p="ipc">{{ t("6. PCI") }}</button>
+      <button data-p="labs">{{ t("7. Laboratoire") }}</button><button data-p="actions">{{ t("8. Actions") }}</button>
+      <button data-p="controles">✔ {{ t("Contrôles") }}</button>
     </div>
     <div class="pane on" id="p-identite"></div>
     <div class="pane" id="p-clinique"></div>
     <div class="pane" id="p-events">
-      <p class="hint">Une ligne = une étape du parcours, dans l'ordre voulu (↑↓ pour réordonner). Laisser « Risque » vide pour le risque suggéré. Une information inconnue reste vide.</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="events">＋ Ajouter une étape</button>
-        <button class="btn small" id="sortEvents">Trier par date</button><button class="btn small" id="fillGaps">Combler les trous</button></div>
+      <p class="hint">{{ t("Une ligne = une étape du parcours, dans l'ordre voulu (↑↓ pour réordonner). Laisser « Risque » vide pour le risque suggéré. Une information inconnue reste vide.") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="events">{{ t("＋ Ajouter une étape") }}</button>
+        <button class="btn small" id="sortEvents">{{ t("Trier par date") }}</button><button class="btn small" id="fillGaps">{{ t("Combler les trous") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-events"></table></div>
     </div>
     <div class="pane" id="p-places">
-      <p class="hint">Lieux fréquentés et populations exposées. GPS facultatif (au moins deux lieux → carte géographique).</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="places">＋ Ajouter un lieu</button>
-        <button class="btn small" id="prefill">Pré-remplir depuis la chronologie</button></div>
+      <p class="hint">{{ t("Lieux fréquentés et populations exposées. GPS facultatif (au moins deux lieux → carte géographique).") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="places">{{ t("＋ Ajouter un lieu") }}</button>
+        <button class="btn small" id="prefill">{{ t("Pré-remplir depuis la chronologie") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-places"></table></div>
     </div>
     <div class="pane" id="p-contacts">
-      <p class="hint">Nombre vide = « ? » (inconnu, jamais 0). Le « Minimum documenté » et la fin du suivi sont calculés.</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="contacts">＋ Ajouter une catégorie</button></div>
+      <p class="hint">{{ t("Nombre vide = « ? » (inconnu, jamais 0). Le « Minimum documenté » et la fin du suivi sont calculés.") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="contacts">{{ t("＋ Ajouter une catégorie") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-contacts"></table></div>
     </div>
     <div class="pane" id="p-ipc">
-      <p class="hint">Documenter date / équipe / produit pour chaque décontamination.</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="ipc">＋ Ajouter un site</button></div>
+      <p class="hint">{{ t("Documenter date / équipe / produit pour chaque décontamination.") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="ipc">{{ t("＋ Ajouter un site") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-ipc"></table></div>
     </div>
     <div class="pane" id="p-labs">
-      <p class="hint">Le délai prélèvement → résultat est calculé automatiquement.</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="labs">＋ Ajouter un prélèvement</button></div>
+      <p class="hint">{{ t("Le délai prélèvement → résultat est calculé automatiquement.") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="labs">{{ t("＋ Ajouter un prélèvement") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-labs"></table></div>
     </div>
     <div class="pane" id="p-actions">
-      <p class="hint">Actions affichées sur le mapping. Si la liste est vide, les actions suggérées s'affichent (« à valider »).</p>
-      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="actions">＋ Ajouter une action</button></div>
+      <p class="hint">{{ t("Actions affichées sur le mapping. Si la liste est vide, les actions suggérées s'affichent (« à valider »).") }}</p>
+      <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="actions">{{ t("＋ Ajouter une action") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-actions"></table></div>
-      <h2>Actions suggérées</h2><div id="suggestions"></div>
+      <h2>{{ t("Actions suggérées") }}</h2><div id="suggestions"></div>
     </div>
     <div class="pane" id="p-controles"></div>
   </section>
 
   <section class="preview">
     <div class="vtabs" id="vtabs">
-      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") or (droits.partenaire and k in droits.vues_partenaire) %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ label }}</button>{% endif %}{% endfor %}
+      {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") or (droits.partenaire and k in droits.vues_partenaire) %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ t(label) }}</button>{% endif %}{% endfor %}
     </div>
-    <div class="frame" id="frame"><iframe id="pv" title="Aperçu" loading="eager"></iframe></div>
+    <div class="frame" id="frame"><iframe id="pv" title="{{ t("Aperçu") }}" loading="eager"></iframe></div>
     <div class="dl" id="dl">
       <a class="btn small primary" data-fmt="png">⬇ PNG HD</a>
       <a class="btn small" data-fmt="png4k">PNG 4K</a>
@@ -87,17 +86,18 @@
       {% if not droits.partenaire %}<a class="btn small" data-fmt="pdfa4">PDF A4</a>
       <a class="btn small" data-fmt="svg">SVG</a>{% endif %}
       <a class="btn small" data-fmt="pptx" data-only="mapping">PowerPoint</a>
-      <a class="btn small" data-fmt="rapport-pdf" data-any="1">Rapport PDF</a>
-      {% if not droits.partenaire %}<a class="btn small" data-fmt="rapport-pptx" data-any="1">Rapport PowerPoint</a>{% endif %}
+      <a class="btn small" data-fmt="rapport-pdf" data-any="1">{{ t("Rapport PDF") }}</a>
+      {% if not droits.partenaire %}<a class="btn small" data-fmt="rapport-pptx" data-any="1">{{ t("Rapport PowerPoint") }}</a>{% endif %}
       {% if droits.admin %}<a class="btn small" data-fmt="xlsx" data-any="1">Excel</a>
       <a class="btn small" data-fmt="json" data-any="1">JSON</a>{% endif %}
     </div>
-    <p class="hint" style="margin-top:8px">Les fichiers sont générés par le serveur au moment du clic (quelques secondes pour PNG / PDF).</p>
+    <p class="hint" style="margin-top:8px">{{ t("Les fichiers sont générés par le serveur au moment du clic (quelques secondes pour PNG / PDF).") }}</p>
   </section>
 </div>
 <div class="toast" id="toast"></div>
 {% endblock %}
 {% block scripts %}
+<script>window.I18N = {{ (i18n_fiche or {})|tojson }};</script>
 <script>window.CASE_ID = {{ case.id|tojson }}; window.CSRF = {{ csrf|tojson }}; window.READONLY = {{ readonly|tojson }};</script>
 <script src="{{ url_for('static', filename='editor.js') }}?v={{ app_version }}"></script>
 {% endblock %}

@@ -9,9 +9,9 @@ from typing import List, Optional
 from config import theme
 from core import rules
 from core.models import Case
-from core.lieux import case_label
 from render import svgkit as K
 from render.html_renderer import date_label, render_svg_page
+from render.libelles import cas, jour, tr, trf, val
 
 
 def render_svg(case: Case) -> str:
@@ -22,20 +22,21 @@ def render_svg(case: Case) -> str:
         if not ev.date_debut:
             continue
         risk = rules.event_risk(ev, case, w)
-        rows.append((ev.titre or ev.type, f"{date_label(ev)} • {ev.lieu}{' → ' + ev.lieu_arrivee if ev.lieu_arrivee else ''}",
+        rows.append((val(ev.titre) or val(ev.type), f"{date_label(ev)} • {ev.lieu}{' → ' + ev.lieu_arrivee if ev.lieu_arrivee else ''}",
                      ev.date_debut, ev.date_fin or ev.date_debut, theme.risk_color(risk), "event", ev.date_incertaine))
     for lab in case.labs:
         if lab.prelevement:
             end = (lab.resultat_le or lab.reception or lab.envoi or lab.prelevement).date()
             d = rules.lab_delay_hours(case)
-            rows.append((f"Laboratoire ({lab.type})", f"délai prélèvement → résultat : {d:.0f} h" if d is not None else "délai non documenté",
+            rows.append((trf("Laboratoire ({t})", t=val(lab.type)),
+                         trf("délai prélèvement → résultat : {d} h", d=f"{d:.0f}") if d is not None else tr("délai non documenté"),
                          lab.prelevement.date(), end, theme.TEAL, "lab", False))
     last_contacts = [g.dernier_contact for g in case.contacts if g.dernier_contact]
     follow_end: Optional[date] = None
     if last_contacts:
         first, last = min(last_contacts), max(last_contacts)
         follow_end = last + timedelta(days=int(p["suivi_contacts"]))
-        rows.append((f"Suivi des contacts ({p['suivi_contacts']} j)", f"jusqu'au {follow_end:%d/%m/%Y}",
+        rows.append((trf("Suivi des contacts ({n} j)", n=p['suivi_contacts']), trf("jusqu'au {d}", d=f"{follow_end:%d/%m/%Y}"),
                      first, follow_end, theme.NAVY, "follow", False))
 
     dates: List[date] = [r[2] for r in rows] + [r[3] for r in rows]
@@ -44,13 +45,14 @@ def render_svg(case: Case) -> str:
     if w.contagiosite:
         dates += list(w.contagiosite)
     out = [K.svg_open(), K.header(
-        f"FRISE TEMPORELLE – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
-        f"Jours relatifs au J0 retenu • exposition estimée J-{p['incubation_max']} → J-{p['incubation_min']} • "
-        f"suivi des contacts {p['suivi_contacts']} j")]
+        trf("FRISE TEMPORELLE – {cas} {maladie} | ZS {zs}", cas=cas(case).upper(), maladie=val(case.maladie),
+            zs=(case.zs or '?').upper()),
+        jour(trf("Jours relatifs au J0 retenu • exposition estimée J-{a} → J-{b} • suivi des contacts {n} j",
+                 a=p['incubation_max'], b=p['incubation_min'], n=p['suivi_contacts'])))]
     out.append(K.card(16, 66, 1248, 616))
     if not dates:
         out.append(f'<text x="640" y="380" text-anchor="middle" font-size="14" fill="{theme.MUTED}">'
-                   'Aucune étape datée : renseignez les dates de la chronologie.</text></svg>')
+                   f'{K.esc(tr("Aucune étape datée : renseignez les dates de la chronologie."))}</text></svg>')
         return "".join(out)
     d0, d1 = min(dates) - timedelta(days=1), max(dates) + timedelta(days=2)
     ndays = max((d1 - d0).days, 1)
@@ -66,19 +68,19 @@ def render_svg(case: Case) -> str:
         a, b = w.exposition
         out.append(f'<rect x="{X(a):.1f}" y="{top - 22}" width="{(X(b) - X(a) + px):.1f}" height="{bottom - top + 22}" fill="url(#hatch)"/>')
         out.append(f'<text x="{X(a) + 6:.1f}" y="{top - 9}" font-size="9" font-weight="800" fill="{theme.BLUE}">'
-                   f'POINT D\'INFECTION (EXPOSITION ESTIMÉE)</text>')
+                   + K.esc(tr("POINT D'INFECTION (EXPOSITION ESTIMÉE)")) + '</text>')
     if w.contagiosite:
         a, b = w.contagiosite
         ph = rules.phases(case)
         segs = []
         if ph.deux_phases and ph.humide and ph.humide > a:
-            segs.append((a, min(b, ph.humide - timedelta(days=1)), "PHASE SÈCHE", theme.YELLOW))
+            segs.append((a, min(b, ph.humide - timedelta(days=1)), tr("PHASE SÈCHE"), theme.YELLOW))
             if ph.humide <= b:
-                segs.append((ph.humide, b, "PHASE HUMIDE", theme.ORANGE))
+                segs.append((ph.humide, b, tr("PHASE HUMIDE"), theme.ORANGE))
         elif ph.deux_phases:
-            segs.append((a, b, "PHASE HUMIDE", theme.ORANGE))
+            segs.append((a, b, tr("PHASE HUMIDE"), theme.ORANGE))
         else:
-            segs.append((a, b, "PÉRIODE CONTAGIEUSE", theme.RED))
+            segs.append((a, b, tr("PÉRIODE CONTAGIEUSE"), theme.RED))
         for sa, sb, lab_, col_ in segs:
             out.append(f'<rect x="{X(sa):.1f}" y="{top - 22}" width="{(X(sb) - X(sa) + px):.1f}" height="{bottom - top + 22}" '
                        f'fill="{theme.soft(col_)}" fill-opacity=".35"/>')
@@ -99,21 +101,21 @@ def render_svg(case: Case) -> str:
             out.append(f'<text x="{x + 2:.1f}" y="{bottom + 14}" font-size="8.5" fill="{theme.MUTED}">{d:%d/%m}</text>')
             if w.j0:
                 out.append(f'<text x="{x + 2:.1f}" y="{bottom + 26}" font-size="8.5" font-weight="700" fill="{theme.NAVY}">'
-                           f'{rules.relative_day(d, w.j0)}</text>')
+                           f'{jour(rules.relative_day(d, w.j0))}</text>')
         d += timedelta(days=1)
         i += 1
     # lignes repères
     marks = []
     if w.j0:
-        marks.append((w.j0, "J0 retenu", theme.GREEN))
+        marks.append((w.j0, jour(tr("J0 retenu")), theme.GREEN))
         if case.debut_symptomes and case.debut_symptomes != w.j0:
-            marks.append((case.debut_symptomes, "J0 rapporté", theme.MUTED))
+            marks.append((case.debut_symptomes, jour(tr("J0 rapporté")), theme.MUTED))
     if case.date_deces:
-        marks.append((case.date_deces, "Décès", theme.RED))
+        marks.append((case.date_deces, tr("Décès"), theme.RED))
     if case.date_confirmation:
-        marks.append((case.date_confirmation, "Confirmation", theme.TEAL))
+        marks.append((case.date_confirmation, tr("Confirmation"), theme.TEAL))
     if follow_end:
-        marks.append((follow_end, "Fin du suivi", theme.NAVY))
+        marks.append((follow_end, tr("Fin du suivi"), theme.NAVY))
     for k, (dd, lab, col) in enumerate(marks):
         x = X(dd) + px / 2
         out.append(f'<line x1="{x:.1f}" y1="{top - 22}" x2="{x:.1f}" y2="{bottom}" stroke="{col}" stroke-width="2" stroke-dasharray="5 3"/>')
@@ -143,8 +145,8 @@ def render_svg(case: Case) -> str:
         out.append(f'<rect x="{bx + 1:.1f}" y="{y + (rh - h) / 2:.1f}" width="{bw - 2:.1f}" height="{h:.1f}" rx="{min(5, h / 2):.1f}" {style}>'
                    f'<title>{K.esc(label)} : {a:%d/%m} → {b:%d/%m}</title></rect>')
         y += rh
-    out.append(K.footer("Barres pointillées = dates incertaines. Les bandes indiquent la fenêtre d'exposition probable "
-                        "et les phases sèche / humide calculées à partir de J0 (paramètres dans config/diseases.yaml)."))
+    out.append(K.footer(jour(tr("Barres pointillées = dates incertaines. Les bandes indiquent la fenêtre d'exposition probable "
+                                "et les phases sèche / humide calculées à partir de J0 (paramètres dans config/diseases.yaml)."))))
     out.append("</svg>")
     return "".join(out)
 

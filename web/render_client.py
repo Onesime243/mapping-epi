@@ -28,7 +28,8 @@ def render(case: dict, visual: str, fmt: str, out: Path, others: List[dict] | No
         src = H.find_source(_Case.model_validate(case))
     except Exception:
         src = None
-    job = {"source": src.model_dump(mode="json") if src else None, "case": case, "visual": visual, "fmt": fmt, "out": str(out), "others": others or [], "zone": zone,
+    from core import langue as _LG
+    job = {"langue": _LG.actuelle(), "source": src.model_dump(mode="json") if src else None, "case": case, "visual": visual, "fmt": fmt, "out": str(out), "others": others or [], "zone": zone,
            "focus": focus}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump(job, f)

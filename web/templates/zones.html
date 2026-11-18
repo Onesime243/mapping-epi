@@ -1,60 +1,60 @@
 {% extends "base.html" %}
-{% block title %}Catégories des ZS · Mapping Épi{% endblock %}
+{% block title %}{{ t("Catégories des ZS") }} · Mapping Épi{% endblock %}
 {% block content %}
-<h1>Catégories des zones de santé, délais et incubation</h1>
-<p class="hint">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %} · {{ ncas }} cas.
-  Date de notification de chaque cas (à défaut : confirmation, puis début des symptômes). Seuils dans <code>config/categories_zs.yaml</code>.</p>
+<h1>{{ t("Catégories des zones de santé, délais et incubation") }}</h1>
+<p class="hint">{{ t("Périmètre :") }} {{ t(me.perimetre) }}{% if prov %} · {{ t("province") }} {{ prov }}{% endif %} · {{ ncas }} {{ t("cas") }}.
+  {{ t("Date de notification de chaque cas (à défaut : confirmation, puis début des symptômes). Seuils dans") }} <code>config/categories_zs.yaml</code>.</p>
 <div class="card">
   <form class="filters" method="get">
-    <select name="province" onchange="this.form.submit()"><option value="">Toutes les provinces</option>
+    <select name="province" onchange="this.form.submit()"><option value="">{{ t("Toutes les provinces") }}</option>
       {% for p in provinces %}<option{% if p == prov %} selected{% endif %}>{{ p }}</option>{% endfor %}</select>
-    <label class="muted" style="align-self:center">Date de référence</label>
+    <label class="muted" style="align-self:center">{{ t("Date de référence") }}</label>
     <input type="date" name="ref" value="{{ ref.isoformat() }}" style="max-width:180px">
-    <button class="btn">Afficher</button>
+    <button class="btn">{{ t("Afficher") }}</button>
   </form>
   <div class="row" style="gap:8px; margin:6px 0 12px">
-    {% for c in cats %}<span class="pill" style="background: {{ c.couleur }}22; color: {{ c.couleur }}">Cat. {{ c.num }} : {{ c.nom }} ({% if c.max_jours is none %}&gt; {{ cats[loop.index0 - 1].max_jours }} j{% elif loop.first %}≤ {{ c.max_jours }} j{% else %}{{ cats[loop.index0 - 1].max_jours + 1 }} à {{ c.max_jours }} j{% endif %} sans nouveau cas)</span>{% endfor %}
+    {% for c in cats %}<span class="pill" style="background: {{ c.couleur }}22; color: {{ c.couleur }}">{{ t("Cat.") }} {{ c.num }} : {{ t(c.nom) }} ({% if c.max_jours is none %}&gt; {{ cats[loop.index0 - 1].max_jours }} {{ t("j") }}{% elif loop.first %}≤ {{ c.max_jours }} {{ t("j") }}{% else %}{{ cats[loop.index0 - 1].max_jours + 1 }} {{ t("à") }} {{ c.max_jours }} {{ t("j") }}{% endif %} {{ t("sans nouveau cas") }})</span>{% endfor %}
   </div>
   {% if zones %}
   <div style="overflow-x:auto"><table class="list">
-    <tr><th>Catégorie</th><th>Province</th><th>Zone de santé</th><th>Cas</th><th>7 derniers j</th><th>21 derniers j</th>
-      <th>AS touchées</th><th>Dernier cas notifié</th><th>Jours sans nouveau cas</th></tr>
+    <tr><th>{{ t("Catégorie") }}</th><th>{{ t("Province") }}</th><th>{{ t("Zone de santé") }}</th><th>{{ t("Cas") }}</th><th>{{ t("7 derniers j") }}</th><th>{{ t("21 derniers j") }}</th>
+      <th>{{ t("AS touchées") }}</th><th>{{ t("Dernier cas notifié") }}</th><th>{{ t("Jours sans nouveau cas") }}</th></tr>
     {% for z in zones %}
     <tr>
-      <td><span class="pill" style="background: {{ z.cat.couleur }}22; color: {{ z.cat.couleur }}; white-space:nowrap">{% if z.cat.num %}Cat. {{ z.cat.num }}{% else %}?{% endif %} · {{ z.cat.nom }}</span></td>
-      <td>{{ z.province }}</td><td><b>{{ z.zs }}</b></td><td>{{ z.n }}{% if z.sans_date %} <span class="muted">({{ z.sans_date }} sans date)</span>{% endif %}</td>
+      <td><span class="pill" style="background: {{ z.cat.couleur }}22; color: {{ z.cat.couleur }}; white-space:nowrap">{% if z.cat.num %}{{ t("Cat.") }} {{ z.cat.num }}{% else %}?{% endif %} · {{ t(z.cat.nom) }}</span></td>
+      <td>{{ z.province }}</td><td><b>{{ z.zs }}</b></td><td>{{ z.n }}{% if z.sans_date %} <span class="muted">({{ z.sans_date }} {{ t("sans date") }})</span>{% endif %}</td>
       <td>{{ z.n7 }}</td><td>{{ z.n21 }}</td><td>{{ z.aires }}</td>
       <td>{{ z.dernier.strftime("%d/%m/%Y") if z.dernier else "?" }}</td><td>{{ z.jours if z.jours is not none else "?" }}</td>
     </tr>
     {% endfor %}
   </table></div>
-  {% else %}<p class="muted">Aucun cas dans ce périmètre.</p>{% endif %}
+  {% else %}<p class="muted">{{ t("Aucun cas dans ce périmètre.") }}</p>{% endif %}
 </div>
 
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">Alertes : nouveau foyer possible (60 derniers jours)</h2>
-  <p class="hint">Premier cas notifié dans une ZS ou une AS, ou reprise après plus de {{ seuil }} jours sans cas : à investiguer en priorité.</p>
+  <h2 style="margin-top:0">{{ t("Alertes : nouveau foyer possible (60 derniers jours)") }}</h2>
+  <p class="hint">{{ tf("Premier cas notifié dans une ZS ou une AS, ou reprise après plus de {n} jours sans cas : à investiguer en priorité.", n=seuil) }}</p>
   {% if alertes %}
   <table class="list">
-    <tr><th>Notifié le</th><th>Cas</th><th>Niveau</th><th>Lecture</th></tr>
+    <tr><th>{{ t("Notifié le") }}</th><th>{{ t("Cas") }}</th><th>{{ t("Niveau") }}</th><th>{{ t("Lecture") }}</th></tr>
     {% for a in alertes %}
     <tr><td>{{ a.quand.strftime("%d/%m/%Y") }}</td>
       <td><a href="{{ url_for('editor', cid=a.case.id) }}">{{ a.case.code_cas or a.case.titre_court() }}</a></td>
-      <td>{{ a.niveau }} {{ a.lieu }}</td><td style="color: var(--danger); font-weight:700">{{ a.texte }}</td></tr>
+      <td>{{ t(a.niveau) }} {{ a.lieu }}</td><td style="color: var(--danger); font-weight:700">{{ t(a.texte) }}</td></tr>
     {% endfor %}
   </table>
-  {% else %}<p class="muted">Aucune alerte sur la période.</p>{% endif %}
+  {% else %}<p class="muted">{{ t("Aucune alerte sur la période.") }}</p>{% endif %}
 </div>
 
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">Délais et incubation observés</h2>
+  <h2 style="margin-top:0">{{ t("Délais et incubation observés") }}</h2>
   <table class="list">
-    <tr><th>Indicateur</th><th>Résultat</th><th>Cas utilisés</th><th>Lecture</th></tr>
+    <tr><th>{{ t("Indicateur") }}</th><th>{{ t("Résultat") }}</th><th>{{ t("Cas utilisés") }}</th><th>{{ t("Lecture") }}</th></tr>
     {% for st in stats %}
-    <tr><td><b>{{ st.nom }}</b></td><td>{{ st.texte() }}</td><td>{{ st.n }}{% if st.exclus %} <span class="muted">({{ st.exclus }} sans date)</span>{% endif %}</td>
-      <td class="muted">{{ st.note }}</td></tr>
+    <tr><td><b>{{ t(st.nom) }}</b></td><td>{{ st.texte() }}</td><td>{{ st.n }}{% if st.exclus %} <span class="muted">({{ st.exclus }} {{ t("sans date") }})</span>{% endif %}</td>
+      <td class="muted">{{ t(st.note) }}</td></tr>
     {% endfor %}
   </table>
-  <p class="hint" style="margin-top:8px">L'incubation observée n'utilise que les contacts connus dont la date du dernier contact avec le cas source est renseignée.</p>
+  <p class="hint" style="margin-top:8px">{{ t("L'incubation observée n'utilise que les contacts connus dont la date du dernier contact avec le cas source est renseignée.") }}</p>
 </div>
 {% endblock %}

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mode réunion · Mapping Épi</title>
+<title>{{ t("Mode réunion") }} · Mapping Épi</title>
 <style>
   :root { --navy:#1F3A5F; --red:#B4554E; --orange:#C77B3A; --muted:#5F6B7A; }
   * { box-sizing: border-box; }
@@ -32,57 +32,57 @@
 </head>
 <body>
 <section class="slide on">
-  <h1>Briefing riposte MVE : situation au {{ ref.strftime("%d/%m/%Y") }}</h1>
-  <div class="muted" style="font-size:2vh">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %}</div>
+  <h1>{{ tf("Briefing riposte MVE : situation au {d}", d=ref.strftime("%d/%m/%Y")) }}</h1>
+  <div class="muted" style="font-size:2vh">{{ t("Périmètre :") }} {{ t(me.perimetre) }}{% if prov %} · {{ t("province") }} {{ prov }}{% endif %}</div>
   <div class="kpis">
-    <div class="kpi"><b>{{ nouveaux|length }}</b><span>nouveau(x) cas depuis {{ jours }} jour(s)</span></div>
-    <div class="kpi"><b>{{ n_tous }}</b><span>cas au total</span></div>
-    <div class="kpi"><b>{{ n_deces }}</b><span>décès</span></div>
-    <div class="kpi"><b class="{{ 'red' if alertes }}">{{ alertes|length }}</b><span>alerte(s) nouveau foyer (21 j)</span></div>
-    <div class="kpi"><b class="{{ 'red' if actions }}">{{ actions|length }}</b><span>action(s) en retard</span></div>
+    <div class="kpi"><b>{{ nouveaux|length }}</b><span>{{ tf("nouveau(x) cas depuis {n} jour(s)", n=jours) }}</span></div>
+    <div class="kpi"><b>{{ n_tous }}</b><span>{{ t("cas au total") }}</span></div>
+    <div class="kpi"><b>{{ n_deces }}</b><span>{{ t("décès") }}</span></div>
+    <div class="kpi"><b class="{{ 'red' if alertes }}">{{ alertes|length }}</b><span>{{ t("alerte(s) nouveau foyer (21 j)") }}</span></div>
+    <div class="kpi"><b class="{{ 'red' if actions }}">{{ actions|length }}</b><span>{{ t("action(s) en retard") }}</span></div>
   </div>
   <div class="card">{{ courbe|safe }}</div>
 </section>
 
 <section class="slide">
-  <h1>Zones de santé actives et indicateurs en alerte</h1>
-  <h2>Zones de santé en catégorie 1 ou 2</h2>
-  <div class="card">{% if zones %}<table><tr><th>Catégorie</th><th>ZS</th><th>Cas</th><th>7 derniers j</th><th>Dernier cas</th><th>Jours sans cas</th></tr>
-    {% for z in zones %}<tr><td style="color:{{ z.cat.couleur }}; font-weight:700">Cat. {{ z.cat.num }} · {{ z.cat.nom }}</td><td><b>{{ z.zs }}</b> <span class="muted">{{ z.province }}</span></td>
+  <h1>{{ t("Zones de santé actives et indicateurs en alerte") }}</h1>
+  <h2>{{ t("Zones de santé en catégorie 1 ou 2") }}</h2>
+  <div class="card">{% if zones %}<table><tr><th>{{ t("Catégorie") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Cas") }}</th><th>{{ t("7 derniers j") }}</th><th>{{ t("Dernier cas") }}</th><th>{{ t("Jours sans cas") }}</th></tr>
+    {% for z in zones %}<tr><td style="color:{{ z.cat.couleur }}; font-weight:700">{{ t("Cat.") }} {{ z.cat.num }} · {{ t(z.cat.nom) }}</td><td><b>{{ z.zs }}</b> <span class="muted">{{ z.province }}</span></td>
       <td>{{ z.n }}</td><td>{{ z.n7 }}</td><td>{{ z.dernier.strftime("%d/%m") if z.dernier else "?" }}</td><td>{{ z.jours }}</td></tr>{% endfor %}</table>
-    {% else %}<p class="muted">Aucune ZS en transmission récente.</p>{% endif %}</div>
-  <h2>Indicateurs en alerte (21 derniers jours)</h2>
-  <div class="card">{% if ind %}<table><tr><th>Indicateur</th><th>Résultat</th><th>Cible</th></tr>
-    {% for i in ind %}<tr><td>{{ i.nom }}</td><td class="red">{{ i.texte() }}</td><td>{{ i.cible }}</td></tr>{% endfor %}</table>
-    {% else %}<p class="muted">Aucun indicateur en alerte.</p>{% endif %}</div>
+    {% else %}<p class="muted">{{ t("Aucune ZS en transmission récente.") }}</p>{% endif %}</div>
+  <h2>{{ t("Indicateurs en alerte (21 derniers jours)") }}</h2>
+  <div class="card">{% if ind %}<table><tr><th>{{ t("Indicateur") }}</th><th>{{ t("Résultat") }}</th><th>{{ t("Cible") }}</th></tr>
+    {% for i in ind %}<tr><td>{{ t(i.nom) }}</td><td class="red">{{ i.texte() }}</td><td>{{ t(i.cible) }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="muted">{{ t("Aucun indicateur en alerte.") }}</p>{% endif %}</div>
 </section>
 
 <section class="slide">
-  <h1>Alertes et actions en retard</h1>
-  <h2>Nouveau foyer possible (21 derniers jours)</h2>
-  <div class="card">{% if alertes %}<table><tr><th>Notifié le</th><th>Cas</th><th>Lieu</th><th>Lecture</th></tr>
-    {% for a in alertes %}<tr><td>{{ a.quand.strftime("%d/%m") }}</td><td>{{ a.case.code_cas }}</td><td>{{ a.niveau }} {{ a.lieu }}</td><td class="red">{{ a.texte }}</td></tr>{% endfor %}</table>
-    {% else %}<p class="muted">Aucune alerte.</p>{% endif %}</div>
-  <h2>Actions en retard</h2>
-  <div class="card">{% if actions %}<table><tr><th>Cas</th><th>ZS</th><th>Action</th><th>Responsable</th><th>Retard</th></tr>
-    {% for a in actions[:14] %}<tr><td>{{ a.case.code_cas }}</td><td>{{ a.case.zs }}</td><td>{{ a.action.texte }}</td><td>{{ a.action.responsable or "à désigner" }}</td><td class="red">{{ a.retard }} j</td></tr>{% endfor %}</table>
-    {% if actions|length > 14 %}<p class="muted">… et {{ actions|length - 14 }} autre(s) : menu Riposte → Suivi des actions.</p>{% endif %}
-    {% else %}<p class="muted">Aucune action en retard.</p>{% endif %}</div>
+  <h1>{{ t("Alertes et actions en retard") }}</h1>
+  <h2>{{ t("Nouveau foyer possible (21 derniers jours)") }}</h2>
+  <div class="card">{% if alertes %}<table><tr><th>{{ t("Notifié le") }}</th><th>{{ t("Cas") }}</th><th>{{ t("Lieu") }}</th><th>{{ t("Lecture") }}</th></tr>
+    {% for a in alertes %}<tr><td>{{ a.quand.strftime("%d/%m") }}</td><td>{{ a.case.code_cas }}</td><td>{{ t(a.niveau) }} {{ a.lieu }}</td><td class="red">{{ t(a.texte) }}</td></tr>{% endfor %}</table>
+    {% else %}<p class="muted">{{ t("Aucune alerte.") }}</p>{% endif %}</div>
+  <h2>{{ t("Actions en retard") }}</h2>
+  <div class="card">{% if actions %}<table><tr><th>{{ t("Cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Action") }}</th><th>{{ t("Responsable") }}</th><th>{{ t("Retard") }}</th></tr>
+    {% for a in actions[:14] %}<tr><td>{{ a.case.code_cas }}</td><td>{{ a.case.zs }}</td><td>{{ a.action.texte }}</td><td>{{ a.action.responsable or t("à désigner") }}</td><td class="red">{{ a.retard }} {{ t("j") }}</td></tr>{% endfor %}</table>
+    {% if actions|length > 14 %}<p class="muted">{{ tf("… et {n} autre(s) : menu Riposte → Suivi des actions.", n=actions|length - 14) }}</p>{% endif %}
+    {% else %}<p class="muted">{{ t("Aucune action en retard.") }}</p>{% endif %}</div>
 </section>
 
 {% for c in nouveaux %}
 <section class="slide" data-src="{{ url_for('preview', cid=c.id, key='mapping') }}">
-  <h1 style="font-size:2.6vh">Nouveau cas {{ loop.index }}/{{ nouveaux|length }} : {{ c.code_cas or c.titre_court() }} · ZS {{ c.zs or "?" }}</h1>
+  <h1 style="font-size:2.6vh">{{ t("Nouveau cas") }} {{ loop.index }}/{{ nouveaux|length }} : {{ c.code_cas or c.titre_court() }} · {{ t("ZS") }} {{ c.zs or "?" }}</h1>
   <div class="frame"><iframe title="Mapping {{ c.code_cas }}" loading="lazy"></iframe></div>
 </section>
 {% endfor %}
 
 <div class="bar">
-  <button onclick="go(-1)">◀ Précédent</button><button onclick="go(1)">Suivant ▶</button>
+  <button onclick="go(-1)">◀ {{ t("Précédent") }}</button><button onclick="go(1)">{{ t("Suivant") }} ▶</button>
   <span id="pos"></span><span class="sp"></span>
-  <span>Flèches ← → ou espace · F : plein écran</span>
-  <a href="{{ url_for('riposte_reunion', depuis=jours, province=prov) }}" style="color:#C9D4E2">Actualiser</a>
-  <a href="{{ url_for('riposte_indicateurs') }}" style="color:#C9D4E2">Quitter</a>
+  <span>{{ t("Flèches ← → ou espace · F : plein écran") }}</span>
+  <a href="{{ url_for('riposte_reunion', depuis=jours, province=prov) }}" style="color:#C9D4E2">{{ t("Actualiser") }}</a>
+  <a href="{{ url_for('riposte_indicateurs') }}" style="color:#C9D4E2">{{ t("Quitter") }}</a>
 </div>
 <script>
   var S = document.querySelectorAll('.slide'), i = 0;

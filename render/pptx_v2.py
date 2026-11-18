@@ -13,6 +13,7 @@ from pptx.enum.dml import MSO_LINE_DASH_STYLE
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 
+from core.langue import actuelle, tr, trf
 from core.models import Case
 from render.html_renderer import MappingView, build_mapping_view
 from render.pptx_exporter import Slide, fit_pt
@@ -68,13 +69,13 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     # -- ligne « Chronologie du parcours » : badges, ce qui manque, légende -------------------------------------------
     ry = 136
     sh = S.rect(22, ry, 190, 20, "#1F3A5F", radius=4, name="Étiquette chronologie")
-    S.text(0, 0, 0, 0, ["CHRONOLOGIE DU PARCOURS"], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
+    S.text(0, 0, 0, 0, [tr("CHRONOLOGIE DU PARCOURS")], size=7.1, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
     bx_ = 218
     badges = []
     if v.contact:
         badges.append((v.contact["t"] + ((" " + v.contact["src"]) if v.contact.get("src") else ""), v.contact["fill"], v.contact["ink"]))
         if v.contact.get("todo"):
-            badges.append(("ID DU CAS SOURCE : À COMPLÉTER", "#FFFFFF", "#B3262C"))
+            badges.append((tr("ID DU CAS SOURCE : À COMPLÉTER"), "#FFFFFF", "#B3262C"))
     for b in v.badges:
         badges.append((b["t"].upper(), "#FFFFFF", "#B3262C") if b.get("todo") else (b["t"], b["fill"], b["ink"]))
     for t_, fill, ink in badges:
@@ -89,9 +90,10 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
             sh = S.rect(bx_, ry, mw, 20, "#FFF1DC", "#F0C78A", radius=9, name="À compléter")
             S.text(0, 0, 0, 0, [manque], size=fit_pt([(manque, 1)], mw - 12, 18, 7.1, 5), color=ORANGE_T, bold=True,
                    anchor=MSO_ANCHOR.MIDDLE, shape=sh)
-    leg = "J±n : jours depuis le J0 " + (f"retenu (date rapportée − {v.recul} j)" if v.recul else "retenu ou estimé")
+    leg = (trf("J±n : jours depuis le J0 retenu (date rapportée − {n} j)", n=v.recul) if v.recul
+           else tr("J±n : jours depuis le J0 retenu ou estimé"))
     if x["frise"] and x["frise"]["adapte"]:
-        leg += " · jours chargés agrandis"
+        leg += tr(" · jours chargés agrandis")
     S.text(W - 22 - 330, ry, 330, 20, [leg], size=6.6, color="#000000", align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
 
     # -- bande des 5 phases (chevrons) --------------------------------------------------------------------------------
@@ -134,7 +136,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         for t in f["ticks"]:
             S.text(X(t["x"]) - 24, ft + 29, 48, 11, [t["t"]], size=6.4, color="#000000")
     else:
-        S.text(22, ft + 8, 700, 18, ["Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise."],
+        S.text(22, ft + 8, 700, 18, [tr("Aucune date dans la chronologie : renseigner les dates des étapes pour afficher la frise.")],
                size=8.2, color=GRIS, align=PP_ALIGN.LEFT)
 
     # -- zones du bas : calculées depuis le pied de page -------------------------------------------------------------
@@ -159,7 +161,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
             out.append((c["desc"], 0.82))
         out += [(("⚠ " if ch_.get("warn") else "") + ch_["t"], 0.78) for ch_ in c["chips"]]
         if c["personnes"]:
-            out.append(("? personnes présentes", 0.8))
+            out.append((tr("? personnes présentes"), 0.8))
         return out
     taille = min([fit_pt(lignes(c), cw - 14, ch - pill_h - 20, _pt(10 if two else 11.5), 4.5) for c in cartes] or [8])
     for r_ in range(nrows):
@@ -193,14 +195,14 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
             pars.append([(("⚠ " if ch_.get("warn") else "") + ch_["t"],
                           {"color": "#8E1F24" if ch_.get("warn") else "#1F3A5F", "bold": True, "size": taille * 0.78})])
         if c["personnes"]:
-            pars.append([("? personnes présentes", {"color": ORANGE_T, "bold": True, "size": taille * 0.8})])
+            pars.append([(tr("? personnes présentes"), {"color": ORANGE_T, "bold": True, "size": taille * 0.8})])
         y_bas = yic + r_ic + 3
         S.text(bx + 6, y_bas, cw - 12, max(10, by + ch - pill_h - 8 - y_bas), pars, size=taille, color=ENCRE)
         sh = S.rect(bx + 6, by + ch - pill_h - 6, cw - 12, pill_h, c["r"]["c"], radius=5, name="Risque")
         S.text(0, 0, 0, 0, [f"{c['r']['s']} {c['r']['t']}"], size=_pt(8.5 if two else 9.5), color="#FFFFFF", bold=True,
                anchor=MSO_ANCHOR.MIDDLE, shape=sh)
     if not cartes:
-        S.text(22, cy0, 600, 20, ["Aucune étape dans la chronologie."], size=8.2, color=GRIS, align=PP_ALIGN.LEFT)
+        S.text(22, cy0, 600, 20, [tr("Aucune étape dans la chronologie.")], size=8.2, color=GRIS, align=PP_ALIGN.LEFT)
 
     # -- blocs Contacts / PCI / Actions ------------------------------------------------------------------------------
     tot = W - 44 - 18
@@ -209,6 +211,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
 
     def boite(i, titre, resume):
         bx, bw = xs[i], largeurs[i]
+        titre = tr(titre)
         S.rect(bx, bas_y, bw, bas_h, PAPIER, BORD, radius=9, name=titre)
         lw = 22 + len(titre) * 6.4
         sh = S.rect(bx + 10, bas_y + 7, lw, 17, "#1F3A5F", radius=4, name="Étiquette " + titre)
@@ -230,14 +233,14 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
             if g["w"]:
                 S.rect(bx2, yy + rh * 0.3, max(3, bw2 * g["w"] / 100.0), rh * 0.4, g["c"], radius=4, name="Barre remplie")
             if g["n"] is None:
-                S.text(cx + cwb * 0.76, yy, cwb * 0.24, rh, ["? à dénombrer"], size=fs, color=ORANGE_T, bold=True,
+                S.text(cx + cwb * 0.76, yy, cwb * 0.24, rh, [tr("? à dénombrer")], size=fs, color=ORANGE_T, bold=True,
                        align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
             else:
-                val = str(g["n"]) + (f" · {g['s']} suivis" if g["s"] is not None else "")
+                val = str(g["n"]) + (trf(" · {n} suivis", n=g["s"]) if g["s"] is not None else "")
                 S.text(cx + cwb * 0.76, yy, cwb * 0.24, rh, [val], size=fs, color=ENCRE, bold=True,
                        align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
     else:
-        S.text(cx, cyb, cwb, 16, ["Aucun groupe de contacts renseigné."], size=8, color=GRIS, align=PP_ALIGN.LEFT)
+        S.text(cx, cyb, cwb, 16, [tr("Aucun groupe de contacts renseigné.")], size=8, color=GRIS, align=PP_ALIGN.LEFT)
 
     # PCI
     px_, pyb, pwb, phb = boite(1, "PCI / décontamination", x["pci"]["resume"])
@@ -253,20 +256,20 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         yy += rh
     if x["pci"]["sans"]:
         n = len(x["pci"]["sans"])
-        S.text(px_, yy, pwb, rh, [f"? {n} lieu{'x' if n > 1 else ''} d’exposition sans statut PCI :"], size=fs,
+        S.text(px_, yy, pwb, rh, [trf("? {n} lieux d’exposition sans statut PCI :" if n > 1 else "? {n} lieu d’exposition sans statut PCI :", n=n)], size=fs,
                color=ORANGE_T, bold=True, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
         noms = " · ".join(x["pci"]["sans"])
         S.text(px_, yy + rh, pwb, 2 * rh, [noms], size=fit_pt([(noms, 1)], pwb, 2 * rh, fs * 0.92, 4.5), color=GRIS,
                align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.TOP)
         yy += 3 * rh
     if any(s["st"] != "Décontaminé" for s in sites):
-        S.text(px_, yy, pwb, rh * 1.6, ["Priorité : fermer les sites non décontaminés ; noter date, équipe et produit."],
+        S.text(px_, yy, pwb, rh * 1.6, [tr("Priorité : fermer les sites non décontaminés ; noter date, équipe et produit.")],
                size=fs * 0.9, color=GRIS, align=PP_ALIGN.LEFT)
     if not sites and not x["pci"]["sans"]:
-        S.text(px_, pyb, pwb, 16, ["Aucun site renseigné."], size=8, color=GRIS, align=PP_ALIGN.LEFT)
+        S.text(px_, pyb, pwb, 16, [tr("Aucun site renseigné.")], size=8, color=GRIS, align=PP_ALIGN.LEFT)
 
     # Actions
-    ax, ayb, awb, ahb = boite(2, "Actions", "suggérées, à valider" if x["actions"]["auto"] else "responsable · échéance")
+    ax, ayb, awb, ahb = boite(2, "Actions", tr("suggérées, à valider") if x["actions"]["auto"] else tr("responsable · échéance"))
     acts = x["actions"]["lignes"]
     afaire = [a for a in acts if not a["fait"]]
     faites = [a for a in acts if a["fait"]]
@@ -275,16 +278,16 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
     fs = min(_pt(11.5), rh * 0.6)
     yy = ayb
     if afaire and not x["actions"]["auto"]:
-        sh = S.rect(ax, yy + 1, awb, rh - 3, "#FFFFFF", "#B3262C", radius=4, line_w=1.2, name="À réaliser immédiatement")
-        S.text(0, 0, 0, 0, ["À RÉALISER IMMÉDIATEMENT"], size=fs * 0.8, color="#B3262C", bold=True,
+        sh = S.rect(ax, yy + 1, awb, rh - 3, "#FFFFFF", "#B3262C", radius=4, line_w=1.2, name=tr("À réaliser immédiatement"))
+        S.text(0, 0, 0, 0, [tr("À RÉALISER IMMÉDIATEMENT")], size=fs * 0.8, color="#B3262C", bold=True,
                align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         yy += rh
     for a in afaire:
         sh = S.rect(ax, yy + rh * 0.12, 62, rh * 0.76, a["c"], radius=4, name="Priorité")
         S.text(0, 0, 0, 0, [a["p"]], size=fs * 0.85, color="#FFFFFF", bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
-        resp = "" if x["actions"]["auto"] else f"{a['resp'] or 'à désigner'} · {a['ech'] or '—'}"
+        resp = "" if x["actions"]["auto"] else f"{a['resp'] or tr('à désigner')} · {a['ech'] or ('?' if actuelle() == 'en' else '—')}"
         tw_ = awb - 70 - (110 if resp else 0)
-        S.text(ax + 68, yy, tw_, rh, [a["t"] + (" (en cours)" if a["cours"] else "")], size=fs, color=ENCRE,
+        S.text(ax + 68, yy, tw_, rh, [a["t"] + (tr(" (en cours)") if a["cours"] else "")], size=fs, color=ENCRE,
                align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
         if resp:
             S.text(ax + awb - 110, yy, 110, rh, [resp], size=fs * 0.88, color=ENCRE if a["resp"] else ORANGE_T,
@@ -292,7 +295,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
         yy += rh
     if faites:
         S.line(ax, yy + 2, ax + awb, yy + 2, "#B8C0CC", 0.75)
-        S.text(ax, yy + 2, awb, rh - 2, ["DÉJÀ RÉALISÉES"], size=fs * 0.8, color="#2E7D4F", bold=True,
+        S.text(ax, yy + 2, awb, rh - 2, [tr("DÉJÀ RÉALISÉES")], size=fs * 0.8, color="#2E7D4F", bold=True,
                align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
         yy += rh
         for a in faites:
@@ -301,7 +304,7 @@ def add_mapping_slide_v2(prs: Presentation, case: Case, view: Optional[MappingVi
             S.text(ax + 22, yy, awb - 22, rh, [a["t"]], size=fs, color=ENCRE, align=PP_ALIGN.LEFT, anchor=MSO_ANCHOR.MIDDLE)
             yy += rh
     if not acts:
-        S.text(ax, ayb, awb, 16, ["Aucune action."], size=8, color=GRIS, align=PP_ALIGN.LEFT)
+        S.text(ax, ayb, awb, 16, [tr("Aucune action.")], size=8, color=GRIS, align=PP_ALIGN.LEFT)
 
     # -- pied de page -------------------------------------------------------------------------------------------------
     S.text(22, foot_y, W * 0.6, 16, [[(v.org, {"bold": True, "color": NAVY}),

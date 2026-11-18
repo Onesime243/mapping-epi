@@ -24,11 +24,17 @@ from typing import Callable, List, Optional, Tuple
 from core import indicateurs as IND
 from core import riposte as R
 from core import rules
+from core.langue import actuelle, tr, trf
 from core.models import Case
 
 FORMAT = "mapping-epi-paquet"
 MAX_FICHES = 20000
 MAX_OCTETS = 300 * 1024 * 1024
+
+
+def _zs(niveau: str = "ZS") -> str:
+    """Sigle ZS / AS dans les exports : HZ / HA en anglais (glossaire de l'outil)."""
+    return {"ZS": "HZ", "AS": "HA"}.get(niveau, niveau) if actuelle() == "en" else niveau
 
 
 def _d(v: Optional[date]) -> str:
@@ -56,23 +62,23 @@ def lire_paquet(data: bytes) -> Tuple[List[Case], List[str]]:
     try:
         z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
-        raise ValueError("Ce fichier n'est pas un paquet de fiches (.zip) Mapping Épi.")
+        raise ValueError(tr("Ce fichier n'est pas un paquet de fiches (.zip) Mapping Épi."))
     with z:
         noms = z.namelist()
         if "manifeste.json" not in noms:
-            raise ValueError("Paquet non reconnu : manifeste.json absent.")
+            raise ValueError(tr("Paquet non reconnu : manifeste.json absent."))
         man = json.loads(z.read("manifeste.json").decode("utf-8"))
         if man.get("format") != FORMAT:
-            raise ValueError("Paquet non reconnu (format inattendu).")
+            raise ValueError(tr("Paquet non reconnu (format inattendu)."))
         fichiers = [i for i in z.infolist() if i.filename.startswith("cas/") and i.filename.endswith(".json")]
         if len(fichiers) > MAX_FICHES or sum(i.file_size for i in fichiers) > MAX_OCTETS:
-            raise ValueError("Paquet trop volumineux.")
+            raise ValueError(tr("Paquet trop volumineux."))
         out, err = [], []
         for i in fichiers:
             try:
                 out.append(Case.model_validate_json(z.read(i)))
             except Exception as exc:
-                err.append(f"{i.filename} : illisible ({str(exc)[:80]})")
+                err.append(i.filename + (": " if actuelle() == "en" else " : ") + trf("illisible ({e})", e=str(exc)[:80]))
     return out, err
 
 
@@ -87,17 +93,17 @@ class Bilan:
     erreurs: List[str] = field(default_factory=list)
 
     def texte(self) -> str:
-        parts = [f"{len(self.ajoutees)} fiche(s) ajoutée(s)", f"{len(self.mises_a_jour)} mise(s) à jour",
-                 f"{self.identiques} déjà à jour"]
+        parts = [trf("{n} fiche(s) ajoutée(s)", n=len(self.ajoutees)), trf("{n} mise(s) à jour", n=len(self.mises_a_jour)),
+                 trf("{n} déjà à jour", n=self.identiques)]
         if self.plus_anciennes:
-            parts.append(f"{len(self.plus_anciennes)} plus ancienne(s) que la version présente (ignorée(s))")
+            parts.append(trf("{n} plus ancienne(s) que la version présente (ignorée(s))", n=len(self.plus_anciennes)))
         if self.conflits:
-            parts.append(f"{len(self.conflits)} conflit(s) de N° EPID non importé(s) : " + ", ".join(self.conflits[:8]))
+            parts.append(trf("{n} conflit(s) de N° EPID non importé(s) : ", n=len(self.conflits)) + ", ".join(self.conflits[:8]))
         if self.refusees:
-            parts.append(f"{len(self.refusees)} hors de vos droits (ignorée(s))")
+            parts.append(trf("{n} hors de vos droits (ignorée(s))", n=len(self.refusees)))
         if self.erreurs:
-            parts.append(f"{len(self.erreurs)} fichier(s) illisible(s)")
-        return " ; ".join(parts) + "."
+            parts.append(trf("{n} fichier(s) illisible(s)", n=len(self.erreurs)))
+        return ("; " if actuelle() == "en" else " ; ").join(parts) + "."
 
 
 def _contenu(c: Case) -> str:
@@ -167,7 +173,7 @@ COLONNES = [
 def _ligne(c: Case) -> list:
     iso = R.date_isolement(c)
     dc, es = R.deces_communautaire(c), R.enterrement_securise(c)
-    yn = {True: "Oui", False: "Non", None: ""}
+    yn = {True: tr("Oui"), False: tr("Non"), None: ""}
     lst = [g.nombre for g in c.contacts if g.nombre is not None]
     sv = [g.suivis for g in c.contacts if g.suivis is not None]
     try:
@@ -178,11 +184,11 @@ def _ligne(c: Case) -> list:
         risque = c.risque_global or rules.global_risk(c)[0]
     except Exception:
         risque = c.risque_global
-    return [c.code_cas, c.province, c.zs, c.aire_sante, c.sexe, f"{c.age} {c.age_unite}" if c.age is not None else "",
-            c.profession, c.agent_sante, c.vaccine, c.date_vaccination, c.contact_connu, c.id_cas_source,
-            c.date_contact_source, c.debut_symptomes, c.phase_dds, j0, c.date_notification, c.date_confirmation, iso,
-            (iso - c.debut_symptomes).days if iso and c.debut_symptomes else None, c.issue, c.date_deces, yn[dc],
-            yn[es], sum(lst) if lst else None, sum(sv) if sv else None, risque, rules.completeness(c)[0],
+    return [c.code_cas, c.province, c.zs, c.aire_sante, tr(c.sexe), f"{c.age} {tr(c.age_unite)}" if c.age is not None else "",
+            c.profession, tr(c.agent_sante), tr(c.vaccine), c.date_vaccination, tr(c.contact_connu), c.id_cas_source,
+            c.date_contact_source, c.debut_symptomes, tr(c.phase_dds), j0, c.date_notification, c.date_confirmation, iso,
+            (iso - c.debut_symptomes).days if iso and c.debut_symptomes else None, tr(c.issue), c.date_deces, yn[dc],
+            yn[es], sum(lst) if lst else None, sum(sv) if sv else None, tr(risque or ""), rules.completeness(c)[0],
             sum(1 for a in c.actions if a.texte.strip() and a.statut != "Fait"),
             c.modifie_le.strftime("%d/%m/%Y %H:%M") if c.modifie_le else "", c.modifie_par]
 
@@ -193,11 +199,11 @@ def liste_cas_xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> 
     from openpyxl.utils import get_column_letter
     wb = Workbook()
     ws = wb.active
-    ws.title = "Liste des cas"
-    ws.append([f"Liste des cas Mapping Épi : {perimetre}".strip(" :") +
-               f" · {len(cases)} cas · extraite le {datetime.now():%d/%m/%Y %H:%M}"])
+    ws.title = tr("Liste des cas")
+    ws.append([(tr("Liste des cas Mapping Épi") + ((": " if actuelle() == "en" else " : ") + perimetre if perimetre.strip() else "")) +
+               trf(" · {n} cas · extraite le {quand}", n=len(cases), quand=f"{datetime.now():%d/%m/%Y %H:%M}")])
     ws["A1"].font = Font(bold=True, size=12, color="1F3A5F")
-    ws.append([n for n, _w in COLONNES])
+    ws.append([tr(n) for n, _w in COLONNES])
     for i, (_n, w) in enumerate(COLONNES, 1):
         cell = ws.cell(row=2, column=i)
         cell.font = Font(bold=True, color="FFFFFF")
@@ -277,7 +283,8 @@ def _ligne_modelisation(c: Case) -> list:
     secs = [x for x in sy if x in theme.SYMPTOMES_SECS]
     crit = [x for x in sy if x in theme.HEMORRHAGIC]
     hum = [x for x in sy if x in theme.SYMPTOMES_HUMIDES and x not in crit]
-    autres = [x for x in sy if x not in secs and x not in hum and x not in crit] + ([c.symptomes_autres] if c.symptomes_autres else [])
+    autres = [tr(x) for x in sy if x not in secs and x not in hum and x not in crit] + ([c.symptomes_autres] if c.symptomes_autres else [])
+    secs, hum, crit = [tr(x) for x in secs], [tr(x) for x in hum], [tr(x) for x in crit]
     j0 = ph.j0 if ph else None
     hu = ph.humide if ph else None
     cr = ph.critique if ph else None
@@ -286,7 +293,7 @@ def _ligne_modelisation(c: Case) -> list:
     l0 = labs[0] if labs else None
     ent = [e.date_debut for e in c.events if e.type == "Enterrement" and e.date_debut]
     hr = [g for g in c.contacts if g.risque in ("Haut", "Très haut") and g.nombre is not None]
-    yn = {True: "Oui", False: "Non", None: ""}
+    yn = {True: tr("Oui"), False: tr("Non"), None: ""}
     age = None
     if c.age is not None:
         age = round(c.age / 12, 2) if (c.age_unite or "").startswith("mois") else c.age
@@ -296,22 +303,22 @@ def _ligne_modelisation(c: Case) -> list:
         risque = c.risque_global
     dc = ph.deces if ph else c.date_deces
     return [
-        c.code_cas, c.province, c.zs, c.aire_sante, c.sexe, age, c.profession, c.agent_sante, c.vaccine, c.date_vaccination,
-        c.contact_connu, c.id_cas_source, c.date_contact_source,
+        c.code_cas, c.province, c.zs, c.aire_sante, tr(c.sexe), age, c.profession, tr(c.agent_sante), tr(c.vaccine),
+        c.date_vaccination, tr(c.contact_connu), c.id_cas_source, c.date_contact_source,
         ph.exposition[0] if ph and ph.exposition else None, ph.exposition[1] if ph and ph.exposition else None,
-        ph.exposition_source if ph else "",
-        c.debut_symptomes, c.phase_dds, ph.recul if ph else None, j0,
-        j0, "; ".join(secs), hu, ph.humide_source if ph and hu else "", "; ".join(hum),
-        cr, ph.critique_source if ph and cr else "", "; ".join(crit), "; ".join(autres),
+        tr(ph.exposition_source) if ph else "",
+        c.debut_symptomes, tr(c.phase_dds), ph.recul if ph else None, j0,
+        j0, "; ".join(secs), hu, tr(ph.humide_source) if ph and hu else "", "; ".join(hum),
+        cr, tr(ph.critique_source) if ph and cr else "", "; ".join(crit), "; ".join(autres),
         _jours(j0, hu), _jours(hu, cr) if cr else _jours(hu, dc), _jours(cr, dc),
         c.date_notification, c.date_confirmation, _jours(c.debut_symptomes, c.date_notification),
         _jours(c.debut_symptomes, c.date_confirmation), _jours(c.date_notification, c.date_confirmation),
         iso, _jours(c.debut_symptomes, iso),
         l0.prelevement.date() if l0 else None, l0.resultat_le.date() if l0 and l0.resultat_le else None,
         round((l0.resultat_le - l0.prelevement).total_seconds() / 3600, 1) if l0 and l0.resultat_le else None,
-        l0.resultat if l0 else "",
+        tr(l0.resultat) if l0 else "",
         c.date_debut_anneau, _jours(c.date_confirmation, c.date_debut_anneau),
-        c.issue, c.date_deces, _jours(j0, c.date_deces), yn[R.deces_communautaire(c)], yn[R.enterrement_securise(c)],
+        tr(c.issue), c.date_deces, _jours(j0, c.date_deces), yn[R.deces_communautaire(c)], yn[R.enterrement_securise(c)],
         min(ent) if ent else None,
         sum(g.nombre for g in c.contacts if g.nombre is not None) if any(g.nombre is not None for g in c.contacts) else None,
         sum(g.nombre for g in hr) if hr else None,
@@ -319,11 +326,11 @@ def _ligne_modelisation(c: Case) -> list:
         sum(g.vaccines for g in c.contacts if g.vaccines is not None) if any(g.vaccines is not None for g in c.contacts) else None,
         sum(1 for g in c.contacts if g.nombre is None),
         len(c.events), len(c.places), sum(1 for e in c.events if e.lieu_arrivee.strip()),
-        "; ".join(sorted({e.transport for e in c.events if e.transport})),
+        "; ".join(sorted({tr(e.transport) for e in c.events if e.transport})),
         sum(1 for e in c.events if e.contact_corps), sum(1 for e in c.events if e.liquides), sum(1 for e in c.events if e.sans_pci),
         sum(1 for e in c.events if e.type in ("Funérailles", "Enterrement")),
         len(c.ipc), sum(1 for x in c.ipc if x.statut == "Décontaminé"), sum(1 for x in c.ipc if x.statut in ("Non", "Inconnu")),
-        c.sequencage, risque, rules.completeness(c)[0],
+        c.sequencage, tr(risque or ""), rules.completeness(c)[0],
     ]
 
 
@@ -348,7 +355,7 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
             cell.alignment = Alignment(wrap_text=True, vertical="center")
 
     # 1. une ligne par cas : 1 = symptôme rapporté dans la phase, 0 = phase documentée sans ce symptôme, vide = phase non documentée
-    ws = wb.create_sheet("Symptômes par phase")
+    ws = wb.create_sheet(tr("Symptômes par phase"))
     cols = ["id_cas", "zone_sante", "issue"]
     for p, _l in SY.PHASES:
         cols += [f"{p}_documentee"] + [f"{p}_{_slug(n)}" for n in SY.NOMS] + [f"{p}_liste"]
@@ -361,13 +368,13 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
         par = {}
         for m in ms:
             par.setdefault(m.phase, set()).add(m.symptome)
-            details.append([c.code_cas, c.zs, SY.LIB_PHASE.get(m.phase, m.phase), m.symptome, m.date, m.source])
-        ligne = [c.code_cas, c.zs, c.issue]
+            details.append([c.code_cas, c.zs, SY.lib_phase(m.phase), tr(m.symptome), m.date, m.source])
+        ligne = [c.code_cas, c.zs, tr(c.issue)]
         for p, _l in SY.PHASES:
             d = p in doc
             vus = par.get(p, set())
-            ligne += ["Oui" if d else "Non"] + [(1 if n in vus else 0) if d else None for n in SY.NOMS]
-            ligne += ["; ".join(n for n in SY.NOMS if n in vus)]
+            ligne += [tr("Oui") if d else tr("Non")] + [(1 if n in vus else 0) if d else None for n in SY.NOMS]
+            ligne += ["; ".join(tr(n) for n in SY.NOMS if n in vus)]
         ws.append(ligne)
     for i in range(1, len(cols) + 1):
         ws.column_dimensions[get_column_letter(i)].width = 14
@@ -375,7 +382,7 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
     ws.auto_filter.ref = f"A1:{get_column_letter(len(cols))}{max(1, ws.max_row)}"
 
     # 1 bis. une variable par date : la date de l'étape et, comme valeur, les symptômes cités ce jour-là
-    wj = wb.create_sheet("Symptômes par date")
+    wj = wb.create_sheet(tr("Symptômes par date"))
     lignes, nmax = [], 0
     for c in cases:
         et = SY.par_etape(c)
@@ -389,7 +396,8 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
     for c, et in lignes:
         ligne = [c.code_cas, c.zs]
         for e in et:
-            ligne += [e["date"], "; ".join(e["symptomes"]), e["jour"], e["phase"], e["etape"]]
+            ligne += [e["date"], "; ".join(tr(n) for n in e["symptomes"]), SY.jour(e["jour"]), tr(e["phase"]),
+                      e["etape"] if e["etape"] != e.get("type") else tr(e["etape"])]
         wj.append(ligne)
         for cell in wj[wj.max_row]:
             if isinstance(cell.value, date):
@@ -399,7 +407,7 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
     wj.freeze_panes = "C2"
 
     # 2. détail : d'où vient chaque symptôme
-    wd = wb.create_sheet("Symptômes (détail)")
+    wd = wb.create_sheet(tr("Symptômes (détail)"))
     wd.append(["id_cas", "zone_sante", "phase", "symptome", "date", "source"])
     entete(wd)
     for r in sorted(details, key=lambda r: (r[0], r[4] or date.max)):
@@ -412,19 +420,20 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
     wd.auto_filter.ref = f"A1:F{max(1, wd.max_row)}"
 
     # 3. fréquences : quels symptômes reviennent le plus dans chaque phase
-    wf = wb.create_sheet("Fréquence par phase")
-    wf.append(["Symptômes les plus fréquents par phase (cas dont la phase est documentée dans la fiche)"])
+    wf = wb.create_sheet(tr("Fréquence par phase"))
+    wf.append([tr("Symptômes les plus fréquents par phase (cas dont la phase est documentée dans la fiche)")])
     wf["A1"].font = Font(bold=True, size=12, color="1F3A5F")
     freq = SY.frequences(cases)
     for p, lib in SY.PHASES:
         wf.append([])
         base = freq[p][0][2] if freq[p] else 0
-        wf.append([f"{lib} · {base} cas documentés", "Nombre de cas", "% des cas documentés"])
+        wf.append([trf("{phase} · {n} cas documentés", phase=tr(lib), n=base), tr("Nombre de cas"),
+                   tr("% des cas documentés")])
         entete(wf, wf.max_row)
         if not freq[p]:
-            wf.append(["Aucun symptôme rapporté dans cette phase."])
+            wf.append([tr("Aucun symptôme rapporté dans cette phase.")])
         for nom, n, b in freq[p]:
-            wf.append([nom, n, round(100 * n / b, 1) if b else None])
+            wf.append([tr(nom), n, round(100 * n / b, 1) if b else None])
     wf.column_dimensions["A"].width = 44
     wf.column_dimensions["B"].width = 16
     wf.column_dimensions["C"].width = 22
@@ -433,7 +442,7 @@ def _feuilles_symptomes(wb, cases: List[Case]) -> None:
 def _feuille_modelisation(wb, cases: List[Case]) -> None:
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
-    ws = wb.create_sheet("Modélisation")
+    ws = wb.create_sheet(tr("Modélisation"))
     ws.append([n for n, _d in VARIABLES_MODELISATION])
     for i in range(1, len(VARIABLES_MODELISATION) + 1):
         cell = ws.cell(row=1, column=i)
@@ -448,23 +457,23 @@ def _feuille_modelisation(wb, cases: List[Case]) -> None:
                 cell.number_format = "dd/mm/yyyy"
     ws.freeze_panes = "B2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(VARIABLES_MODELISATION))}{max(1, ws.max_row)}"
-    dico = wb.create_sheet("Variables")
-    dico.append(["Variable", "Description"])
+    dico = wb.create_sheet(tr("Variables"))
+    dico.append([tr("Variable"), tr("Description")])
     for cell in dico[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="1F3A5F")
     for n, d in VARIABLES_MODELISATION:
-        dico.append([n, d])
+        dico.append([n, tr(d)])
     dico.append([])
-    dico.append(["Symptômes par date", "Pour chaque étape du parcours qui cite des symptômes : date_n = date de l'étape, "
+    dico.append([tr("Symptômes par date"), tr("Pour chaque étape du parcours qui cite des symptômes : date_n = date de l'étape, "
                                        "symptomes_n = symptômes cités ce jour-là, jour_n = jour depuis le J0 retenu (J±n), "
-                                       "phase_n et etape_n."])
-    dico.append(["Symptômes par phase", "Colonnes <phase>_<symptôme> : 1 = rapporté dans la phase, 0 = phase documentée "
+                                       "phase_n et etape_n.")])
+    dico.append([tr("Symptômes par phase"), tr("Colonnes <phase>_<symptôme> : 1 = rapporté dans la phase, 0 = phase documentée "
                                         "sans ce symptôme, vide = phase non documentée. Sources : symptômes cochés dans la "
-                                        "fiche et texte des étapes du parcours (« Symptômes (détail) » donne la source)."])
-    dico.append(["Règle", "Une case vide = information non renseignée (jamais 0). Dates au format jj/mm/aaaa. "
+                                        "fiche et texte des étapes du parcours (« Symptômes (détail) » donne la source).")])
+    dico.append([tr("Règle"), tr("Une case vide = information non renseignée (jamais 0). Dates au format jj/mm/aaaa. "
                           "Les phases sèche, humide et critique viennent de la fiche (dates saisies ou rapportées), sinon "
-                          "de l'estimation de l'outil (colonne « origine »). Exemples fictifs exclus."])
+                          "de l'estimation de l'outil (colonne « origine »). Exemples fictifs exclus.")])
     dico.column_dimensions["A"].width = 32
     dico.column_dimensions["B"].width = 90
 
@@ -532,34 +541,34 @@ def rapport_docx(cases_perimetre: List[Case], path: Path | str, perimetre: str =
         return t
 
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("RAPPORT DE SITUATION : MALADIE À VIRUS EBOLA"); r.bold = True; r.font.size = Pt(16); r.font.color.rgb = NAVY
+    r = p.add_run(tr("RAPPORT DE SITUATION : MALADIE À VIRUS EBOLA")); r.bold = True; r.font.size = Pt(16); r.font.color.rgb = NAVY
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    lib = f"{periode} derniers jours" if periode else "depuis le début"
-    p.add_run(f"Périmètre : {perimetre or 'tous les cas'}{' · province ' + province if province else ''} · "
-              f"situation au {ref:%d/%m/%Y} · indicateurs : {lib}").italic = True
+    lib = trf("{n} derniers jours", n=periode) if periode else tr("depuis le début")
+    p.add_run(trf("Périmètre : {p}", p=perimetre or tr("tous les cas")) + (trf(" · province {p}", p=province) if province else "")
+              + trf(" · situation au {d} · indicateurs : {lib}", d=f"{ref:%d/%m/%Y}", lib=lib)).italic = True
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run("Généré automatiquement par Mapping Épi à partir des fiches de cas. À valider avant diffusion.")
+    r = p.add_run(tr("Généré automatiquement par Mapping Épi à partir des fiches de cas. À valider avant diffusion."))
     r.font.size = Pt(8.5); r.font.color.rgb = RGBColor(0x6B, 0x77, 0x85)
 
     # 1. situation générale
-    doc.add_heading("1. Situation générale", level=1)
+    doc.add_heading(tr("1. Situation générale"), level=1)
     zs_all = {(c.province, c.zs) for c in tous if c.zs}
     dc = [c for c in tous if c.issue == "Décès"]
     lignes = [
-        ["Cas confirmés", len(tous), len(recents)],
-        ["Décès", len(dc), sum(1 for c in recents if c.issue == "Décès")],
-        ["Létalité (décès / cas)", f"{100 * len(dc) / len(tous):.0f} %" if tous else "?", ""],
-        ["Zones de santé touchées", len(zs_all), len({(c.province, c.zs) for c in recents if c.zs})],
-        ["Agents de santé (PPL) parmi les cas", sum(1 for c in tous if c.agent_sante == "Oui"),
+        [tr("Cas confirmés"), len(tous), len(recents)],
+        [tr("Décès"), len(dc), sum(1 for c in recents if c.issue == "Décès")],
+        [tr("Létalité (décès / cas)"), f"{100 * len(dc) / len(tous):.0f} %" if tous else "?", ""],
+        [tr("Zones de santé touchées"), len(zs_all), len({(c.province, c.zs) for c in recents if c.zs})],
+        [tr("Agents de santé (PPL) parmi les cas"), sum(1 for c in tous if c.agent_sante == "Oui"),
          sum(1 for c in recents if c.agent_sante == "Oui")],
     ]
     if periode:
-        table(["", "Depuis le début", lib.capitalize()], lignes, [7.5, 4.5, 4.5])
+        table(["", tr("Depuis le début"), lib[:1].upper() + lib[1:]], lignes, [7.5, 4.5, 4.5])
     else:
-        table(["", "Depuis le début"], [x[:2] for x in lignes], [7.5, 4.5])
+        table(["", tr("Depuis le début")], [x[:2] for x in lignes], [7.5, 4.5])
 
     # 2. courbe épidémique (tableau semaines × ZS)
-    doc.add_heading("2. Courbe épidémique (cas par semaine de début de la maladie)", level=1)
+    doc.add_heading(tr("2. Courbe épidémique (cas par semaine de début de la maladie)"), level=1)
     cb = R.courbe(tous)
     if cb.semaines:
         sem = cb.semaines[-12:]
@@ -571,63 +580,64 @@ def rapport_docx(cases_perimetre: List[Case], path: Path | str, perimetre: str =
             rows.append([z] + [x or "" for x in v] + [sum(vals)])
             fills.append([None] + [_heat(x, mx) for x in v] + [None])
         tot = [sum(s[i] for s in cb.series.values()) for i in range(len(cb.semaines))][off:]
-        rows.append(["Total"] + tot + [sum(sum(s) for s in cb.series.values())])
+        rows.append([tr("Total")] + tot + [sum(sum(s) for s in cb.series.values())])
         fills.append(None)
-        rows.append(["dont décès"] + [x or "" for x in cb.deces[off:]] + [sum(cb.deces)])
+        rows.append([tr("dont décès")] + [x or "" for x in cb.deces[off:]] + [sum(cb.deces)])
         fills.append(None)
-        table(["ZS"] + [f"{w:%d/%m}" for w in sem] + ["Total"], rows)
-        note = f"Semaines commençant le lundi indiqué ; {len(sem)} dernières semaines affichées."
+        table([_zs()] + [f"{w:%d/%m}" for w in sem] + [tr("Total")], rows)
+        note = trf("Semaines commençant le lundi indiqué ; {n} dernières semaines affichées.", n=len(sem))
         if cb.par_notification:
-            note += f" {cb.par_notification} cas sans date de début placé(s) à la date de notification."
+            note += trf(" {n} cas sans date de début placé(s) à la date de notification.", n=cb.par_notification)
         if cb.sans_date:
-            note += f" {cb.sans_date} cas sans aucune date non représenté(s)."
+            note += trf(" {n} cas sans aucune date non représenté(s).", n=cb.sans_date)
         doc.add_paragraph(note).runs[0].font.size = Pt(8.5)
     else:
-        doc.add_paragraph("Aucun cas daté.")
+        doc.add_paragraph(tr("Aucun cas daté."))
 
     # 3. catégories des ZS
-    doc.add_heading("3. Catégories des zones de santé", level=1)
+    doc.add_heading(tr("3. Catégories des zones de santé"), level=1)
     zones = IND.zones(tous, ref)
-    table(["Cat.", "Province", "Zone de santé", "Cas", "7 derniers j", "21 derniers j", "Dernier cas", "Jours sans cas"],
+    table([tr(h) for h in ("Cat.", "Province", "Zone de santé", "Cas", "7 derniers j", "21 derniers j", "Dernier cas",
+                           "Jours sans cas")],
           [[z.cat.get("num") or "?", z.province, z.zs, z.n, z.n7, z.n21, _d(z.dernier),
             z.jours if z.jours is not None else "?"] for z in zones],
           [1.2, 2.6, 3.2, 1.4, 1.8, 1.9, 2.2, 2.0],
           [[_cat_fill(z.cat)] + [None] * 7 for z in zones])
 
     # 4. indicateurs clés
-    doc.add_heading(f"4. Indicateurs clés de la riposte ({lib})", level=1)
+    doc.add_heading(trf("4. Indicateurs clés de la riposte ({lib})", lib=lib), level=1)
     ind = R.indicateurs(recents)
     fill = {"ok": "DCEFDF", "attention": "FBEBD5", "alerte": "F6D9D6", "info": None}
-    table(["Domaine", "Indicateur", "Résultat", "Cible", "Non renseigné"],
+    table([tr(h) for h in ("Domaine", "Indicateur", "Résultat", "Cible", "Non renseigné")],
           [[i.groupe, i.nom, i.texte(), i.cible, i.inconnus or ""] for i in ind],
           [2.8, 7.0, 3.4, 1.8, 2.4],
           [[None, None, fill[i.statut], None, None] for i in ind])
-    doc.add_paragraph("Cibles indicatives, à valider par la coordination. Les informations non renseignées sont "
-                      "exclues du pourcentage et comptées à part.").runs[0].font.size = Pt(8.5)
+    doc.add_paragraph(tr("Cibles indicatives, à valider par la coordination. Les informations non renseignées sont "
+                         "exclues du pourcentage et comptées à part.")).runs[0].font.size = Pt(8.5)
 
     # 5. alertes
-    doc.add_heading("5. Alertes : nouveau foyer possible (21 derniers jours)", level=1)
+    doc.add_heading(tr("5. Alertes : nouveau foyer possible (21 derniers jours)"), level=1)
     al = [a for a in IND.alertes_foyers(tous) if 0 <= (ref - a.quand).days <= 21]
     if al:
-        table(["Notifié le", "Cas", "Lieu", "Lecture"], [[_d(a.quand), a.case.code_cas, f"{a.niveau} {a.lieu}", a.texte]
+        table([tr(h) for h in ("Notifié le", "Cas", "Lieu", "Lecture")], [[_d(a.quand), a.case.code_cas, f"{_zs(a.niveau)} {a.lieu}", a.texte]
                                                          for a in al], [2.3, 4.2, 3.5, 7.4])
     else:
-        doc.add_paragraph("Aucune alerte sur la période.")
+        doc.add_paragraph(tr("Aucune alerte sur la période."))
 
     # 6. actions
-    doc.add_heading("6. Actions ouvertes sur les fiches de cas", level=1)
+    doc.add_heading(tr("6. Actions ouvertes sur les fiches de cas"), level=1)
     acts = R.actions_ouvertes(tous, ref)
     bil = R.bilan_actions(acts)
-    doc.add_paragraph(f"{bil['ouvertes']} action(s) ouverte(s), dont {bil['retard']} en retard et {bil['urgentes']} "
-                      f"urgente(s) ; {bil['sans_responsable']} sans responsable.")
+    doc.add_paragraph(trf("{o} action(s) ouverte(s), dont {r} en retard et {u} urgente(s) ; {s} sans responsable.",
+                          o=bil['ouvertes'], r=bil['retard'], u=bil['urgentes'], s=bil['sans_responsable']))
     if acts:
-        table(["Cas", "ZS", "Action", "Priorité", "Responsable", "Échéance", "Retard"],
-              [[a.case.code_cas, a.case.zs, a.action.texte, a.action.priorite, a.action.responsable,
-                _d(a.action.echeance), f"{a.retard} j" if a.retard else ""] for a in acts[:40]],
+        table([_zs(h) if h == "ZS" else tr(h) for h in ("Cas", "ZS", "Action", "Priorité", "Responsable", "Échéance", "Retard")],
+              [[a.case.code_cas, a.case.zs, a.action.texte, tr(a.action.priorite), a.action.responsable,
+                _d(a.action.echeance), trf("{n} j", n=a.retard) if a.retard else ""] for a in acts[:40]],
               [3.2, 2.0, 5.6, 1.7, 2.4, 1.9, 1.3])
 
     # 7. points d'attention
-    doc.add_heading("7. Points d'attention", level=1)
+    doc.add_heading(tr("7. Points d'attention"), level=1)
     for t in R.points_attention(ind, zones, al, acts):
         doc.add_paragraph(t, style="List Bullet")
     doc.save(str(path))

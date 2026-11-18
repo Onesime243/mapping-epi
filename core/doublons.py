@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from typing import List
 
+from core.langue import tr, trf
 from core.models import Case
 
 
@@ -37,7 +38,7 @@ def doublons(cases: List[Case]) -> List[Doublon]:
             par_code.setdefault(k, []).append(c)
     for k, grp in par_code.items():
         for a, b in combinations(grp, 2):
-            out.append(Doublon(a, b, f"même N° EPID ({a.code_cas})", "forte"))
+            out.append(Doublon(a, b, trf("même N° EPID ({code})", code=a.code_cas), "forte"))
             vus.add(frozenset((a.id, b.id)))
     par_zs = {}
     for c in cases:
@@ -50,8 +51,8 @@ def doublons(cases: List[Case]) -> List[Doublon]:
             if (a.sexe == b.sexe and a.age_unite == b.age_unite and abs(a.age - b.age) <= 1
                     and abs((a.debut_symptomes - b.debut_symptomes).days) <= 2):
                 if a.code_cas and b.code_cas:
-                    raison = "même ZS, sexe, âge et début des symptômes, mais N° EPID différents"
+                    raison = tr("même ZS, sexe, âge et début des symptômes, mais N° EPID différents")
                 else:
-                    raison = "même ZS, sexe, âge et début des symptômes"
+                    raison = tr("même ZS, sexe, âge et début des symptômes")
                 out.append(Doublon(a, b, raison, "à vérifier"))
     return sorted(out, key=lambda d: (d.certitude != "forte", d.a.zs, d.a.code_cas))

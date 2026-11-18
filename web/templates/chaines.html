@@ -1,41 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Chaînes de transmission · Mapping Épi{% endblock %}
+{% block title %}{{ t("Chaînes de transmission") }} · Mapping Épi{% endblock %}
 {% block mainclass %}wide{% endblock %}
 {% block content %}
-<h1>Chaînes de transmission</h1>
-<p class="hint">Cas source → cas secondaires, à partir du champ « ID du cas source » de chaque fiche (comparé à l'ID des
-  autres fiches). Limité aux cas de votre périmètre ({{ me.perimetre }}). À droite : les « pistes », un cas contagieux
-  et un cas exposé passés au même lieu sans lien saisi.</p>
+<h1>{{ t("Chaînes de transmission") }}</h1>
+<p class="hint">{{ t("Cas source → cas secondaires, à partir du champ « ID du cas source » de chaque fiche (comparé à l'ID des autres fiches).") }}
+  {{ tf("Limité aux cas de votre périmètre ({p}).", p=t(me.perimetre)) }} {{ t("À droite : les « pistes », un cas contagieux et un cas exposé passés au même lieu sans lien saisi.") }}</p>
 <div class="card">
   <form class="filters" method="get">
     <select name="province" onchange="this.form.zs.value=''; this.form['as'].value=''; this.form.submit()">
-      <option value="">Toutes les provinces</option>
+      <option value="">{{ t("Toutes les provinces") }}</option>
       {% for p in tree|sort %}<option{% if f.province == p %} selected{% endif %}>{{ p }}</option>{% endfor %}
     </select>
     <select name="zs" onchange="this.form['as'].value=''; this.form.submit()">
-      <option value="">Toutes les zones de santé</option>
+      <option value="">{{ t("Toutes les zones de santé") }}</option>
       {% for p, zones in tree|dictsort %}{% if not f.province or f.province == p %}
         {% for z in zones|sort %}<option{% if f.zs == z %} selected{% endif %}>{{ z }}</option>{% endfor %}
       {% endif %}{% endfor %}
     </select>
     <select name="as" onchange="this.form.submit()">
-      <option value="">Toutes les aires de santé</option>
+      <option value="">{{ t("Toutes les aires de santé") }}</option>
       {% for p, zones in tree|dictsort %}{% if not f.province or f.province == p %}{% for z, aires in zones|dictsort %}{% if f.zs == z %}
         {% for a in aires %}<option{% if f['as'] == a %} selected{% endif %}>{{ a }}</option>{% endfor %}
       {% endif %}{% endfor %}{% endif %}{% endfor %}
     </select>
-    <button class="btn">Afficher</button>
+    <button class="btn">{{ t("Afficher") }}</button>
   </form>
   <div class="row" style="justify-content:space-between; margin:10px 0">
-    <b>{{ zone }} : {{ ncas }} cas</b>
+    <b>{{ t(zone) }} : {{ ncas }} {{ t("cas") }}</b>
     <div class="row">
       <a class="btn small primary" href="{{ url_for('chains_visual', vue='chaines.png') }}?{{ qs }}">⬇ PNG</a>
       <a class="btn small" href="{{ url_for('chains_visual', vue='chaines.pdf') }}?{{ qs }}">PDF</a>
       <a class="btn small" href="{{ url_for('chains_visual', vue='chaines.svg') }}?{{ qs }}">SVG</a>
-      <a class="btn small" target="_blank" href="{{ url_for('chains_visual', vue='apercu') }}?{{ qs }}">Ouvrir en grand</a>
+      <a class="btn small" target="_blank" href="{{ url_for('chains_visual', vue='apercu') }}?{{ qs }}">{{ t("Ouvrir en grand") }}</a>
     </div>
   </div>
-  <div class="vframe" data-scale><iframe src="{{ url_for('chains_visual', vue='apercu') }}?{{ qs }}" title="Chaînes de transmission"></iframe></div>
+  <div class="vframe" data-scale><iframe src="{{ url_for('chains_visual', vue='apercu') }}?{{ qs }}" title="{{ t('Chaînes de transmission') }}"></iframe></div>
 </div>
 <script>
 (function () {

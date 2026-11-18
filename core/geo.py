@@ -236,6 +236,110 @@ def _chainer(aretes: List[Tuple]) -> List[Ring]:
 
 
 # ---------------------------------------------------------------------------
+# niveaux : contours des provinces et des zones de santé reconstitués à partir des aires
+# ---------------------------------------------------------------------------
+TOL_PROVINCE = 0.01          # ≈ 1 km : carte nationale
+TOL_ZONE = 0.003             # ≈ 300 m : carte d'une province
+
+
+def _anneaux_groupe(features: List[dict], tol: float) -> List[Ring]:
+    """Contour d'un groupe d'aires (province ou zone) : arêtes qui n'appartiennent qu'à une aire du groupe,
+    chaînées en anneaux fermés puis simplifiées. Un trou (zone enclavée) donne un anneau de plus (règle evenodd)."""
+    cpt: Dict[Tuple, int] = defaultdict(int)
+    for f in features:
+        for poly in f["polys"]:
+            pts = [(round(x, 6), round(y, 6)) for x, y in poly[0]]
+            for a, b in zip(pts, pts[1:]):
+                if a != b:
+                    cpt[(a, b) if a < b else (b, a)] += 1
+    voisins: Dict[Tuple, List[Tuple]] = defaultdict(list)
+    for (a, b), n in cpt.items():
+        if n == 1:
+            voisins[a].append(b)
+            voisins[b].append(a)
+    vues = set()
+    anneaux: List[Ring] = []
+    for a0 in list(voisins):
+        for b0 in voisins[a0]:
+            e0 = (a0, b0) if a0 < b0 else (b0, a0)
+            if e0 in vues:
+                continue
+            vues.add(e0)
+            ring, prec, cour = [a0, b0], a0, b0
+            while cour != a0:
+                suite = None
+                for n in voisins[cour]:
+                    e = (cour, n) if cour < n else (n, cour)
+                    if e not in vues:
+                        suite = n
+                        vues.add(e)
+                        break
+                if suite is None:
+                    break
+                prec, cour = cour, suite
+                ring.append(cour)
+            if len(ring) >= 4 and abs(_aire_et_centre(ring)[0]) > 1e-7:
+                s = _dp(ring, tol)
+                if len(s) < 4:
+                    s = _dp(ring, tol / 10)
+                if len(s) >= 4:
+                    anneaux.append([[_r(x), _r(y)] for x, y in s])
+    return anneaux
+
+
+def _resume(features: List[dict]) -> Tuple[List[float], List[float]]:
+    """Centre (pondéré par la surface) et emprise d'un groupe d'aires."""
+    surf = sx = sy = 0.0
+    x0 = y0 = 1e9
+    x1 = y1 = -1e9
+    for f in features:
+        for poly in f["polys"]:
+            a, cx, cy = _aire_et_centre(poly[0])
+            surf += abs(a)
+            sx += abs(a) * cx
+            sy += abs(a) * cy
+            for x, y in poly[0]:
+                x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+    return [_r(sx / surf), _r(sy / surf)] if surf else [_r((x0 + x1) / 2), _r((y0 + y1) / 2)], \
+        [_r(x0), _r(y0), _r(x1), _r(y1)]
+
+
+def construire_niveaux(features: List[dict], dest: Path, journal=print) -> dict:
+    """Écrit dans `dest` : rdc_niveaux.json (contours des provinces et des zones de santé) et un fichier
+    aires_<province>.json par province (contours des aires, format habituel). Retourne un bilan."""
+    from core.lieux import cle
+    dest.mkdir(parents=True, exist_ok=True)
+    par_prov: Dict[str, List[dict]] = defaultdict(list)
+    for f in features:
+        par_prov[f["p"] or "?"].append(f)
+    provinces, zones, n_aires = [], [], 0
+    for p in sorted(par_prov):
+        fs = par_prov[p]
+        c, bb = _resume(fs)
+        provinces.append({"p": p, "c": c, "bb": bb, "r": _anneaux_groupe(fs, TOL_PROVINCE),
+                          "fichier": f"aires_{cle(p).replace(' ', '-')}.json"})
+        par_zs: Dict[str, List[dict]] = defaultdict(list)
+        for f in fs:
+            par_zs[f["z"]].append(f)
+        for z in sorted(par_zs):
+            cz, bbz = _resume(par_zs[z])
+            zones.append({"p": p, "z": z, "c": cz, "bb": bbz, "r": _anneaux_groupe(par_zs[z], TOL_ZONE),
+                          "n_aires": len(par_zs[z])})
+        data = convertir(fs)
+        data["limites_zs"] = []          # remplacées par les contours des zones (rdc_niveaux.json)
+        (dest / provinces[-1]["fichier"]).write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+                                                      encoding="utf-8")
+        n_aires += len(data["aires"])
+        journal(f"{p} : {len(par_zs)} zones, {len(data['aires'])} aires")
+    niveaux = {"format": "mapping-epi-niveaux", "version": 1, "provinces": provinces, "zones": zones,
+               "source": "aires de santé GRID3 / CIESIN ; provinces et zones reconstituées à partir des aires"}
+    (dest / "rdc_niveaux.json").write_text(json.dumps(niveaux, ensure_ascii=False, separators=(",", ":")),
+                                           encoding="utf-8")
+    vider_cache()
+    return {"provinces": len(provinces), "zones": len(zones), "aires": n_aires}
+
+
+# ---------------------------------------------------------------------------
 # fichiers et chargement
 # ---------------------------------------------------------------------------
 def dossier_donnees() -> Path:
@@ -257,8 +361,9 @@ def importer_gpkg(path: Path | str, dest: Optional[Path] = None) -> Tuple[Path, 
 
 
 def vider_cache() -> None:
-    global _CACHE
-    _CACHE = None
+    global _CACHE, _NIVEAUX, _IMPORTES
+    _CACHE = _NIVEAUX = _IMPORTES = None
+    _PAR_PROVINCE.clear()
 
 
 def charger() -> dict:
@@ -289,12 +394,98 @@ def charger() -> dict:
     return _CACHE
 
 
+# ---------------------------------------------------------------------------
+# chargement par niveau (léger : une province à la fois)
+# ---------------------------------------------------------------------------
+_NIVEAUX: Optional[dict] = None
+_PAR_PROVINCE: Dict[str, List[dict]] = {}
+_IMPORTES: Optional[Dict[str, List[dict]]] = None
+
+
+def niveaux() -> dict:
+    """Contours des provinces et des zones de santé (rdc_niveaux.json) ; vide si absent."""
+    global _NIVEAUX
+    if _NIVEAUX is None:
+        d = {"provinces": [], "zones": []}
+        for f in [ROOT / "config" / "geo" / "rdc_niveaux.json"] + _fichiers_donnees("rdc_niveaux.json"):
+            try:
+                x = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if x.get("format") == "mapping-epi-niveaux":
+                d = x
+        _NIVEAUX = d
+    return _NIVEAUX
+
+
+def _fichiers_donnees(motif: str) -> List[Path]:
+    try:
+        return sorted(dossier_donnees().glob(motif))
+    except Exception:
+        return []
+
+
+def _importes() -> Dict[str, List[dict]]:
+    """Aires des fichiers importés depuis la page Carte (dossier de données), par province."""
+    global _IMPORTES
+    if _IMPORTES is None:
+        from core.lieux import cle
+        out: Dict[str, List[dict]] = defaultdict(list)
+        for f in _fichiers_donnees("aires_*.json"):
+            try:
+                d = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if d.get("format") == "mapping-epi-geo":
+                for a in d.get("aires", []):
+                    out[cle(a["p"])].append(a)
+        _IMPORTES = dict(out)
+    return _IMPORTES
+
+
+def aires_province(province: str) -> List[dict]:
+    """Contours des aires de santé d'une province (fichier livré, remplacé aire par aire par un import)."""
+    from core.lieux import cle
+    k = cle(province or "")
+    if not k:
+        return []
+    if k not in _PAR_PROVINCE:
+        aires: Dict[Tuple, dict] = {}
+        f = ROOT / "config" / "geo" / f"aires_{k.replace(' ', '-')}.json"
+        if f.exists():
+            try:
+                for a in json.loads(f.read_text(encoding="utf-8")).get("aires", []):
+                    aires[(cle(a["z"]), cle(a["a"]))] = a
+            except Exception:
+                pass
+        for a in _importes().get(k, []):
+            aires[(cle(a["z"]), cle(a["a"]))] = a
+        _PAR_PROVINCE[k] = list(aires.values())
+    return _PAR_PROVINCE[k]
+
+
+def provinces_de_zone(zs: str) -> List[str]:
+    from core.lieux import cle
+    cz = cle(zs or "")
+    return [z["p"] for z in niveaux()["zones"] if cle(z["z"]) == cz]
+
+
+def trouver_zone(province: str, zs: str) -> Optional[dict]:
+    from core.lieux import cle
+    cp, cz = cle(province or ""), cle(zs or "")
+    hits = [z for z in niveaux()["zones"] if cle(z["z"]) == cz and (not cp or cle(z["p"]) == cp)]
+    return hits[0] if len(hits) == 1 else None
+
+
 def trouver_aire(province: str, zs: str, aire: str) -> Optional[dict]:
     from core.lieux import cle
-    idx = charger()["index"]
-    a = idx.get((cle(province), cle(zs), cle(aire)))
-    if a:
-        return a
-    cz, ca = cle(zs), cle(aire)
-    hits = [v for (p, z, x), v in idx.items() if z == cz and x == ca]
-    return hits[0] if len(hits) == 1 else None
+    cz, ca = cle(zs or ""), cle(aire or "")
+    provs = [province] if province else []
+    provs += [p for p in provinces_de_zone(zs) if cle(p) != cle(province or "")]
+    if not provs:          # anciens fichiers importés sans contours de niveaux
+        provs = list(_importes())
+    for p in provs:
+        for a in aires_province(p):
+            if cle(a["z"]) == cz and cle(a["a"]) == ca:
+                return a
+    return None

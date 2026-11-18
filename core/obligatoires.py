@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 
 import yaml
 
+from core.langue import tr
 from core.models import Case
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,7 +31,7 @@ def manquants(c: Case) -> List[str]:
         if isinstance(v, str):
             v = v.strip()
         if v in VIDES:
-            out.append(lib)
+            out.append(tr(lib))           # libellé affiché dans la langue de l'utilisateur
     return out
 
 
@@ -46,5 +47,5 @@ def complet(c: Case) -> bool:
 
 
 def message(m: List[str]) -> str:
-    return ("Enregistrement impossible : champ(s) obligatoire(s) manquant(s) : " + ", ".join(m) +
-            ". La saisie est gardée en brouillon.")
+    return (tr("Enregistrement impossible : champ(s) obligatoire(s) manquant(s) : ") + ", ".join(m) +
+            tr(". La saisie est gardée en brouillon."))

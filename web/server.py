@@ -29,6 +29,7 @@ from core.models import Action, Case, Event
 from core.paths import data_dir
 from core import obligatoires as OBL
 from web import i18n as I18N
+from core.langue import tr, trf
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
 from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
@@ -117,7 +118,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             g.user = current_user()
             if not g.user:
                 if request.path.startswith("/api/"):
-                    return jsonify(error="Session expirée : reconnectez-vous."), 401
+                    return jsonify(error=tr("Session expirée : reconnectez-vous.")), 401
                 return redirect(url_for("login", next=request.path))
             return fn(*a, **kw)
         return wrapper
@@ -214,7 +215,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if request.method in ("POST", "PUT", "DELETE"):
             sent = request.headers.get("X-CSRF") or request.form.get("csrf")
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
-                abort(400, "Jeton de sécurité invalide : rechargez la page.")
+                abort(400, I18N.t("Jeton de sécurité invalide : rechargez la page.", langue()))
 
     def langue() -> str:
         """Langue de l'interface : choix de la session, sinon celui du compte, sinon le français."""
@@ -225,11 +226,18 @@ def create_app(store: storage.Store | None = None) -> Flask:
         lg = I18N.langue_du_compte(app.store, u.username) if u else None
         return lg or "fr"
 
+    @app.before_request
+    def poser_langue():
+        # langue des visuels et des fichiers produits pendant cette requête (core.langue.tr)
+        from core import langue as LG
+        LG.definir(langue())
+
     @app.context_processor
     def inject():
         lg = langue()
         return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": _static_version(),
                 "credits": credits, "lang": lg, "langues": I18N.LANGUES, "t": lambda s: I18N.t(s, lg),
+                "tf": lambda s, **kw: I18N.t(s, lg).format(**kw),
                 "droits": droits(getattr(g, "user", None) or current_user())}
 
     @app.route("/langue/<code>")
@@ -308,17 +316,17 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return redirect(url_for("login"))
         if app.public and os.environ.get("MAPPING_EPI_WEB_SETUP") != "1":
             return render_template("error.html", code=503,
-                                   msg="Aucun compte administrateur. Sur le serveur, lancez : "
-                                       "sudo mapping-epi creer-admin"), 503
+                                   msg=tr("Aucun compte administrateur. Sur le serveur, lancez : "
+                                          "sudo mapping-epi creer-admin")), 503
         error = None
         if request.method == "POST":
             if request.form.get("password") != request.form.get("password2"):
-                error = "Les deux mots de passe ne correspondent pas."
+                error = tr("Les deux mots de passe ne correspondent pas.")
             else:
                 try:
                     app.users.create(request.form.get("username", ""), request.form.get("password", ""),
                                      request.form.get("nom", ""), "admin")
-                    flash("Compte administrateur créé. Connectez-vous.", "ok")
+                    flash(tr("Compte administrateur créé. Connectez-vous."), "ok")
                     return redirect(url_for("login"))
                 except ValueError as exc:
                     error = str(exc)
@@ -334,7 +342,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             key = ip + "|" + request.form.get("username", "").strip().lower()
             n, until = max(failures.get(ip, (0, 0)), failures.get(key, (0, 0)))
             if until > time.time():
-                error = "Trop de tentatives. Réessayez dans quelques minutes."
+                error = tr("Trop de tentatives. Réessayez dans quelques minutes.")
             else:
                 user = app.users.authenticate(request.form.get("username", ""), request.form.get("password", ""))
                 if user:
@@ -354,7 +362,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 if len(failures) > 5000:
                     failures.clear()
                 log.warning("Échec de connexion pour %s depuis %s", request.form.get("username", "")[:40], ip)
-                error = "Identifiant ou mot de passe incorrect."
+                error = tr("Identifiant ou mot de passe incorrect.")
         return render_template("login.html", error=error)
 
     @app.route("/deconnexion")
@@ -369,7 +377,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         uname = SYNC.verifier(app.store, auth[7:].strip()) if auth.startswith("Bearer ") else None
         u = app.users.get(uname) if uname else None
         if not u or not u.actif:
-            abort(Response(json.dumps({"error": "Jeton invalide ou révoqué : créez-en un dans « Mon compte »."}),
+            abort(Response(json.dumps({"error": tr("Jeton invalide ou révoqué : créez-en un dans « Mon compte ».")}),
                            status=401, mimetype="application/json"))
         g.user = u
         return u
@@ -403,16 +411,16 @@ def create_app(store: storage.Store | None = None) -> Flask:
             nouveau_jeton = SYNC.creer_jeton(app.store, g.user.username, request.form.get("nom", "").strip())
         elif request.method == "POST" and request.form.get("action") == "revoquer":
             SYNC.revoquer(app.store, g.user.username, int(request.form.get("id", "0") or 0))
-            msg = "Jeton révoqué : l'ordinateur concerné ne peut plus se synchroniser."
+            msg = tr("Jeton révoqué : l'ordinateur concerné ne peut plus se synchroniser.")
         elif request.method == "POST":
             if not app.users.authenticate(g.user.username, request.form.get("old", "")):
-                err = "Mot de passe actuel incorrect."
+                err = tr("Mot de passe actuel incorrect.")
             elif request.form.get("new") != request.form.get("new2"):
-                err = "Les deux nouveaux mots de passe ne correspondent pas."
+                err = tr("Les deux nouveaux mots de passe ne correspondent pas.")
             else:
                 try:
                     app.users.set_password(g.user.username, request.form.get("new", ""))
-                    msg = "Mot de passe modifié."
+                    msg = tr("Mot de passe modifié.")
                 except ValueError as exc:
                     err = str(exc)
         return render_template("account.html", msg=msg, err=err, jetons=SYNC.jetons(app.store, g.user.username),
@@ -431,7 +439,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             uname = request.form.get("username", "").strip().lower()
             try:
                 if action != "delete" and not g.user.is_admin:
-                    raise ValueError("Action réservée aux administrateurs.")
+                    raise ValueError(tr("Action réservée aux administrateurs."))
                 if action not in ("create", "delete"):
                     e = Users.protege(g.user, uname)
                     if e:
@@ -454,8 +462,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 if action == "delete":
                     n = sum(1 for _c, _t, _u, owner in app.store.list_full() if owner == uname)
                     app.users.delete(g.user, uname, request.form.get("motif", ""), n)
-                    flash(f"Compte « {uname} » supprimé ({n} fiche(s) conservée(s)). La suppression est inscrite "
-                          "dans l'historique.", "ok")
+                    flash(trf("Compte « {u} » supprimé ({n} fiche(s) conservée(s)). La suppression est inscrite "
+                              "dans l'historique.", u=uname, n=n), "ok")
                 elif action == "create":
                     pwd = request.form.get("password") or generate_password()
                     app.users.create(uname, pwd, request.form.get("nom", ""), request.form.get("role", "agent"),
@@ -465,7 +473,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 elif action == "scope":
                     app.users.set_scope(uname, request.form.get("niveau", ""), request.form.get("province", ""),
                                         request.form.get("zs", ""), request.form.get("aire", ""))
-                    flash(f"Niveau du compte « {uname} » modifié.", "ok")
+                    flash(trf("Niveau du compte « {u} » modifié.", u=uname), "ok")
                 elif action == "reset":
                     pwd = generate_password()
                     app.users.set_password(uname, pwd)
@@ -473,12 +481,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 elif action == "toggle":
                     u = app.users.get(uname)
                     if u.username == g.user.username:
-                        raise ValueError("Vous ne pouvez pas désactiver votre propre compte.")
+                        raise ValueError(tr("Vous ne pouvez pas désactiver votre propre compte."))
                     app.users.update(uname, actif=not u.actif)
                 elif action == "role":
                     u = app.users.get(uname)
                     if u.is_partenaire:
-                        raise ValueError("Un compte partenaire reste en consultation seule.")
+                        raise ValueError(tr("Un compte partenaire reste en consultation seule."))
                     app.users.update(uname, role="agent" if u.is_admin else "admin")
             except ValueError as exc:
                 err = str(exc)
@@ -579,7 +587,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                and (not f["zs"] or (c.zs or "?") == f["zs"])
                and (niveau != "as" or not f["as"] or (c.aire_sante or "?") == f["as"])]
         ready = bool(f["zs"]) and (niveau != "as" or bool(f["as"]))
-        place = (f"AS {f['as'].upper()} (ZS {f['zs'].upper()})" if niveau == "as" else f"ZS {f['zs'].upper()}") if ready else ""
+        place = (trf("AS {a} (ZS {z})", a=f['as'].upper(), z=f['zs'].upper()) if niveau == "as"
+                 else trf("ZS {z}", z=f['zs'].upper())) if ready else ""
         return f, tree, sel, ready, place
 
     @app.route("/analyse/lieux/<niveau>")
@@ -597,7 +606,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                  "periode": (f"{L.debut:%d/%m/%Y}" + (f" → {L.fin:%d/%m/%Y}" if L.fin and L.fin != L.debut else "")) if L.debut else "?",
                  "aires": ", ".join(f"{a} ({n})" for a, n in L.aires.most_common()),
                  "cas": [{"id": ids.get(id(c)), "label": case_label(c)} for c in L.cas],
-                 "types": ", ".join(t for t, _ in L.types.most_common(3))} for L in lieux]
+                 "types": ", ".join(tr(t) for t, _ in L.types.most_common(3))} for L in lieux]
         nmax = max((r["n"] for r in rows), default=1)
         qs = request.query_string.decode()
         return render_template("lieux.html", niveau=niveau, f=f, tree={k: {z: sorted(a) for z, a in v.items()} for k, v in tree.items()},
@@ -614,15 +623,15 @@ def create_app(store: storage.Store | None = None) -> Flask:
         cases_ = [c for _, c in sel]
         min_cas = max(1, min(10, request.args.get("min", 2, type=int)))
         if vue.startswith("classement"):
-            svg = frequentes.render_svg(cases_, f"LIEUX LES PLUS FRÉQUENTÉS | {place}", min_cas)
+            svg = frequentes.render_svg(cases_, trf("LIEUX LES PLUS FRÉQUENTÉS | {place}", place=place), min_cas)
         elif vue.startswith("communs"):
             svg = common_places.render_svg(cases_, None, place)
         else:
-            svg = dashboard.render_svg(cases_, titre=f"CAS RELIÉS PAR LES LIEUX FRÉQUENTÉS | {place}")
+            svg = dashboard.render_svg(cases_, titre=trf("CAS RELIÉS PAR LES LIEUX FRÉQUENTÉS | {place}", place=place))
         if vue.endswith(".svg"):
             name = re.sub(r"[^A-Za-z0-9]+", "_", f"Lieux_{place}").strip("_") + ".svg"
             return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name, mimetype="image/svg+xml")
-        resp = Response(H.render_svg_page(svg, "Lieux fréquentés", assets="/assets/"), mimetype="text/html")
+        resp = Response(H.render_svg_page(svg, tr("Lieux fréquentés"), assets="/assets/"), mimetype="text/html")
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -714,11 +723,23 @@ def create_app(store: storage.Store | None = None) -> Flask:
         from core import riposte as RIP
         cases_ = RIP.filtrer(allc, periode, ref, prov)
         from core import geo as GEO
-        vue = "province" if request.args.get("vue") == "province" else "cas"
+        # trois niveaux : nationale (provinces) › province (zones de santé) › zone de santé (aires)
+        zs_carte = request.args.get("zs", "").strip()
+        niveau = request.args.get("niveau") or ("province" if prov else "national")
+        if niveau not in ("national", "province", "zone") or (niveau != "national" and not prov):
+            niveau = "national"
+        if niveau == "zone" and not zs_carte:
+            niveau = "province"
         ct = CARTE.construire(cases_)
-        return render_template("carte.html", svg=CARTE.svg(ct, ref, vue=vue), carte=ct, prov=prov, periode=periode,
-                               ref=ref, provinces=provinces, n=len(cases_), vue=vue,
-                               geo_provinces=GEO.charger()["provinces"], n_aires=len(GEO.charger()["aires"]))
+
+        def lien(n, p, z):
+            return url_for("riposte_carte", niveau=n, province=p, zs=z or None, periode=periode or 0)
+        N = GEO.niveaux()
+        return render_template("carte.html", svg=CARTE.svg(ct, ref, niveau=niveau, province=prov, zs=zs_carte, lien=lien),
+                               carte=ct, prov=prov, periode=periode, ref=ref, provinces=provinces, n=len(cases_),
+                               niveau=niveau, province_carte=prov, zs_carte=zs_carte,
+                               geo_provinces=[p["p"] for p in N["provinces"]],
+                               n_aires=sum(z.get("n_aires", 0) for z in N["zones"]), n_zones=len(N["zones"]))
 
     @app.route("/riposte/reunion")
     @login_required
@@ -759,7 +780,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             debut = (date.fromisoformat(request.args["debut"]) if request.args.get("debut")
                      else fin - timedelta(days=27))
         except ValueError:
-            flash("Dates invalides : la période par défaut (4 dernières semaines) est affichée.", "err")
+            flash(tr("Dates invalides : la période par défaut (4 dernières semaines) est affichée."), "err")
             fin = date.today()
             debut = fin - timedelta(days=27)
         if fin < debut:
@@ -798,7 +819,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             abort(400)
         textes = [a.texte.rstrip(". ") for a in TB.ligne_cas(c, date.today()).alertes]
         AS.marquer(app.store, c.id, etat, g.user.username, textes, TB._code(c), request.form.get("note", ""))
-        flash(("Cas pris en charge : " if etat == "prise" else "Cas marqué résolu : ") + TB._code(c), "ok")
+        flash(tr("Cas pris en charge : " if etat == "prise" else "Cas marqué résolu : ") + TB._code(c), "ok")
         retour = request.form.get("retour", "")
         return redirect(url_for("tableau_bord") + ("?" + retour if retour and "//" not in retour else ""))
 
@@ -822,14 +843,14 @@ def create_app(store: storage.Store | None = None) -> Flask:
             debut = date.fromisoformat(request.args.get("debut", ""))
             fin = date.fromisoformat(request.args.get("fin", ""))
         except ValueError:
-            flash("Choisissez une date de début et une date de fin.", "err")
+            flash(tr("Choisissez une date de début et une date de fin."), "err")
             return redirect(url_for("rapports_page"))
         if fin < debut:
             debut, fin = fin, debut
         prov = request.args.get("province", "").strip()
         choix = [k for k in request.args.getlist("pilier") if k in dict(PIL.PILIERS_RAPPORT)]
         if not choix:
-            flash("Cochez au moins un pilier.", "err")
+            flash(tr("Cochez au moins un pilier."), "err")
             return redirect(url_for("rapports_page"))
         allc = visible_cases()
         from core.access import _same
@@ -858,13 +879,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if request.method == "POST":
             f = request.files.get("paquet")
             if not f:
-                flash("Choisissez un paquet de fiches (.zip).", "err")
+                flash(tr("Choisissez un paquet de fiches (.zip)."), "err")
             else:
                 acc = access()
                 try:
                     bilan = ECH.importer_paquet(app.store, f.read(), g.user.username, g.user.username,
                                                 lambda c, own: acc.can_edit(c, own))
-                    flash("Paquet importé : " + bilan.texte(), "ok")
+                    flash(tr("Paquet importé : ") + bilan.texte(), "ok")
                 except ValueError as exc:
                     flash(str(exc), "err")
         _allc, _prov, _per, _ref, provinces = _filtres_riposte()
@@ -901,8 +922,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                ncas=len(sel), zone=zone, qs=request.query_string.decode())
 
     def _chains_zone(f) -> str:
-        parts = [f"Province {f['province']}" if f["province"] else "", f"ZS {f['zs']}" if f["zs"] else "",
-                 f"AS {f['as']}" if f["as"] else ""]
+        parts = [f"{tr('Province')} {f['province']}" if f["province"] else "", f"{tr('ZS')} {f['zs']}" if f["zs"] else "",
+                 f"{tr('AS')} {f['as']}" if f["as"] else ""]
         return " – ".join(x for x in parts if x) or g.user.perimetre
 
     @app.route("/analyse/chaines/<vue>")
@@ -914,7 +935,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         cases_ = [c for _, c in sel]
         zone = _chains_zone(f)
         if vue == "apercu":
-            resp = Response(H.render_svg_page(chains.render_svg(cases_, None, zone), "Chaînes de transmission",
+            resp = Response(H.render_svg_page(chains.render_svg(cases_, None, zone), tr("Chaînes de transmission"),
                                               assets="/assets/"), mimetype="text/html")
             resp.headers["Cache-Control"] = "no-store"
             return resp
@@ -928,7 +949,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         ok, msg = render_client.render(cases_[0].model_dump(mode="json"), "chains", vue[-3:], out,
                                        [c.model_dump(mode="json") for c in cases_], zone=zone, focus=False)
         if not ok:
-            return Response(f"Export impossible sur ce serveur : {msg}", status=503, mimetype="text/plain; charset=utf-8")
+            return Response(trf("Export impossible sur ce serveur : {msg}", msg=msg), status=503, mimetype="text/plain; charset=utf-8")
         return _send_and_delete(out, name)
 
     @app.route("/pci")
@@ -999,10 +1020,10 @@ def create_app(store: storage.Store | None = None) -> Flask:
                 finally:
                     tmp.unlink(missing_ok=True)
                 c = res.case
-                msg = "Narratif importé : " + ", ".join(res.trouves) + "."
+                msg = tr("Narratif importé : ") + ", ".join(res.trouves) + "."
                 if res.manquants:
-                    msg += " À compléter : " + ", ".join(res.manquants) + "."
-                flash(msg + " Vérifiez chaque onglet avant d'enregistrer le mapping.", "ok")
+                    msg += tr(" À compléter : ") + ", ".join(res.manquants) + "."
+                flash(msg + tr(" Vérifiez chaque onglet avant d'enregistrer le mapping."), "ok")
             elif nom.endswith(".xlsx"):
                 tmp = data_dir() / "exports" / f"import_{secrets.token_hex(4)}.xlsx"
                 tmp.write_bytes(raw)
@@ -1014,14 +1035,14 @@ def create_app(store: storage.Store | None = None) -> Flask:
             else:
                 c = Case.model_validate_json(raw)
         except Exception as exc:
-            flash(f"Fichier illisible : {exc}", "err")
+            flash(trf("Fichier illisible : {e}", e=exc), "err")
             return redirect(url_for("import_case") if request.form.get("depuis") == "page" else url_for("cases"))
         import uuid
         c.id = uuid.uuid4().hex
         manque = OBL.manquants(c)
         if manque:
             app.store.save_brouillon(c, g.user.username)
-            flash("Fiche gardée en brouillon : complétez " + ", ".join(manque) + " pour l'enregistrer.", "err")
+            flash(trf("Fiche gardée en brouillon : complétez {champs} pour l'enregistrer.", champs=", ".join(manque)), "err")
         else:
             app.store.save(c, version=True, auteur=g.user.username, commentaire=f"Import {f.filename}",
                            owner=g.user.username)
@@ -1030,6 +1051,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.route("/cas/<cid>")
     @login_required
     def editor(cid):
+        from core import langue as LGF
         c = get_case(cid)
         acc = access()
         owner = g.case_owner
@@ -1037,7 +1059,9 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return render_template("editor.html", case=c, visuals=VISUALS, readonly=not acc.can_edit(c, owner),
                                exemple=c.exemple(),
                                can_delete=acc.can_delete(c, owner),
-                               owner_label=(owner_user.nom if owner_user else owner) or "application de bureau")
+                               owner_label=(owner_user.nom if owner_user else owner) or tr("application de bureau"),
+                               # traductions du formulaire (editor.js : T("…")) ; vide en français
+                               i18n_fiche=(LGF.dictionnaire() if LGF.actuelle() == "en" else {}))
 
     @app.route("/cas/<cid>/supprimer", methods=["POST"])
     @login_required
@@ -1045,21 +1069,23 @@ def create_app(store: storage.Store | None = None) -> Flask:
         c = get_case(cid)
         if g.brouillon and not app.store.load(cid):
             app.store.delete_brouillon(cid)
-            flash("Brouillon supprimé.", "ok")
+            flash(tr("Brouillon supprimé."), "ok")
             return redirect(url_for("cases"))
         if not access().can_delete(c, g.case_owner):
             abort(403)
         app.store.delete(cid)
-        flash("Fiche supprimée (récupérable dans l'historique par un administrateur).", "ok")
+        flash(tr("Fiche supprimée (récupérable dans l'historique par un administrateur)."), "ok")
         return redirect(url_for("cases"))
 
     # ------------------------------------------------------------------ API
     @app.route("/api/schema")
     @login_required
     def api_schema():
+        # libellés et info-bulles traduits ; les choix restent en français (valeurs enregistrées), affichés traduits
+        # par editor.js (T)
         def cols(cs):
-            return [{"key": c.key, "label": c.label, "kind": c.kind, "choices": list(c.choices), "width": c.width,
-                     "tip": c.tip, "complete": c.complete} for c in cs]
+            return [{"key": c.key, "label": tr(c.label), "kind": c.kind, "choices": list(c.choices), "width": c.width,
+                     "tip": tr(c.tip), "complete": c.complete} for c in cs]
         return jsonify(
             tables={"events": cols(schema.EVENT_COLS), "places": cols(schema.PLACE_COLS),
                     "contacts": cols(schema.CONTACT_COLS), "ipc": cols(schema.IPC_COLS), "labs": cols(schema.LAB_COLS),
@@ -1068,7 +1094,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
                      "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS, "symptom_groups": [[k, v] for k, v in theme.SYMPTOM_GROUPS.items()],
                      "hemorrhagic": sorted(theme.HEMORRHAGIC), "phase_dds": theme.PHASE_DDS_CHOICES,
                      "oui_non": theme.OUI_NON},
-            annee_min=theme.ANNEE_MIN, obligatoires=[{"key": k, "label": l} for k, l in OBL.champs()],
+            annee_min=theme.ANNEE_MIN, obligatoires=[{"key": k, "label": tr(l)} for k, l in OBL.champs()],
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})
 
     @app.route("/api/pyramide")
@@ -1096,13 +1122,13 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return jsonify(case=c.model_dump(mode="json"), controls=controls(c),
                            readonly=not access().can_edit(c, g.case_owner))
         if not access().can_edit(c, g.case_owner):
-            return jsonify(error="Lecture seule : vous pouvez consulter cette fiche mais pas la modifier."), 403
+            return jsonify(error=tr("Lecture seule : vous pouvez consulter cette fiche mais pas la modifier.")), 403
         try:
             data = request.get_json(force=True)
             data["id"] = cid
             new = Case.model_validate(data)
         except Exception as exc:
-            return jsonify(error=f"Données invalides : {exc}"), 400
+            return jsonify(error=trf("Données invalides : {e}", e=exc)), 400
         pyr = pyramide.get()
         new.province, new.zs, new.aire_sante = pyr.canonical(new.province, new.zs, new.aire_sante)
         pyr.remember(new.province, new.zs, new.aire_sante)
@@ -1126,12 +1152,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return _controls(c)
         except Exception:                       # une donnée mal formée ne doit jamais bloquer la fiche
             log.exception("Calcul des contrôles impossible pour %s", c.id)
-            return {"score": 0, "missing": ["Contrôles indisponibles : vérifier les données saisies"], "risk": "Inconnu",
+            return {"score": 0, "missing": [tr("Contrôles indisponibles : vérifier les données saisies")], "risk": "Inconnu",
                     "risk_why": "", "risk_color": theme.BLUE, "exposure": None, "contagious": None,
                     "incubation": [2, 21], "followup": 21,
                     "contacts": {"phrase": "", "total": 0, "suivis": 0, "pct": None}, "lab_delay": None,
-                    "lab_threshold": 48, "issues": [{"level": "erreur", "msg": "Une donnée empêche les calculs : "
-                                                     "vérifier les lignes vides ou incomplètes des tableaux."}],
+                    "lab_threshold": 48, "issues": [{"level": "erreur", "msg": tr("Une donnée empêche les calculs : "
+                                                        "vérifier les lignes vides ou incomplètes des tableaux.")}],
                     "suggestions": [], "computed": {"events": [], "places": [], "contacts": [], "labs": []}}
 
     def _source_info(c: Case):
@@ -1162,7 +1188,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             "contacts": {"phrase": cs.phrase, "total": cs.total_connu, "suivis": cs.suivis, "pct": cs.pct_suivi},
             "lab_delay": d, "lab_threshold": p["labo_delai_alerte_h"],
             "issues": [{"level": i.niveau, "msg": i.message} for i in rules.check_consistency(c)],
-            "suggestions": [{"texte": s.texte, "priorite": s.priorite, "raison": s.raison}
+            "suggestions": [{"texte": s.texte, "affiche": s.affiche or s.texte, "priorite": s.priorite, "raison": s.raison}
                             for s in rules.suggest_actions(c)],
             "computed": {
                 "events": [dict(zip(("lvl", "why"), rules.suggest_event_risk(e, c, w))) |
@@ -1201,15 +1227,15 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if key == "mapping":
             return H.render_mapping_html(c, assets="/assets/")
         if key == "network":
-            return H.render_svg_page(network.render_svg(c), "Réseau", assets="/assets/")
+            return H.render_svg_page(network.render_svg(c), tr("Réseau"), assets="/assets/")
         if key == "route":
-            return H.render_svg_page(map_view.render_svg(c), "Parcours", assets="/assets/")
+            return H.render_svg_page(map_view.render_svg(c), tr("Parcours"), assets="/assets/")
         if key == "gantt":
-            return H.render_svg_page(gantt.render_svg(c), "Frise", assets="/assets/")
+            return H.render_svg_page(gantt.render_svg(c), tr("Frise"), assets="/assets/")
         if key == "dashboard":
-            return H.render_svg_page(dashboard.render_svg(zone_cases(c), c.zs), "Multi-cas", assets="/assets/")
+            return H.render_svg_page(dashboard.render_svg(zone_cases(c), c.zs), tr("Multi-cas"), assets="/assets/")
         if key in ("chains", "common"):
-            return H.render_svg_page(multi_svg(c, key), VISUALS[key], assets="/assets/")
+            return H.render_svg_page(multi_svg(c, key), tr(VISUALS[key]), assets="/assets/")
         abort(404)
 
     def multi_svg(c: Case, key: str) -> str:
@@ -1266,8 +1292,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
             ok, msg = render_client.render(c.model_dump(mode="json"), key, fmt, out, others,
                                            zone=g.user.perimetre if key in ("chains", "common") else "")
             if not ok:
-                return Response(f"Export impossible sur ce serveur : {msg}\n\nAstuce : utilisez « Imprimer → "
-                                "Enregistrer en PDF » depuis l'aperçu, ou les formats SVG / PowerPoint.",
+                return Response(trf("Export impossible sur ce serveur : {msg}\n\nAstuce : utilisez « Imprimer → "
+                                    "Enregistrer en PDF » depuis l'aperçu, ou les formats SVG / PowerPoint.", msg=msg),
                                 status=503, mimetype="text/plain; charset=utf-8")
             return _send_and_delete(out, name)
         abort(404)
@@ -1325,11 +1351,11 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @app.errorhandler(403)
     def forbidden(e):
         return render_template("error.html", code=403,
-                               msg="Accès refusé : cette fiche n'est pas dans votre périmètre, ou vous pouvez seulement la consulter."), 403
+                               msg=tr("Accès refusé : cette fiche n'est pas dans votre périmètre, ou vous pouvez seulement la consulter.")), 403
 
     @app.errorhandler(404)
     def notfound(e):
-        return render_template("error.html", code=404, msg="Page ou fiche introuvable."), 404
+        return render_template("error.html", code=404, msg=tr("Page ou fiche introuvable.")), 404
 
     return app
 

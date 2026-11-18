@@ -10,10 +10,11 @@ from typing import Dict, List
 from config import theme
 from core import rules
 from core.models import Case
-from core.lieux import case_label, cle
+from core.lieux import cle
 from render import svgkit as K
 from render.html_renderer import render_svg_page
 from render.icons import icon_group
+from render.libelles import cas, regle, tr, trf, val
 
 PLACE_ICON = {"Ménage": "home", "Village / quartier": "home", "Centre de santé": "clinic", "Hôpital": "hospital",
               "Église / lieu de culte": "church", "Funérailles": "people", "Enterrement": "grave",
@@ -101,8 +102,9 @@ def render_svg(case: Case) -> str:
     cx, cy = 560, 372
     bounds = (24, 74, 1096, 676)
     out = [K.svg_open(), K.header(
-        f"RÉSEAU DE TRANSMISSION ET DE CONTACTS – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
-        "Cas index au centre • lieux d'exposition dans l'ordre du parcours • catégories de contacts à identifier / suivre")]
+        trf("RÉSEAU DE TRANSMISSION ET DE CONTACTS – {cas} {maladie} | ZS {zs}", cas=cas(case).upper(), maladie=val(case.maladie),
+            zs=(case.zs or '?').upper()),
+        tr("Cas index au centre • lieux d'exposition dans l'ordre du parcours • catégories de contacts à identifier / suivre"))]
     out.append('<style>.halo text{paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}</style>')
     out.append(K.card(16, 66, 1088, 616))
 
@@ -154,7 +156,7 @@ def render_svg(case: Case) -> str:
                      f'stroke-opacity=".75"/>')
         icon = PLACE_ICON.get(p.type if p else "", "pin")
         shapes.append(f'<circle cx="{nd.x:.1f}" cy="{nd.y:.1f}" r="{nd.r}" fill="{col}" stroke="#fff" stroke-width="3" '
-                      f'filter="url(#sh)"><title>{K.esc(nd.parent)} : {K.esc(risk)}</title></circle>'
+                      f'filter="url(#sh)"><title>{K.esc(nd.parent)} : {K.esc(val(risk))}</title></circle>'
                       + icon_group(icon, nd.x, nd.y, 24, "#fff", 2))
     for nd in nodes:
         if nd.kind == "group":
@@ -173,44 +175,45 @@ def render_svg(case: Case) -> str:
             if p and p.population:
                 lines.append((K.ellipsize(p.population, 170, 9, 500), 9, 500, "#000000"))
         else:
-            lines = [(ln, 10, 700, theme.INK) for ln in K.wrap_px(nd.obj.categorie, 150, 10, 700, 2)]
+            lines = [(ln, 10, 700, theme.INK) for ln in K.wrap_px(val(nd.obj.categorie), 150, 10, 700, 2)]
         labels.append(placer.place(nd.x, nd.y, nd.r + 1, lines, prefer=prefer, gap=5))
 
     grisk, _ = rules.global_risk(case)
-    lab = K.ellipsize((case.code_cas.strip() or (f"Cas {case.rang}" if case.rang else "Cas index")).upper(), 80, 10.5, 800)
+    lab = K.ellipsize((case.code_cas.strip() or (trf("Cas {n}", n=case.rang) if case.rang else tr("Cas index"))).upper(), 80, 10.5, 800)
     center = (f'<circle cx="{cx}" cy="{cy}" r="44" fill="{theme.NAVY}" stroke="{theme.risk_color(grisk)}" stroke-width="6" '
               f'filter="url(#sh)"/>' + icon_group("user", cx, cy - 10, 26, "#fff", 2.2)
               + f'<text x="{cx}" y="{cy + 18}" text-anchor="middle" fill="#fff" font-size="10.5" font-weight="800">'
                 f'{K.esc(lab)}</text>'
               + f'<text x="{cx}" y="{cy + 30}" text-anchor="middle" fill="#fff" fill-opacity=".85" font-size="8.5">'
-                f'{K.esc(case.sexe)} • {K.esc(case.age if case.age is not None else "?")} {K.esc(case.age_unite)}</text>')
+                f'{K.esc(case.sexe)} • {K.esc(case.age if case.age is not None else "?")} {K.esc(val(case.age_unite))}</text>')
     out += edges + shapes + [center] + ['<g class="halo">'] + labels + ['</g>']
 
     # panneau latéral
     s = rules.contact_summary(case)
     x0 = 1116
     out.append(K.card(x0, 66, 148, 616))
-    out.append(K.pill(x0 + 10, 78, "Synthèse"))
-    stats = [("Contacts listés", str(s.total_connu)), ("À haut risque", str(s.haut_risque_connu)),
-             ("Catégories « ? »", str(s.categories_inconnues)),
-             ("Suivis", f"{s.suivis}" + (f" ({s.pct_suivi:.0f} %)" if s.pct_suivi is not None else "")),
-             ("Lieux d'exposition", str(len(case.places)))]
+    out.append(K.pill(x0 + 10, 78, tr("Synthèse")))
+    stats = [(tr("Contacts listés"), str(s.total_connu)), (tr("À haut risque"), str(s.haut_risque_connu)),
+             (tr("Catégories « ? »"), str(s.categories_inconnues)),
+             (tr("Suivis"), f"{s.suivis}" + (f" ({s.pct_suivi:.0f} %)" if s.pct_suivi is not None else "")),
+             (tr("Lieux d'exposition"), str(len(case.places)))]
     y = 118
-    for lab_, val in stats:
-        out.append(f'<text x="{x0 + 14}" y="{y}" font-size="9.5" fill="#000000">{K.esc(lab_)}</text>')
-        out.append(f'<text x="{x0 + 14}" y="{y + 24}" font-size="22" font-weight="800" fill="{theme.NAVY}">{K.esc(val)}</text>')
+    for lab_, v_ in stats:
+        out.append(f'<text x="{x0 + 14}" y="{y}" font-size="9.5" fill="#000000">{K.esc(K.ellipsize(lab_, 124, 9.5))}</text>')
+        out.append(f'<text x="{x0 + 14}" y="{y + 24}" font-size="22" font-weight="800" fill="{theme.NAVY}">{K.esc(v_)}</text>')
         y += 52
-    out.append(K.pill(x0 + 10, y + 4, "Légende"))
+    out.append(K.pill(x0 + 10, y + 4, tr("Légende")))
     y += 42
     for col, txt in [(theme.RED, "Très élevé / très haut"), (theme.ORANGE, "Élevé / haut"),
                      (theme.YELLOW, "Modéré"), (theme.GREEN, "Contrôlé / faible"), (theme.BLUE, "Inconnu")]:
-        out.append(K.legend_item(x0 + 12, y, col, K.ellipsize(txt, 100, 10), "circle"))
+        out.append(K.legend_item(x0 + 12, y, col, K.ellipsize(tr(txt), 100, 10), "circle"))
         y += 22
-    out.append(K.legend_item(x0 + 12, y, theme.MUTED, "Nombre inconnu", "circle", dashed=True))
+    out.append(K.legend_item(x0 + 12, y, theme.MUTED, K.ellipsize(tr("Nombre inconnu"), 100, 10), "circle", dashed=True))
     y += 22
     out.append(f'<text x="{x0 + 14}" y="{y + 8}" font-size="9" fill="{theme.MUTED}">'
-               f'<tspan x="{x0 + 14}">Taille ∝ nombre</tspan><tspan x="{x0 + 14}" dy="12">de contacts</tspan></text>')
-    out.append(K.footer(s.phrase))
+               f'<tspan x="{x0 + 14}">{K.esc(tr("Taille ∝ nombre"))}</tspan><tspan x="{x0 + 14}" dy="12">'
+               f'{K.esc(tr("de contacts"))}</tspan></text>')
+    out.append(K.footer(regle(s.phrase)))
     out.append("</svg>")
     return "".join(out)
 
@@ -236,7 +239,7 @@ def _group_shape(g, gx, gy, r, px, py, edges) -> str:
         tcol = theme.ink_on(fill)
     node += (f'<text x="{gx:.1f}" y="{gy + 4.5:.1f}" text-anchor="middle" font-size="{13 if r < 24 else 15}" '
              f'font-weight="800" fill="{tcol}">{txt}</text>')
-    return f'<g><title>{K.esc(g.categorie)} : {txt} ({K.esc(g.risque)})</title>{node}</g>'
+    return f'<g><title>{K.esc(val(g.categorie))} : {txt} ({K.esc(val(g.risque))})</title>{node}</g>'
 
 
 def render_html(case: Case) -> str:

@@ -17,12 +17,13 @@ from datetime import date
 from typing import Dict, List, Optional, Tuple
 
 from core import rules
+from core.langue import trf
 from core.lieux import VAGUES, case_label, cle
 from core.models import Case
 
 
 def case_long_label(c: Case) -> str:
-    return f"{case_label(c)} · ZS {c.zs or '?'}"
+    return trf("{cas} · ZS {zs}", cas=case_label(c), zs=c.zs or "?")
 
 
 def _id(s: str) -> str:
@@ -64,7 +65,8 @@ def build_chains(cases: List[Case]) -> Chains:
             continue
         hits = [x for x in by_code.get(_id(src), []) if x.id != c.id]
         if len(hits) > 1:
-            ignored.append(f"ID source « {src} » porté par {len(hits)} fiches : lien de {case_label(c)} ignoré")
+            ignored.append(trf("ID source « {src} » porté par {n} fiches : lien de {cas} ignoré", src=src, n=len(hits),
+                               cas=case_label(c)))
             continue
         parent[c.id] = hits[0].id if hits else "src:" + _id(src)
     # boucles : on coupe le lien qui referme le cycle
@@ -72,7 +74,7 @@ def build_chains(cases: List[Case]) -> Chains:
         seen, cur = {cid}, parent.get(cid)
         while cur and not cur.startswith("src:"):
             if cur in seen:
-                ignored.append(f"{case_long_label(by_id[cid])} : boucle dans les cas sources (lien ignoré)")
+                ignored.append(trf("{cas} : boucle dans les cas sources (lien ignoré)", cas=case_long_label(by_id[cid])))
                 parent.pop(cid, None)
                 break
             seen.add(cur)

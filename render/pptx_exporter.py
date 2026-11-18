@@ -18,6 +18,7 @@ from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.util import Emu, Pt
 
 from config import theme
+from core.langue import tr, trf
 from core.models import Case
 from render.html_renderer import MappingView, build_mapping_view
 
@@ -175,7 +176,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     ph = 196 if two else 258
     panels_y = foot_y - 8 - ph
     tl_top = 119
-    S.pill(16, tl_top, "Chronologie du parcours")
+    S.pill(16, tl_top, tr("Chronologie du parcours"))
     # statut de contact (Contact connu / Non contact) et légende
     if v.contact:
         ct = v.contact["t"] + (" " + v.contact["src"] if v.contact.get("src") else "")
@@ -184,7 +185,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
         sh = S.rect(cx_, tl_top, cw_, 22, v.contact["fill"], radius=5, name="Statut contact")
         S.text(0, 0, 0, 0, [ct], size=8, color=v.contact["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         if v.contact.get("todo"):
-            S.text(cx_ + cw_ + 8, tl_top, 190, 22, ["ID du cas source : à compléter"], size=8, color=theme.RED, bold=True,
+            S.text(cx_ + cw_ + 8, tl_top, 190, 22, [tr("ID du cas source : à compléter")], size=8, color=theme.RED, bold=True,
                    anchor=MSO_ANCHOR.MIDDLE)
         bx = cx_ + cw_ + 8 + (190 if v.contact.get("todo") else 0)
     else:
@@ -199,7 +200,8 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
             sh = S.rect(bx, tl_top, bw, 22, b["fill"], radius=5, name=b["t"])
             S.text(0, 0, 0, 0, [b["t"]], size=7.5, color=b["ink"], bold=True, anchor=MSO_ANCHOR.MIDDLE, shape=sh)
         bx += bw + 6
-    leg = "J±n : jours depuis le J0 retenu" + (f" (date rapportée − {v.recul} j)" if v.recul else " ou estimé")
+    leg = (trf("J±n : jours depuis le J0 retenu (date rapportée − {n} j)", n=v.recul) if v.recul
+           else tr("J±n : jours depuis le J0 retenu ou estimé"))
     S.text(930, tl_top + 2, 334, 16, [leg], size=7, color=theme.MUTED, align=PP_ALIGN.RIGHT)
 
     # phases de la maladie (chevrons)
@@ -278,8 +280,8 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     xs = [x0]
     for wd in widths[:-1]:
         xs.append(xs[-1] + wd + 10)
-    for x, wd, title in zip(xs, widths, ["Lieux & expositions", "Contacts à identifier / suivre",
-                                          "PCI / décontamination", "Actions"]):
+    for x, wd, title in zip(xs, widths, [tr("Lieux & expositions"), tr("Contacts à identifier / suivre"),
+                                          tr("PCI / décontamination"), tr("Actions")]):
         S.rect(x, panels_y, wd, ph, "#FFFFFF", theme.BORDER, radius=8, name=title)
         S.pill(x + 11, panels_y + 9, title)
     inner_top = panels_y + 38
@@ -329,10 +331,10 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
     done = [a for a in v.actions if a["done"]]
     items = []
     if todo and done:
-        items.append(("h", "À RÉALISER IMMÉDIATEMENT", theme.RED))
+        items.append(("h", tr("À RÉALISER IMMÉDIATEMENT"), theme.RED))
     items += [("t", a["t"], a["color"]) for a in todo]
     if done:
-        items.append(("h", "DÉJÀ RÉALISÉES", theme.GREEN))
+        items.append(("h", tr("DÉJÀ RÉALISÉES"), theme.GREEN))
         items += [("d", a["t"], theme.GREEN) for a in done]
     avail = inner_h - (16 if v.actions_auto else 0)
 
@@ -369,7 +371,7 @@ def add_mapping_slide(prs: Presentation, case: Case, view: Optional[MappingView]
                    anchor=MSO_ANCHOR.TOP, color=theme.INK)
         yy += hgt
     if v.actions_auto:
-        S.text(x + 10, panels_y + ph - 20, wd - 20, 14, ["Actions suggérées automatiquement, à valider."],
+        S.text(x + 10, panels_y + ph - 20, wd - 20, 14, [tr("Actions suggérées automatiquement, à valider.")],
                size=6.5, color=theme.MUTED, align=PP_ALIGN.LEFT)
 
     # E. pied de page

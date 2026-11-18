@@ -13,6 +13,7 @@ from typing import List, Optional, Tuple
 import yaml
 
 from config import theme
+from core.langue import tr, trf
 from core.models import NOTE_PIED_DEFAUT, Case, ContactGroup, Event, Place
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -357,40 +358,40 @@ def suggest_event_risk(ev: Event, case: Case, w: Optional[Windows] = None,
     w = w or windows(case)
     ph = ph or phases(case)
     level, reason = _BASE_RISK.get(ev.type, _BASE_RISK["Autre"])
-    reasons = [reason]
+    reasons = [tr(reason)]
     phase = event_phase(ev, w)
     stage = event_stage(ev, ph)
     symptomatic_types = {"Soins / consultation", "Référence", "Hospitalisation", "Activité communautaire",
                          "Rassemblement religieux", "Déplacement"}
     if ev.type in symptomatic_types and (stage in ("incubation", "infection") or (not stage and phase == "exposition")):
-        level, reasons = "Faible", ["Avant le début des symptômes (incubation) : non contagieux"]
+        level, reasons = "Faible", [tr("Avant le début des symptômes (incubation) : non contagieux")]
     elif ev.type not in _SANS_PATIENT:
         # la phase ne relève le risque que si elle est documentée (signes datés ou saisis), pas seulement estimée
         if stage == "humide" and level in _ESCALATE:
             if ph.humide_source in ("saisie", "rapportée"):
                 level = _escalate(level)
-                reasons.append("phase humide : très contagieux (liquides biologiques) +1 niveau")
+                reasons.append(tr("phase humide : très contagieux (liquides biologiques) +1 niveau"))
             else:
-                reasons.append("phase humide probable (estimée) : vérifier les signes")
+                reasons.append(tr("phase humide probable (estimée) : vérifier les signes"))
         elif stage == "critique" and level in _ESCALATE:
             if ph.critique_source == "rapportée":
                 level = "Très élevé"
-                reasons.append("phase critique : saignements / défaillances, très contagieux")
+                reasons.append(tr("phase critique : saignements / défaillances, très contagieux"))
             else:
-                reasons.append("phase critique probable (estimée)")
+                reasons.append(tr("phase critique probable (estimée)"))
     if ev.type == "Enterrement" and ev.securise:
-        level, reasons = "Contrôlé", ["Enterrement digne et sécurisé"]
+        level, reasons = "Contrôlé", [tr("Enterrement digne et sécurisé")]
     if ev.type in {"Décès", "Funérailles"} and ev.securise:
-        level, reasons = "Élevé", ["Prise en charge sécurisée du corps"]
+        level, reasons = "Élevé", [tr("Prise en charge sécurisée du corps")]
     if ev.liquides and level in _ESCALATE:
         level = _escalate(level)
-        reasons.append("liquides biologiques : +1 niveau")
+        reasons.append(tr("liquides biologiques : +1 niveau"))
     if ev.sans_pci and level in _ESCALATE:
         level = _escalate(level)
-        reasons.append("absence de PCI : +1 niveau")
+        reasons.append(tr("absence de PCI : +1 niveau"))
     if ev.contact_corps:
         level = "Très élevé"
-        reasons.append("contact avec le corps")
+        reasons.append(tr("contact avec le corps"))
     return level, " ; ".join(reasons)
 
 
@@ -413,26 +414,26 @@ def phase_atteinte(case: Case, ph: Optional["Phases"] = None) -> str:
 def global_risk(case: Case) -> Tuple[str, str]:
     """Risque global : étape la plus à risque, puis état du cas (phase atteinte) et état des contacts."""
     if case.risque_global:
-        return case.risque_global, "Saisi par l'investigateur"
+        return case.risque_global, tr("Saisi par l'investigateur")
     w = windows(case)
     ph = phases(case)
-    best, why = "Inconnu", "Aucune étape documentée"
+    best, why = "Inconnu", tr("Aucune étape documentée")
     for ev in case.events:
         lvl = ev.risque or suggest_event_risk(ev, case, w, ph)[0]
         if theme.risk_rank(lvl) > theme.risk_rank(best):
-            best, why = lvl, f"Étape la plus à risque : {ev.titre or ev.type}"
+            best, why = lvl, trf("Étape la plus à risque : {etape}", etape=ev.titre or tr(ev.type))
     if case.issue == "Décès" and any(e.type == "Enterrement" and not e.securise for e in case.events):
-        best, why = "Très élevé", "Décès suivi d'un enterrement non sécurisé"
+        best, why = "Très élevé", tr("Décès suivi d'un enterrement non sécurisé")
     stade = phase_atteinte(case, ph)
     non_listes = not case.contacts or any(g.nombre is None for g in case.contacts)
     if stade in ("humide", "critique") and non_listes:
         best = "Très élevé"
-        why += f" ; phase {stade} atteinte et contacts non (entièrement) listés"
+        why += trf(" ; phase {stade} atteinte et contacts non (entièrement) listés", stade=tr(stade))
     elif case.contact_connu == "Non contact" and best in _ESCALATE:
         best = _escalate(best)
-        why += " ; non connu comme contact : chaîne de transmission non identifiée (+1 niveau)"
+        why += tr(" ; non connu comme contact : chaîne de transmission non identifiée (+1 niveau)")
     elif case.contact_connu == "Contact connu suivi":
-        why += " ; contact connu et suivi"
+        why += tr(" ; contact connu et suivi")
     return best, why
 
 
@@ -479,11 +480,11 @@ def contact_summary(case: Case) -> ContactSummary:
             s.suivis += g.suivis
     if s.termes:
         detail = f" ({' + '.join(str(t) for t in s.termes)})" if len(s.termes) > 1 else ""
-        s.phrase = f"Minimum documenté : {s.haut_risque_connu} contacts à haut risque{detail}."
+        s.phrase = trf("Minimum documenté : {n} contacts à haut risque{detail}.", n=s.haut_risque_connu, detail=detail)
     else:
-        s.phrase = "Aucun contact à haut risque dénombré à ce stade."
+        s.phrase = tr("Aucun contact à haut risque dénombré à ce stade.")
     if s.categories_inconnues:
-        s.phrase += " Les «\u00a0?\u00a0» restent à compléter."
+        s.phrase += tr(" Les «\u00a0?\u00a0» restent à compléter.")
     if s.total_connu:
         s.pct_suivi = round(100 * s.suivis / s.total_connu, 1)
     return s
@@ -518,70 +519,70 @@ def check_consistency(case: Case) -> List[Issue]:
     out: List[Issue] = []
     j0 = case.debut_symptomes
     for e in case.events:
-        lab = e.titre or e.type
+        lab = e.titre or tr(e.type)
         if e.date_fin and e.date_debut and e.date_fin < e.date_debut:
-            out.append(Issue("erreur", f"« {lab} » : la date de fin précède la date de début."))
+            out.append(Issue("erreur", trf("« {etape} » : la date de fin précède la date de début.", etape=lab)))
         if not e.date_debut:
-            out.append(Issue("alerte", f"« {lab} » : date inconnue (affichée « ? »)."))
+            out.append(Issue("alerte", trf("« {etape} » : date inconnue (affichée « ? »).", etape=lab)))
     hosp = [e.date_debut for e in case.events if e.type == "Hospitalisation" and e.date_debut]
     if case.date_deces and hosp and case.date_deces < min(hosp):
-        out.append(Issue("erreur", "Le décès est daté avant l'hospitalisation."))
+        out.append(Issue("erreur", tr("Le décès est daté avant l'hospitalisation.")))
     if case.date_deces and j0 and case.date_deces < j0:
-        out.append(Issue("erreur", "Le décès est daté avant le début des symptômes."))
+        out.append(Issue("erreur", tr("Le décès est daté avant le début des symptômes.")))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
-        out.append(Issue("erreur", "Contact connu : l'ID du cas source est obligatoire (à compléter)."))
+        out.append(Issue("erreur", tr("Contact connu : l'ID du cas source est obligatoire (à compléter).")))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.date_contact_source:
-        out.append(Issue("alerte", "Contact connu : renseigner la date du dernier contact avec le cas source "
-                                   "(l'exposition n'est pas estimée pour un contact connu)."))
+        out.append(Issue("alerte", tr("Contact connu : renseigner la date du dernier contact avec le cas source "
+                                      "(l'exposition n'est pas estimée pour un contact connu).")))
     if case.date_notification and j0 and case.date_notification < j0:
-        out.append(Issue("erreur", "La notification précède le début des symptômes."))
+        out.append(Issue("erreur", tr("La notification précède le début des symptômes.")))
     if case.date_notification and case.date_confirmation and case.date_confirmation < case.date_notification:
-        out.append(Issue("alerte", "La confirmation précède la notification."))
+        out.append(Issue("alerte", tr("La confirmation précède la notification.")))
     if case.date_contact_source and j0 and case.date_contact_source > j0:
-        out.append(Issue("alerte", "Le dernier contact avec le cas source est postérieur au début des symptômes."))
+        out.append(Issue("alerte", tr("Le dernier contact avec le cas source est postérieur au début des symptômes.")))
     if case.vaccine == "Oui" and not case.date_vaccination:
-        out.append(Issue("info", "Cas vacciné : préciser la date de vaccination."))
+        out.append(Issue("info", tr("Cas vacciné : préciser la date de vaccination.")))
     if case.debut_symptomes and case.phase_dds in ("", "Inconnue"):
-        out.append(Issue("info", "Préciser la phase des premiers signes rapportés (sèche, humide ou critique) : "
-                                 "elle détermine le J0 retenu."))
+        out.append(Issue("info", tr("Préciser la phase des premiers signes rapportés (sèche, humide ou critique) : "
+                                    "elle détermine le J0 retenu.")))
     for e in personnes_manquantes(case):
-        out.append(Issue("alerte", f"« {e.titre or e.type} » : personnes présentes à compléter."))
+        out.append(Issue("alerte", trf("« {etape} » : personnes présentes à compléter.", etape=e.titre or tr(e.type))))
     if case.issue == "Décès" and not case.date_deces:
-        out.append(Issue("alerte", "État « Décès » sans date de décès."))
+        out.append(Issue("alerte", tr("État « Décès » sans date de décès.")))
     if case.date_deces and case.issue != "Décès":
-        out.append(Issue("alerte", "Une date de décès est saisie mais l'état n'est pas « Décès »."))
+        out.append(Issue("alerte", tr("Une date de décès est saisie mais l'état n'est pas « Décès ».")))
     for lab in case.labs:
         if lab.prelevement and lab.resultat_le and lab.resultat_le < lab.prelevement:
-            out.append(Issue("erreur", "Le résultat de laboratoire précède le prélèvement."))
+            out.append(Issue("erreur", tr("Le résultat de laboratoire précède le prélèvement.")))
         if lab.envoi and lab.prelevement and lab.envoi < lab.prelevement:
-            out.append(Issue("erreur", "L'envoi au laboratoire précède le prélèvement."))
+            out.append(Issue("erreur", tr("L'envoi au laboratoire précède le prélèvement.")))
     if case.date_confirmation and j0 and case.date_confirmation < j0:
-        out.append(Issue("erreur", "La confirmation précède le début des symptômes."))
+        out.append(Issue("erreur", tr("La confirmation précède le début des symptômes.")))
     place_names = {p.nom.strip().lower() for p in case.places if p.nom.strip()}
     for g in case.contacts:
         if not g.lieu.strip():
-            out.append(Issue("info", f"Contacts « {g.categorie} » : lieu de contact non précisé."))
+            out.append(Issue("info", trf("Contacts « {cat} » : lieu de contact non précisé.", cat=g.categorie)))
         elif place_names and g.lieu.strip().lower() not in place_names:
-            out.append(Issue("info", f"Contacts « {g.categorie} » : le lieu « {g.lieu} » n'est pas dans la liste des lieux."))
+            out.append(Issue("info", trf("Contacts « {cat} » : le lieu « {lieu} » n'est pas dans la liste des lieux.", cat=g.categorie, lieu=g.lieu)))
         if g.nombre is not None and g.suivis is not None and g.suivis > g.nombre:
-            out.append(Issue("erreur", f"Contacts « {g.categorie} » : plus de suivis que de listés."))
+            out.append(Issue("erreur", trf("Contacts « {cat} » : plus de suivis que de listés.", cat=g.categorie)))
     # ordre : uniquement les étapes ponctuelles (sans date de fin)
     last = None
     for e in case.events:
         if e.date_debut and not e.date_fin:
             if last and e.date_debut < last[0]:
-                out.append(Issue("alerte", f"« {e.titre or e.type} » est placé après « {last[1]} » mais daté avant."))
-            last = (e.date_debut, e.titre or e.type)
+                out.append(Issue("alerte", trf("« {etape} » est placé après « {avant} » mais daté avant.", etape=e.titre or tr(e.type), avant=last[1])))
+            last = (e.date_debut, e.titre or tr(e.type))
     for gap in coverage_gaps(case):
-        out.append(Issue("info", f"Période non couverte du {gap[0]:%d/%m} au {gap[1]:%d/%m} : "
-                                 "ajouter une étape « Période à documenter » ?"))
+        out.append(Issue("info", trf("Période non couverte du {debut} au {fin} : ajouter une étape « Période à documenter » ?",
+                                    debut=f"{gap[0]:%d/%m}", fin=f"{gap[1]:%d/%m}")))
     par_lieu: dict = {}
     for ou, extrait in noms_personnes(case):
         par_lieu.setdefault(ou, []).append(extrait)
     for ou, ex in par_lieu.items():
         cites = ", ".join(f"« {e} »" for e in ex)
-        out.append(Issue("alerte", f"Nom de personne ? {ou} : {cites}. L'outil ne doit contenir que des identifiants : "
-                                   "remplacez le nom par un ID ou un rôle (ex. « mère du cas »)."))
+        out.append(Issue("alerte", trf("Nom de personne ? {ou} : {cites}. L'outil ne doit contenir que des identifiants : "
+                                      "remplacez le nom par un ID ou un rôle (ex. « mère du cas »).", ou=ou, cites=cites)))
     return out
 
 
@@ -651,13 +652,14 @@ def noms_personnes(case: Case) -> List[Tuple[str, str]]:
 
     textes = []
     for i, e in enumerate(case.events, 1):
-        lab = f"Chronologie, étape {i} ({e.titre or e.type})"
+        lab = trf("Chronologie, étape {i} ({etape})", i=i, etape=e.titre or tr(e.type))
         textes += [(lab, e.titre), (lab, e.description), (lab, e.personnes)]
     for g in case.contacts:
-        textes += [(f"Contacts « {g.categorie} »", g.categorie), (f"Contacts « {g.categorie} »", g.lien)]
+        ouc = trf("Contacts « {cat} »", cat=g.categorie)
+        textes += [(ouc, g.categorie), (ouc, g.lien)]
     for p in case.places:
-        textes.append((f"Lieu « {p.nom} »", p.population))
-    textes.append(("Note de bas de page", case.note_pied if case.note_pied != NOTE_PIED_DEFAUT else ""))
+        textes.append((trf("Lieu « {nom} »", nom=p.nom), p.population))
+    textes.append((tr("Note de bas de page"), case.note_pied if case.note_pied != NOTE_PIED_DEFAUT else ""))
     out, vus = [], set()
     for ou, t in textes:
         t = (t or "").strip()
@@ -699,9 +701,10 @@ def coverage_gaps(case: Case, min_days: int = 3) -> List[Tuple[date, date]]:
 # ---------------------------------------------------------------------------
 @dataclass
 class Suggestion:
-    texte: str
+    texte: str             # texte enregistré dans l'action (français, comme les autres choix)
     priorite: str
-    raison: str
+    raison: str            # affichée dans la langue de l'utilisateur
+    affiche: str = ""      # texte affiché dans la langue de l'utilisateur (vide = texte)
 
 
 def suggest_actions(case: Case) -> List[Suggestion]:
@@ -711,11 +714,11 @@ def suggest_actions(case: Case) -> List[Suggestion]:
     # anciens libellés : une suggestion écartée sous son ancien nom reste écartée
     anciens = {"Lister tous les contacts": "Boucler tous les contacts"}
 
-    def add(texte, prio, raison):
+    def add(texte, prio, raison, affiche=None):
         rejet = texte in case.suggestions_rejetees or anciens.get(texte) in case.suggestions_rejetees
         if not rejet and all(texte != x.texte for x in out) and not (
                 texte in anciens and any(a.texte.strip() == anciens[texte] for a in case.actions)):
-            out.append(Suggestion(texte, prio, raison))
+            out.append(Suggestion(texte, prio, tr(raison), affiche if affiche is not None else tr(texte)))
 
     if case.contacts:
         add("Lister tous les contacts", "Urgent", s.phrase)
@@ -723,8 +726,8 @@ def suggest_actions(case: Case) -> List[Suggestion]:
     if unknown:
         def low(c: str) -> str:
             return c if c[:2].isupper() else c[0].lower() + c[1:]
-        add("Identifier " + " / ".join(low(c) for c in unknown[:3]) + (" …" if len(unknown) > 3 else ""),
-            "Urgent", "Catégories de contacts non dénombrées")
+        liste = " / ".join(low(c) for c in unknown[:3]) + (" …" if len(unknown) > 3 else "")
+        add("Identifier " + liste, "Urgent", "Catégories de contacts non dénombrées", trf("Identifier {liste}", liste=liste))
     if any(e.type == "Exposition" and event_risk(e, case) in ("À investiguer", "Inconnu") for e in case.events) \
             or not any(e.type == "Exposition" for e in case.events):
         add("Reconstituer la source d'exposition", "Urgent", "Source d'exposition non confirmée")
@@ -732,21 +735,25 @@ def suggest_actions(case: Case) -> List[Suggestion]:
     p = disease_params(case.maladie)
     if case.contacts or deadly:
         add(f"Suivi quotidien {p['suivi_contacts']} jours des contacts", "Important",
-            "Durée de suivi pour " + case.maladie)
+            trf("Durée de suivi pour {maladie}", maladie=tr(case.maladie)),
+            trf("Suivi quotidien {n} jours des contacts", n=p["suivi_contacts"]))
     if any(e.type == "Enterrement" and not e.securise for e in case.events):
         add("Sensibiliser la communauté (EDS) et suivre les participants aux funérailles", "Urgent",
             "Enterrement non sécurisé")
     bad = [x.site for x in case.ipc if x.statut in ("Non", "Partiel", "Inconnu")]
     if bad:
-        add("PCI / décontamination : " + ", ".join(bad), "Urgent", "Sites non décontaminés")
+        add("PCI / décontamination : " + ", ".join(bad), "Urgent", "Sites non décontaminés",
+            trf("PCI / décontamination : {sites}", sites=", ".join(bad)))
     for x in case.ipc:
         if x.statut == "Décontaminé" and not (x.date and x.equipe and x.produit):
-            add(f"Documenter date / équipe / produit : {x.site}", "Important", "Décontamination incomplètement documentée")
+            add(f"Documenter date / équipe / produit : {x.site}", "Important", "Décontamination incomplètement documentée",
+                trf("Documenter date / équipe / produit : {site}", site=x.site))
     delay = lab_delay_hours(case)
     if delay is None and case.labs:
         add("Documenter les délais de laboratoire", "Important", "Heures de prélèvement / résultat manquantes")
     elif delay is not None and delay > p["labo_delai_alerte_h"]:
-        add(f"Analyser le délai laboratoire ({delay:.0f} h)", "Important", "Délai supérieur au seuil")
+        add(f"Analyser le délai laboratoire ({delay:.0f} h)", "Important", "Délai supérieur au seuil",
+            trf("Analyser le délai laboratoire ({h} h)", h=f"{delay:.0f}"))
     if any(e.transport.lower() == "moto" for e in case.events):
         add("Identifier et suivre les motards", "Urgent", "Transport à moto d'un cas symptomatique ou du corps")
     if coverage_gaps(case):
@@ -754,7 +761,8 @@ def suggest_actions(case: Case) -> List[Suggestion]:
     hcw = [pl.nom for pl in case.places if pl.type in ("Centre de santé", "Hôpital")]
     if hcw:
         add("Vacciner / suivre le personnel soignant : " + ", ".join(hcw), "Important",
-            "Exposition en structure de soins")
+            "Exposition en structure de soins",
+            trf("Vacciner / suivre le personnel soignant : {lieux}", lieux=", ".join(hcw)))
     return out
 
 
@@ -781,29 +789,29 @@ def completeness(case: Case) -> Tuple[int, List[str]]:
     for key, label in CRITICAL_FIELDS:
         v = getattr(case, key)
         if v in (None, "", "Inconnu", "Inconnue"):
-            missing.append(label)
+            missing.append(tr(label))
     if not case.events:
-        missing.append("Au moins une étape de chronologie")
+        missing.append(tr("Au moins une étape de chronologie"))
     if not case.places:
-        missing.append("Lieux & expositions")
+        missing.append(tr("Lieux & expositions"))
     if not case.contacts:
-        missing.append("Contacts")
+        missing.append(tr("Contacts"))
     if not case.ipc:
-        missing.append("PCI / décontamination")
+        missing.append(tr("PCI / décontamination"))
     if not case.labs:
-        missing.append("Laboratoire")
+        missing.append(tr("Laboratoire"))
     if any(not e.date_debut for e in case.events):
-        missing.append("Dates de certaines étapes")
+        missing.append(tr("Dates de certaines étapes"))
     unknown_contacts = sum(1 for g in case.contacts if g.nombre is None)
     if unknown_contacts:
-        missing.append(f"{unknown_contacts} catégorie(s) de contacts non dénombrée(s)")
+        missing.append(trf("{n} catégorie(s) de contacts non dénombrée(s)", n=unknown_contacts))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.id_cas_source.strip():
-        missing.append("ID du cas source (contact connu)")
+        missing.append(tr("ID du cas source (contact connu)"))
     if case.contact_connu in theme.CONTACT_AVEC_SOURCE and not case.date_contact_source:
-        missing.append("Date du dernier contact avec le cas source")
+        missing.append(tr("Date du dernier contact avec le cas source"))
     sans = personnes_manquantes(case)
     if sans:
-        missing.append(f"Personnes présentes : {len(sans)} étape(s) à compléter")
+        missing.append(trf("Personnes présentes : {n} étape(s) à compléter", n=len(sans)))
     total = len(CRITICAL_FIELDS) + 10
     score = max(0, round(100 * (total - len(missing)) / total))
     return score, missing

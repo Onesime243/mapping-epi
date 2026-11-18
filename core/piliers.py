@@ -18,6 +18,7 @@ from config import theme
 from core import indicateurs as IND
 from core import riposte as R
 from core import rules
+from core.langue import actuelle, tr, trf
 from core.models import Action, Case
 
 PILIERS_RAPPORT = [
@@ -95,12 +96,35 @@ def _med(v) -> Optional[float]:
     return median(v) if v else None
 
 
+_UNITES_EN = {"j": "d", "lieu(x)": "place(s)"}
+
+
+def _en() -> bool:
+    return actuelle() == "en"
+
+
 def _j(v: Optional[float], unite: str = "j") -> str:
-    return "?" if v is None else f"{v:g} {unite}".strip().replace(".", ",")
+    if v is None:
+        return "?"
+    if _en():
+        return f"{v:g} {_UNITES_EN.get(unite, unite)}".strip()
+    return f"{v:g} {unite}".strip().replace(".", ",")
 
 
 def _pct(a: int, b: int) -> str:
-    return f"{100 * a / b:.0f} % ({a}/{b})" if b else "?"
+    if not b:
+        return "?"
+    return f"{100 * a / b:.0f}% ({a}/{b})" if _en() else f"{100 * a / b:.0f} % ({a}/{b})"
+
+
+def _zs() -> str:
+    """Sigle de la zone de santé dans la langue courante (HZ en anglais)."""
+    return "HZ" if _en() else "ZS"
+
+
+def titre_pilier(cle: str) -> str:
+    """Titre d'un pilier du rapport dans la langue courante (la clé reste stable)."""
+    return tr(dict(PILIERS_RAPPORT).get(cle, cle))
 
 
 def _ratio(a: int, b: int) -> float:
@@ -132,7 +156,7 @@ def selection(cases: List[Case], debut: date, fin: date, province: str = "") -> 
 def _par_zs(cases: List[Case]) -> Dict[str, List[Case]]:
     g: Dict[str, List[Case]] = defaultdict(list)
     for c in cases:
-        g[c.zs or "ZS ?"].append(c)
+        g[c.zs or tr("ZS ?")].append(c)
     return dict(sorted(g.items(), key=lambda kv: (-len(kv[1]), kv[0])))
 
 
@@ -151,8 +175,8 @@ def _periodes(debut: date, fin: date) -> Tuple[List[date], str]:
 # -- piliers -------------------------------------------------------------------------------------------------------
 def _surveillance(cases: List[Case], debut: date, fin: date, crees: Dict[str, str], brouillons: int) -> Section:
     from core.links import build_chains, shared_places
-    s = Section("surveillance", "Surveillance et investigation",
-                "Vérifier que chaque cas est investigué vite et à fond : délais, parcours, sources et chaînes.")
+    s = Section("surveillance", titre_pilier("surveillance"),
+                tr("Vérifier que chaque cas est investigué vite et à fond : délais, parcours, sources et chaînes."))
     n = len(cases)
     notif = [(c.date_notification - c.debut_symptomes).days for c in cases if c.date_notification and c.debut_symptomes]
     conf = [(c.date_confirmation - c.date_notification).days for c in cases
@@ -188,36 +212,41 @@ def _surveillance(cases: List[Case], debut: date, fin: date, crees: Dict[str, st
                 or any(e.type in ("Soins / consultation", "Hospitalisation") for e in c.events))
     zs_n = len({c.zs for c in cases if c.zs})
 
-    s.kpis = [("Cas notifiés", str(n)), ("Zones de santé touchées", str(zs_n)),
-              ("Délai médian début → notification", _j(_med(notif))),
-              ("Cas sans lien épidémiologique", _pct(len(sans_lien), len(connus)))]
+    s.kpis = [(tr("Cas notifiés"), str(n)), (tr("Zones de santé touchées"), str(zs_n)),
+              (tr("Délai médian début → notification"), _j(_med(notif))),
+              (tr("Cas sans lien épidémiologique"), _pct(len(sans_lien), len(connus)))]
     q = s.questions
-    q.append(("Combien de cas confirmés ont été notifiés durant la période ?", f"{n} cas dans {zs_n} zone(s) de santé."))
-    q.append(("Quel est le délai entre la notification et la création du mapping ?",
-              f"Médiane {_j(_med(creation))} ; créés le jour même ou le lendemain : {_pct(sum(1 for x in creation if x <= 1), len(creation))} ; "
-              f"dans les 48 h : {_pct(sum(1 for x in creation if x <= 2), len(creation))} ; après plus de 72 h : "
-              f"{_pct(sum(1 for x in creation if x > 3), len(creation))}."))
-    q.append(("Combien de mappings sont restés au statut brouillon ?",
-              f"{brouillons} brouillon(s) non enregistré(s) dans le périmètre, champs obligatoires manquants."))
-    q.append(("Quel est le délai entre le début des symptômes et la première consultation ?",
-              f"Médiane {_j(_med(cons))} ({len(cons)} cas avec une consultation datée)."))
-    q.append(("Quel est le délai entre le début des symptômes et la notification ?", f"Médiane {_j(_med(notif))} ({len(notif)} cas)."))
-    q.append(("Quel est le délai entre la notification et la confirmation ?", f"Médiane {_j(_med(conf))} ({len(conf)} cas)."))
-    q.append(("Combien de lieux ont été fréquentés par chaque cas ?",
-              f"Médiane {_j(_med(nb_lieux), 'lieu(x)')} par cas ; {sum(nb_lieux)} lieux au total."))
-    q.append(("Quels types de lieux sont les plus fréquemment visités ?",
-              ", ".join(f"{k} ({v})" for k, v in types.most_common(5)) or "Aucun lieu renseigné."))
-    q.append(("Combien de cas ont fréquenté des établissements de soins ?", _pct(soins, n)))
-    q.append(("Combien ont utilisé un moyen de transport (déplacement documenté) ?", _pct(transport, n)))
-    q.append(("Quels lieux sont fréquentés par plusieurs cas ?",
-              "; ".join(f"{p.name} ({len(p.cases)} cas)" for p in communs[:6]) or "Aucun lieu commun détecté."))
-    q.append(("Quelle proportion des cas possède une source probable d'infection identifiée ?",
-              f"{_pct(len(avec_source), n)} avec un ID de cas source renseigné."))
-    q.append(("Combien de cas restent sans lien épidémiologique identifié ?",
-              f"{len(sans_lien)} cas « non contact » ; {n - len(connus)} cas au statut inconnu."))
-    q.append(("Combien de chaînes de transmission ont pu être reconstruites ?",
-              f"{len(ch.roots)} chaîne(s) d'au moins deux cas ; jusqu'à {max(gens) if gens else 0} génération(s) ; "
-              f"{len(ch.isolated)} cas isolé(s) sans lien dans l'outil."))
+    q.append((tr("Combien de cas confirmés ont été notifiés durant la période ?"),
+              trf("{n} cas dans {z} zone(s) de santé.", n=n, z=zs_n)))
+    q.append((tr("Quel est le délai entre la notification et la création du mapping ?"),
+              trf("Médiane {med} ; créés le jour même ou le lendemain : {a} ; dans les 48 h : {b} ; après plus de 72 h : {c}.",
+                  med=_j(_med(creation)), a=_pct(sum(1 for x in creation if x <= 1), len(creation)),
+                  b=_pct(sum(1 for x in creation if x <= 2), len(creation)),
+                  c=_pct(sum(1 for x in creation if x > 3), len(creation)))))
+    q.append((tr("Combien de mappings sont restés au statut brouillon ?"),
+              trf("{n} brouillon(s) non enregistré(s) dans le périmètre, champs obligatoires manquants.", n=brouillons)))
+    q.append((tr("Quel est le délai entre le début des symptômes et la première consultation ?"),
+              trf("Médiane {med} ({n} cas avec une consultation datée).", med=_j(_med(cons)), n=len(cons))))
+    q.append((tr("Quel est le délai entre le début des symptômes et la notification ?"),
+              trf("Médiane {med} ({n} cas).", med=_j(_med(notif)), n=len(notif))))
+    q.append((tr("Quel est le délai entre la notification et la confirmation ?"),
+              trf("Médiane {med} ({n} cas).", med=_j(_med(conf)), n=len(conf))))
+    q.append((tr("Combien de lieux ont été fréquentés par chaque cas ?"),
+              trf("Médiane {med} par cas ; {n} lieux au total.", med=_j(_med(nb_lieux), "lieu(x)"), n=sum(nb_lieux))))
+    q.append((tr("Quels types de lieux sont les plus fréquemment visités ?"),
+              ", ".join(f"{tr(k)} ({v})" for k, v in types.most_common(5)) or tr("Aucun lieu renseigné.")))
+    q.append((tr("Combien de cas ont fréquenté des établissements de soins ?"), _pct(soins, n)))
+    q.append((tr("Combien ont utilisé un moyen de transport (déplacement documenté) ?"), _pct(transport, n)))
+    q.append((tr("Quels lieux sont fréquentés par plusieurs cas ?"),
+              "; ".join(trf("{lieu} ({n} cas)", lieu=p.name, n=len(p.cases)) for p in communs[:6])
+              or tr("Aucun lieu commun détecté.")))
+    q.append((tr("Quelle proportion des cas possède une source probable d'infection identifiée ?"),
+              trf("{p} avec un ID de cas source renseigné.", p=_pct(len(avec_source), n))))
+    q.append((tr("Combien de cas restent sans lien épidémiologique identifié ?"),
+              trf("{a} cas « non contact » ; {b} cas au statut inconnu.", a=len(sans_lien), b=n - len(connus))))
+    q.append((tr("Combien de chaînes de transmission ont pu être reconstruites ?"),
+              trf("{a} chaîne(s) d'au moins deux cas ; jusqu'à {g} génération(s) ; {b} cas isolé(s) sans lien dans l'outil.",
+                  a=len(ch.roots), g=max(gens) if gens else 0, b=len(ch.isolated))))
 
     periodes, pas = _periodes(debut, fin)
     idx = {p: i for i, p in enumerate(periodes)}
@@ -227,31 +256,32 @@ def _surveillance(cases: List[Case], debut: date, fin: date, crees: Dict[str, st
         k = d if pas == "jour" else d - timedelta(days=d.weekday())
         if k in idx:
             serie[idx[k]] += 1
-    s.graphiques.append(Graphique(f"Cas notifiés par {pas}", [f"{p:%d/%m}" for p in periodes], {"Cas": serie}, "cas"))
+    s.graphiques.append(Graphique(tr("Cas notifiés par jour" if pas == "jour" else "Cas notifiés par semaine"),
+                                  [f"{p:%d/%m}" for p in periodes], {tr("Cas"): serie}, tr("cas")))
     z = _par_zs(cases)
     zn = list(z)[:12]
-    s.graphiques.append(Graphique("Délai médian début des symptômes → notification par zone de santé",
-                                  zn, {"Jours": [_med([(c.date_notification - c.debut_symptomes).days for c in z[k]
-                                                       if c.date_notification and c.debut_symptomes]) or 0 for k in zn]},
-                                  "jours", horizontal=True,
-                                  note="0 = délai non calculable (dates manquantes)"))
+    s.graphiques.append(Graphique(tr("Délai médian début des symptômes → notification par zone de santé"),
+                                  zn, {tr("Jours"): [_med([(c.date_notification - c.debut_symptomes).days for c in z[k]
+                                                           if c.date_notification and c.debut_symptomes]) or 0 for k in zn]},
+                                  tr("jours"), horizontal=True,
+                                  note=tr("0 = délai non calculable (dates manquantes)")))
     if types:
         tt = types.most_common(8)
-        s.graphiques.append(Graphique("Types de lieux fréquentés", [k for k, _ in tt], {"Lieux": [v for _, v in tt]},
-                                      "lieux", horizontal=True))
+        s.graphiques.append(Graphique(tr("Types de lieux fréquentés"), [tr(k) for k, _ in tt],
+                                      {tr("Lieux"): [v for _, v in tt]}, tr("lieux"), horizontal=True))
     if _med(notif) is not None and _med(notif) > 3:
-        s.attention.append(f"Délai médian de notification de {_j(_med(notif))} : au-delà de 3 jours, le cas a eu le temps "
-                           "d'exposer de nombreux contacts.")
+        s.attention.append(trf("Délai médian de notification de {med} : au-delà de 3 jours, le cas a eu le temps "
+                               "d'exposer de nombreux contacts.", med=_j(_med(notif))))
     if connus and len(sans_lien) / len(connus) > 0.25:
-        s.attention.append(f"{len(sans_lien)} cas sans lien épidémiologique : chaînes invisibles à investiguer.")
+        s.attention.append(trf("{n} cas sans lien épidémiologique : chaînes invisibles à investiguer.", n=len(sans_lien)))
     if brouillons:
-        s.attention.append(f"{brouillons} fiche(s) encore en brouillon : investigations non finalisées.")
+        s.attention.append(trf("{n} fiche(s) encore en brouillon : investigations non finalisées.", n=brouillons))
     return s
 
 
 def _contacts(cases: List[Case]) -> Section:
-    s = Section("contacts", "Contacts et vaccination",
-                "Mesurer l'exhaustivité du listage, la part suivie et la protection des contacts par la vaccination.")
+    s = Section("contacts", titre_pilier("contacts"),
+                tr("Mesurer l'exhaustivité du listage, la part suivie et la protection des contacts par la vaccination."))
     groupes = [(c, g) for c in cases for g in c.contacts]
     listes = [g.nombre for _c, g in groupes if g.nombre is not None]
     par_cas = [sum(g.nombre for g in c.contacts if g.nombre is not None) for c in cases if c.contacts]
@@ -267,29 +297,34 @@ def _contacts(cases: List[Case]) -> Section:
     anneau = [(c.date_debut_anneau - c.date_confirmation).days for c in cases
               if c.date_debut_anneau and c.date_confirmation and c.date_debut_anneau >= c.date_confirmation]
     vac_cas = [c for c in cases if c.vaccine != "Inconnu"]
-    s.kpis = [("Contacts listés", str(sum(listes))), ("Médiane par cas", _j(_med(par_cas), "")),
-              ("Contacts suivis", _pct(sum(b for _a, b in ls), sum(a for a, _b in ls))),
-              ("Contacts vaccinés", _pct(sum(b for _a, b in lv), sum(a for a, _b in lv)))]
+    s.kpis = [(tr("Contacts listés"), str(sum(listes))), (tr("Médiane par cas"), _j(_med(par_cas), "")),
+              (tr("Contacts suivis"), _pct(sum(b for _a, b in ls), sum(a for a, _b in ls))),
+              (tr("Contacts vaccinés"), _pct(sum(b for _a, b in lv), sum(a for a, _b in lv)))]
     q = s.questions
-    q.append(("Combien de contacts ont été identifiés par cas ?",
-              f"Médiane {_j(_med(par_cas), '')} contact(s) par cas ; {sum(listes)} contacts listés au total."))
-    q.append(("Combien de contacts sont classés à haut risque ?", f"{haut} contacts dans des groupes à risque haut ou très haut."))
-    q.append(("Combien de groupes de contacts n'ont pas encore de classification de risque ?", f"{sans_risque} groupe(s)."))
-    q.append(("Combien de catégories de contacts restent non dénombrées ?", f"{non_den} groupe(s) au nombre inconnu (« ? »)."))
-    q.append(("Où les contacts ont-ils été identifiés (ménages, soins, transports, lieux communautaires) ?",
-              ", ".join(f"{k} : {v}" for k, v in cat.most_common(6)) or "Aucun contact dénombré."))
-    q.append(("Quel pourcentage des contacts listés est suivi ?",
-              f"{_pct(sum(b for _a, b in ls), sum(a for a, _b in ls))} (groupes où le nombre listé et le nombre suivi sont renseignés)."))
-    q.append(("Quel est le taux de vaccination parmi les contacts listés ?",
-              f"{_pct(sum(b for _a, b in lv), sum(a for a, _b in lv))} (colonne « Vaccinés »)."))
-    q.append(("Quel est le délai entre la confirmation et le début de la vaccination de l'anneau ?",
-              f"Médiane {_j(_med(anneau))} ; {_pct(len(anneau), len(cases))} des cas ont un anneau daté."))
-    q.append(("Combien de cas étaient vaccinés ?",
-              f"{_pct(sum(1 for c in vac_cas if c.vaccine == 'Oui'), len(vac_cas))} parmi les cas au statut renseigné."))
+    q.append((tr("Combien de contacts ont été identifiés par cas ?"),
+              trf("Médiane {med} contact(s) par cas ; {n} contacts listés au total.", med=_j(_med(par_cas), ""), n=sum(listes))))
+    q.append((tr("Combien de contacts sont classés à haut risque ?"),
+              trf("{n} contacts dans des groupes à risque haut ou très haut.", n=haut)))
+    q.append((tr("Combien de groupes de contacts n'ont pas encore de classification de risque ?"),
+              trf("{n} groupe(s).", n=sans_risque)))
+    q.append((tr("Combien de catégories de contacts restent non dénombrées ?"),
+              trf("{n} groupe(s) au nombre inconnu (« ? »).", n=non_den)))
+    q.append((tr("Où les contacts ont-ils été identifiés (ménages, soins, transports, lieux communautaires) ?"),
+              ", ".join(f"{tr(k)} : {v}" for k, v in cat.most_common(6)) or tr("Aucun contact dénombré.")))
+    q.append((tr("Quel pourcentage des contacts listés est suivi ?"),
+              trf("{p} (groupes où le nombre listé et le nombre suivi sont renseignés).",
+                  p=_pct(sum(b for _a, b in ls), sum(a for a, _b in ls)))))
+    q.append((tr("Quel est le taux de vaccination parmi les contacts listés ?"),
+              trf("{p} (colonne « Vaccinés »).", p=_pct(sum(b for _a, b in lv), sum(a for a, _b in lv)))))
+    q.append((tr("Quel est le délai entre la confirmation et le début de la vaccination de l'anneau ?"),
+              trf("Médiane {med} ; {p} des cas ont un anneau daté.", med=_j(_med(anneau)), p=_pct(len(anneau), len(cases)))))
+    q.append((tr("Combien de cas étaient vaccinés ?"),
+              trf("{p} parmi les cas au statut renseigné.",
+                  p=_pct(sum(1 for c in vac_cas if c.vaccine == 'Oui'), len(vac_cas)))))
     if cat:
         cc = cat.most_common(8)
-        s.graphiques.append(Graphique("Contacts listés par catégorie", [k for k, _ in cc], {"Contacts": [v for _, v in cc]},
-                                      "contacts", horizontal=True))
+        s.graphiques.append(Graphique(tr("Contacts listés par catégorie"), [tr(k) for k, _ in cc],
+                                      {tr("Contacts"): [v for _, v in cc]}, tr("contacts"), horizontal=True))
     z = _par_zs(cases)
     zn = list(z)[:12]
     suiv, vacc = [], []
@@ -299,18 +334,18 @@ def _contacts(cases: List[Case]) -> Section:
         suiv.append(_ratio(sum(y for _x, y in a), sum(x for x, _y in a)))
         vacc.append(_ratio(sum(y for _x, y in b), sum(x for x, _y in b)))
     if zn:
-        s.graphiques.append(Graphique("Contacts suivis et vaccinés par zone de santé (%)", zn,
-                                      {"Suivis": suiv, "Vaccinés": vacc}, "%"))
+        s.graphiques.append(Graphique(tr("Contacts suivis et vaccinés par zone de santé (%)"), zn,
+                                      {tr("Suivis"): suiv, tr("Vaccinés"): vacc}, "%"))
     if ls and sum(b for _a, b in ls) / max(1, sum(a for a, _b in ls)) < 0.9:
-        s.attention.append("Moins de 90 % des contacts listés sont suivis : risque de cas secondaires non détectés.")
+        s.attention.append(tr("Moins de 90 % des contacts listés sont suivis : risque de cas secondaires non détectés."))
     if non_den:
-        s.attention.append(f"{non_den} groupe(s) de contacts non dénombré(s) : listage incomplet.")
+        s.attention.append(trf("{n} groupe(s) de contacts non dénombré(s) : listage incomplet.", n=non_den))
     return s
 
 
 def _pci(cases: List[Case]) -> Section:
-    s = Section("pci", "Prévention et contrôle des infections (PCI)",
-                "Vérifier que chaque site à risque est évalué, décontaminé et documenté, et que les enterrements sont sécurisés.")
+    s = Section("pci", titre_pilier("pci"),
+                tr("Vérifier que chaque site à risque est évalué, décontaminé et documenté, et que les enterrements sont sécurisés."))
     sites = [(c, x) for c in cases for x in c.ipc]
     st = Counter(x.statut or "Inconnu" for _c, x in sites)
     delais = [(x.date - c.date_confirmation).days for c, x in sites
@@ -321,40 +356,46 @@ def _pci(cases: List[Case]) -> Section:
     ent = [(c, R.enterrement_securise(c)) for c in dc]
     ent = [(c, v) for c, v in ent if v is not None]
     restants = [f"{x.site} ({c.zs})" for c, x in sites if x.statut in ("Non", "Partiel", "Inconnu")]
-    s.kpis = [("Sites PCI documentés", str(len(sites))), ("Décontaminés", _pct(st.get("Décontaminé", 0), len(sites))),
-              ("Délai médian confirmation → décontamination", _j(_med(delais))),
-              ("Enterrements sécurisés", _pct(sum(1 for _c, v in ent if v), len(ent)))]
+    s.kpis = [(tr("Sites PCI documentés"), str(len(sites))),
+              (tr("Décontaminés"), _pct(st.get("Décontaminé", 0), len(sites))),
+              (tr("Délai médian confirmation → décontamination"), _j(_med(delais))),
+              (tr("Enterrements sécurisés"), _pct(sum(1 for _c, v in ent if v), len(ent)))]
     q = s.questions
-    q.append(("Combien de lieux ont été identifiés, et combien de sites ont une évaluation PCI ?",
-              f"{lieux} lieux d'exposition ; {len(sites)} sites PCI documentés."))
-    q.append(("Combien de décontaminations ont été réalisées ?", f"{st.get('Décontaminé', 0)} sites décontaminés ; "
-              f"{st.get('Partiel', 0)} partiels ; {st.get('Non', 0)} non faits."))
-    q.append(("Quel est le taux de réalisation des décontaminations ?", _pct(st.get("Décontaminé", 0), len(sites))))
-    q.append(("Combien de lieux ont un statut PCI inconnu ?", f"{st.get('Inconnu', 0)} site(s)."))
-    q.append(("Quel est le délai médian entre la confirmation et l'intervention PCI ?",
-              f"{_j(_med(delais))} ({len(delais)} décontaminations datées) ; dans les 24 h : "
-              f"{_pct(sum(1 for x in delais if x <= 1), len(delais))}."))
-    q.append(("Combien d'interventions disposent d'une date, d'une équipe et d'un produit documentés ?", _pct(complets, len(sites))))
-    q.append(("Quels sites présentent encore un risque non maîtrisé ?", "; ".join(restants[:10]) or "Aucun site en attente."))
-    q.append(("Les enterrements des cas décédés ont-ils été dignes et sécurisés ?",
-              f"{_pct(sum(1 for _c, v in ent if v), len(ent))} parmi les décès avec une étape « Enterrement »."))
+    q.append((tr("Combien de lieux ont été identifiés, et combien de sites ont une évaluation PCI ?"),
+              trf("{a} lieux d'exposition ; {b} sites PCI documentés.", a=lieux, b=len(sites))))
+    q.append((tr("Combien de décontaminations ont été réalisées ?"),
+              trf("{a} sites décontaminés ; {b} partiels ; {c} non faits.",
+                  a=st.get('Décontaminé', 0), b=st.get('Partiel', 0), c=st.get('Non', 0))))
+    q.append((tr("Quel est le taux de réalisation des décontaminations ?"), _pct(st.get("Décontaminé", 0), len(sites))))
+    q.append((tr("Combien de lieux ont un statut PCI inconnu ?"), trf("{n} site(s).", n=st.get('Inconnu', 0))))
+    q.append((tr("Quel est le délai médian entre la confirmation et l'intervention PCI ?"),
+              trf("{med} ({n} décontaminations datées) ; dans les 24 h : {p}.", med=_j(_med(delais)), n=len(delais),
+                  p=_pct(sum(1 for x in delais if x <= 1), len(delais)))))
+    q.append((tr("Combien d'interventions disposent d'une date, d'une équipe et d'un produit documentés ?"),
+              _pct(complets, len(sites))))
+    q.append((tr("Quels sites présentent encore un risque non maîtrisé ?"),
+              "; ".join(restants[:10]) or tr("Aucun site en attente.")))
+    q.append((tr("Les enterrements des cas décédés ont-ils été dignes et sécurisés ?"),
+              trf("{p} parmi les décès avec une étape « Enterrement ».", p=_pct(sum(1 for _c, v in ent if v), len(ent)))))
     ordre = ["Décontaminé", "Partiel", "Non", "Inconnu"]
-    s.graphiques.append(Graphique("État des sites PCI", ordre, {"Sites": [st.get(k, 0) for k in ordre]}, "sites"))
+    s.graphiques.append(Graphique(tr("État des sites PCI"), [tr(k) for k in ordre],
+                                  {tr("Sites"): [st.get(k, 0) for k in ordre]}, tr("sites")))
     z = _par_zs(cases)
     zn = [k for k in z if any(c.ipc for c in z[k])][:12]
     if zn:
-        series = {k: [sum(1 for c in z[n] for x in c.ipc if (x.statut or "Inconnu") == k) for n in zn] for k in ordre}
-        s.graphiques.append(Graphique("Sites PCI par zone de santé et par état", zn, series, "sites", empile=True))
+        series = {tr(k): [sum(1 for c in z[n] for x in c.ipc if (x.statut or "Inconnu") == k) for n in zn] for k in ordre}
+        s.graphiques.append(Graphique(tr("Sites PCI par zone de santé et par état"), zn, series, tr("sites"), empile=True))
     if restants:
-        s.attention.append(f"{len(restants)} site(s) non décontaminé(s), partiel(s) ou inconnu(s) : à traiter en priorité.")
+        s.attention.append(trf("{n} site(s) non décontaminé(s), partiel(s) ou inconnu(s) : à traiter en priorité.",
+                               n=len(restants)))
     if ent and any(not v for _c, v in ent):
-        s.attention.append("Des enterrements n'ont pas été sécurisés : risque élevé de transmission aux funérailles.")
+        s.attention.append(tr("Des enterrements n'ont pas été sécurisés : risque élevé de transmission aux funérailles."))
     return s
 
 
 def _labo(cases: List[Case]) -> Section:
-    s = Section("labo", "Laboratoire et prise en charge",
-                "Mesurer les délais diagnostiques, l'isolement et le parcours de soins avant la prise en charge.")
+    s = Section("labo", titre_pilier("labo"),
+                tr("Mesurer les délais diagnostiques, l'isolement et le parcours de soins avant la prise en charge."))
     delais_h = []
     for c in cases:
         h = rules.lab_delay_hours(c)
@@ -373,38 +414,45 @@ def _labo(cases: List[Case]) -> Section:
     dc = [c for c in cases if c.issue == "Décès"]
     com = [c for c in dc if R.deces_communautaire(c)]
     seuil = 48
-    s.kpis = [("Cas prélevés", _pct(preleves, len(cases))), ("Délai médian prélèvement → résultat", _j(_med(delais_h), "h")),
-              ("Délai médian début → isolement", _j(_med(iso_d))), ("Décès communautaires", _pct(len(com), len(dc)))]
+    s.kpis = [(tr("Cas prélevés"), _pct(preleves, len(cases))),
+              (tr("Délai médian prélèvement → résultat"), _j(_med(delais_h), "h")),
+              (tr("Délai médian début → isolement"), _j(_med(iso_d))),
+              (tr("Décès communautaires"), _pct(len(com), len(dc)))]
     q = s.questions
-    q.append(("Combien de cas ont été prélevés ?", _pct(preleves, len(cases))))
-    q.append(("Quel est le délai entre le prélèvement et le résultat ?",
-              f"Médiane {_j(_med(delais_h), 'h')} ; en {seuil} h ou moins : {_pct(sum(1 for x in delais_h if x <= seuil), len(delais_h))}."))
-    q.append(("Quel est le délai entre le début des symptômes et l'isolement ?",
-              f"Médiane {_j(_med(iso_d))} ; isolés en 3 jours ou moins : {_pct(sum(1 for x in iso_d if x <= 3), len(iso_d))}."))
-    q.append(("Combien de cas ont été isolés avant ou après la confirmation ?", f"{avant} avant, {apres} après la confirmation."))
-    q.append(("Quel est le nombre médian de consultations avant l'isolement ?",
-              f"{_j(_med(consult), '')} ; {plusieurs} cas ont consulté au moins deux fois avant d'être isolés."))
-    q.append(("Combien de décès sont survenus dans la communauté, sans hospitalisation ?", _pct(len(com), len(dc))))
+    q.append((tr("Combien de cas ont été prélevés ?"), _pct(preleves, len(cases))))
+    q.append((tr("Quel est le délai entre le prélèvement et le résultat ?"),
+              trf("Médiane {med} ; en {seuil} h ou moins : {p}.", med=_j(_med(delais_h), 'h'), seuil=seuil,
+                  p=_pct(sum(1 for x in delais_h if x <= seuil), len(delais_h)))))
+    q.append((tr("Quel est le délai entre le début des symptômes et l'isolement ?"),
+              trf("Médiane {med} ; isolés en 3 jours ou moins : {p}.", med=_j(_med(iso_d)),
+                  p=_pct(sum(1 for x in iso_d if x <= 3), len(iso_d)))))
+    q.append((tr("Combien de cas ont été isolés avant ou après la confirmation ?"),
+              trf("{a} avant, {b} après la confirmation.", a=avant, b=apres)))
+    q.append((tr("Quel est le nombre médian de consultations avant l'isolement ?"),
+              trf("{med} ; {n} cas ont consulté au moins deux fois avant d'être isolés.", med=_j(_med(consult), ''), n=plusieurs)))
+    q.append((tr("Combien de décès sont survenus dans la communauté, sans hospitalisation ?"), _pct(len(com), len(dc))))
     if delais_h:
-        bornes = [(0, 24, "≤ 24 h"), (25, 48, "25 à 48 h"), (49, 72, "49 à 72 h"), (73, 10 ** 6, "> 72 h")]
-        s.graphiques.append(Graphique("Délai prélèvement → résultat", [b[2] for b in bornes],
-                                      {"Cas": [sum(1 for x in delais_h if b[0] <= x <= b[1]) for b in bornes]}, "cas"))
+        bornes = [(0, 24, "≤ 24 h"), (25, 48, tr("25 à 48 h")), (49, 72, tr("49 à 72 h")), (73, 10 ** 6, "> 72 h")]
+        s.graphiques.append(Graphique(tr("Délai prélèvement → résultat"), [b[2] for b in bornes],
+                                      {tr("Cas"): [sum(1 for x in delais_h if b[0] <= x <= b[1]) for b in bornes]}, tr("cas")))
     if iso_d:
-        b2 = [(-10 ** 6, 1, "≤ 1 j"), (2, 3, "2 à 3 j"), (4, 7, "4 à 7 j"), (8, 10 ** 6, "> 7 j")]
-        s.graphiques.append(Graphique("Délai début des symptômes → isolement", [b[2] for b in b2],
-                                      {"Cas": [sum(1 for x in iso_d if b[0] <= x <= b[1]) for b in b2]}, "cas"))
+        b2 = [(-10 ** 6, 1, tr("≤ 1 j")), (2, 3, tr("2 à 3 j")), (4, 7, tr("4 à 7 j")), (8, 10 ** 6, tr("> 7 j"))]
+        s.graphiques.append(Graphique(tr("Délai début des symptômes → isolement"), [b[2] for b in b2],
+                                      {tr("Cas"): [sum(1 for x in iso_d if b[0] <= x <= b[1]) for b in b2]}, tr("cas")))
     if delais_h and _med(delais_h) > seuil:
-        s.attention.append(f"Délai médian de résultat de {_j(_med(delais_h), 'h')} : au-delà de {seuil} h.")
+        s.attention.append(trf("Délai médian de résultat de {med} : au-delà de {seuil} h.", med=_j(_med(delais_h), 'h'),
+                               seuil=seuil))
     if com:
-        s.attention.append(f"{len(com)} décès communautaire(s) : cas détectés trop tard.")
+        s.attention.append(trf("{n} décès communautaire(s) : cas détectés trop tard.", n=len(com)))
     if plusieurs:
-        s.attention.append(f"{plusieurs} cas ont consulté plusieurs structures avant l'isolement : exposition des soignants.")
+        s.attention.append(trf("{n} cas ont consulté plusieurs structures avant l'isolement : exposition des soignants.",
+                               n=plusieurs))
     return s
 
 
 def _actions(cases: List[Case], ref: date) -> Section:
-    s = Section("actions", "Actions et coordination",
-                "Suivre ce qui a été prescrit à partir des mappings : responsable, échéance, réalisation et retards, par pilier.")
+    s = Section("actions", titre_pilier("actions"),
+                tr("Suivre ce qui a été prescrit à partir des mappings : responsable, échéance, réalisation et retards, par pilier."))
     acts = [(c, a) for c in cases for a in c.actions if a.texte.strip()]
     n = len(acts)
     resp = sum(1 for _c, a in acts if a.responsable.strip())
@@ -418,47 +466,51 @@ def _actions(cases: List[Case], ref: date) -> Section:
     par_p = defaultdict(lambda: Counter())
     for _c, a in acts:
         par_p[pilier_action(a)][a.statut] += 1
-    s.kpis = [("Actions prescrites", str(n)), ("Réalisées", _pct(faites, n)), ("En retard", str(len(retard))),
-              ("Urgentes ouvertes", str(len(crit)))]
+    s.kpis = [(tr("Actions prescrites"), str(n)), (tr("Réalisées"), _pct(faites, n)), (tr("En retard"), str(len(retard))),
+              (tr("Urgentes ouvertes"), str(len(crit)))]
     q = s.questions
-    q.append(("Combien d'actions ont été générées, et combien en moyenne par cas ?",
-              f"{n} actions ; {n / len(cases):.1f} par cas." if cases else "Aucun cas."))
-    q.append(("Combien d'actions concernent chaque pilier ?",
-              ", ".join(f"{p} : {sum(v.values())}" for p, v in sorted(par_p.items(), key=lambda kv: -sum(kv[1].values())))
-              or "Aucune action."))
-    q.append(("Combien d'actions ont un responsable identifié ?", _pct(resp, n)))
-    q.append(("Combien ont une échéance définie ?", _pct(ech, n)))
-    q.append(("Combien sont en attente, en cours ou réalisées ?", f"{n - faites - cours} à faire, {cours} en cours, {faites} faites."))
-    q.append(("Combien sont en retard ?", f"{len(retard)} action(s) non faites dont l'échéance est dépassée."))
-    q.append(("Combien d'actions critiques (urgentes) sont ouvertes, et combien sans responsable ?",
-              f"{len(crit)} ouvertes, dont {crit_sans} sans responsable."))
-    q.append(("Combien de cas présentent au moins une action critique non résolue ?", _pct(cas_crit, len(cases))))
+    q.append((tr("Combien d'actions ont été générées, et combien en moyenne par cas ?"),
+              trf("{n} actions ; {m} par cas.", n=n, m=f"{n / len(cases):.1f}")
+              if cases else tr("Aucun cas.")))
+    q.append((tr("Combien d'actions concernent chaque pilier ?"),
+              ", ".join(f"{tr(p)} : {sum(v.values())}" for p, v in sorted(par_p.items(), key=lambda kv: -sum(kv[1].values())))
+              or tr("Aucune action.")))
+    q.append((tr("Combien d'actions ont un responsable identifié ?"), _pct(resp, n)))
+    q.append((tr("Combien ont une échéance définie ?"), _pct(ech, n)))
+    q.append((tr("Combien sont en attente, en cours ou réalisées ?"),
+              trf("{a} à faire, {b} en cours, {c} faites.", a=n - faites - cours, b=cours, c=faites)))
+    q.append((tr("Combien sont en retard ?"), trf("{n} action(s) non faites dont l'échéance est dépassée.", n=len(retard))))
+    q.append((tr("Combien d'actions critiques (urgentes) sont ouvertes, et combien sans responsable ?"),
+              trf("{a} ouvertes, dont {b} sans responsable.", a=len(crit), b=crit_sans)))
+    q.append((tr("Combien de cas présentent au moins une action critique non résolue ?"), _pct(cas_crit, len(cases))))
     sans_preuve = sum(1 for _c, a in acts if a.statut == "Fait" and not a.preuve.strip())
     verif = sum(1 for _c, a in acts if a.statut == "Fait" and a.valide_par.strip())
     bloq = Counter(a.obstacle for _c, a in acts if a.statut != "Fait" and a.obstacle)
-    q.append(("Combien d'actions réalisées ont été vérifiées par un superviseur ?", _pct(verif, faites)))
-    q.append(("Combien d'actions sont déclarées réalisées sans preuve ?", f"{sans_preuve} sur {faites} réalisées."))
-    q.append(("Quels obstacles bloquent ou retardent les actions (sécurité, communauté, intrants…) ?",
-              ", ".join(f"{k} : {v}" for k, v in bloq.most_common()) or "Aucun obstacle signalé."))
+    q.append((tr("Combien d'actions réalisées ont été vérifiées par un superviseur ?"), _pct(verif, faites)))
+    q.append((tr("Combien d'actions sont déclarées réalisées sans preuve ?"),
+              trf("{a} sur {b} réalisées.", a=sans_preuve, b=faites)))
+    q.append((tr("Quels obstacles bloquent ou retardent les actions (sécurité, communauté, intrants…) ?"),
+              ", ".join(f"{tr(k)} : {v}" for k, v in bloq.most_common()) or tr("Aucun obstacle signalé.")))
     piliers = [p for p in theme.PILIERS if p in par_p]
     if piliers:
-        s.graphiques.append(Graphique("Actions par pilier et par statut", piliers,
-                                      {st: [par_p[p].get(st, 0) for p in piliers] for st in theme.ACTION_STATUS_CHOICES},
-                                      "actions", horizontal=True, empile=True))
+        s.graphiques.append(Graphique(tr("Actions par pilier et par statut"), [tr(p) for p in piliers],
+                                      {tr(st): [par_p[p].get(st, 0) for p in piliers] for st in theme.ACTION_STATUS_CHOICES},
+                                      tr("actions"), horizontal=True, empile=True))
     if retard:
         rows = sorted(retard, key=lambda x: x[1].echeance)[:15]
-        s.tableaux.append(("Actions en retard (les plus anciennes)", ["Cas", "ZS", "Action", "Pilier", "Responsable", "Échéance"],
-                           [[_code(c), c.zs, a.texte, pilier_action(a), a.responsable or "à désigner",
+        s.tableaux.append((tr("Actions en retard (les plus anciennes)"),
+                           [tr("Cas"), _zs(), tr("Action"), tr("Pilier"), tr("Responsable"), tr("Échéance")],
+                           [[_code(c), c.zs, a.texte, tr(pilier_action(a)), a.responsable or tr("à désigner"),
                              f"{a.echeance:%d/%m/%Y}"] for c, a in rows]))
-        s.attention.append(f"{len(retard)} action(s) en retard à relancer en réunion de coordination.")
+        s.attention.append(trf("{n} action(s) en retard à relancer en réunion de coordination.", n=len(retard)))
     if crit_sans:
-        s.attention.append(f"{crit_sans} action(s) urgente(s) sans responsable.")
+        s.attention.append(trf("{n} action(s) urgente(s) sans responsable.", n=crit_sans))
     return s
 
 
 def _qualite(cases: List[Case], brouillons: int, doublons: int) -> Section:
-    s = Section("qualite", "Qualité des données",
-                "S'assurer que les mappings sont assez complets et cohérents pour orienter les opérations.")
+    s = Section("qualite", titre_pilier("qualite"),
+                tr("S'assurer que les mappings sont assez complets et cohérents pour orienter les opérations."))
     comp = [rules.completeness(c) for c in cases]
     scores = [x[0] for x in comp]
     manq = Counter(m.split(" :")[0] for _s, ms in comp for m in ms)
@@ -469,32 +521,36 @@ def _qualite(cases: List[Case], brouillons: int, doublons: int) -> Section:
                 incoh[c.id] += 1
     lieux = [p for c in cases for p in c.places]
     geo = sum(1 for p in lieux if p.lat is not None and p.lon is not None)
-    s.kpis = [("Complétude moyenne", f"{sum(scores) / len(scores):.0f} %" if scores else "?"),
-              ("Fiches complètes à 90 % ou plus", _pct(sum(1 for x in scores if x >= 90), len(scores))),
-              ("Fiches avec incohérence", _pct(len(incoh), len(cases))), ("Lieux géolocalisés", _pct(geo, len(lieux)))]
+    moy = f"{sum(scores) / len(scores):.0f}{'%' if _en() else ' %'}" if scores else "?"
+    s.kpis = [(tr("Complétude moyenne"), moy),
+              (tr("Fiches complètes à 90 % ou plus"), _pct(sum(1 for x in scores if x >= 90), len(scores))),
+              (tr("Fiches avec incohérence"), _pct(len(incoh), len(cases))), (tr("Lieux géolocalisés"), _pct(geo, len(lieux)))]
     q = s.questions
-    q.append(("Quel est le taux moyen de complétude des mappings ?", s.kpis[0][1]))
-    q.append(("Combien de mappings ont une complétude supérieure ou égale à 90 % ?", s.kpis[1][1]))
-    q.append(("Quelles variables sont le plus souvent manquantes ?",
-              ", ".join(f"{k} ({v})" for k, v in manq.most_common(6)) or "Aucune."))
-    q.append(("Combien de fiches présentent des dates incohérentes ?", f"{len(incoh)} fiche(s) avec au moins une incohérence bloquante."))
-    q.append(("Quelle proportion des lieux est géolocalisée ?", s.kpis[3][1]))
-    q.append(("Combien de cas disposent de plusieurs mappings potentiellement dupliqués ?", f"{doublons} paire(s) de doublons possibles."))
-    q.append(("Combien de mappings sont restés en brouillon ?", f"{brouillons}."))
+    q.append((tr("Quel est le taux moyen de complétude des mappings ?"), s.kpis[0][1]))
+    q.append((tr("Combien de mappings ont une complétude supérieure ou égale à 90 % ?"), s.kpis[1][1]))
+    q.append((tr("Quelles variables sont le plus souvent manquantes ?"),
+              ", ".join(f"{tr(k)} ({v})" for k, v in manq.most_common(6)) or tr("Aucune.")))
+    q.append((tr("Combien de fiches présentent des dates incohérentes ?"),
+              trf("{n} fiche(s) avec au moins une incohérence bloquante.", n=len(incoh))))
+    q.append((tr("Quelle proportion des lieux est géolocalisée ?"), s.kpis[3][1]))
+    q.append((tr("Combien de cas disposent de plusieurs mappings potentiellement dupliqués ?"),
+              trf("{n} paire(s) de doublons possibles.", n=doublons)))
+    q.append((tr("Combien de mappings sont restés en brouillon ?"), f"{brouillons}."))
     if manq:
         mm = manq.most_common(8)
-        s.graphiques.append(Graphique("Éléments le plus souvent manquants", [k for k, _ in mm], {"Fiches": [v for _, v in mm]},
-                                      "fiches", horizontal=True))
+        s.graphiques.append(Graphique(tr("Éléments le plus souvent manquants"), [tr(k) for k, _ in mm],
+                                      {tr("Fiches"): [v for _, v in mm]}, tr("fiches"), horizontal=True))
     z = _par_zs(cases)
     zn = list(z)[:12]
     if zn:
-        s.graphiques.append(Graphique("Complétude moyenne par zone de santé (%)", zn,
-                                      {"Complétude": [round(sum(rules.completeness(c)[0] for c in z[k]) / len(z[k])) for k in zn]},
+        s.graphiques.append(Graphique(tr("Complétude moyenne par zone de santé (%)"), zn,
+                                      {tr("Complétude"): [round(sum(rules.completeness(c)[0] for c in z[k]) / len(z[k]))
+                                                          for k in zn]},
                                       "%"))
     if scores and sum(scores) / len(scores) < 80:
-        s.attention.append("Complétude moyenne sous 80 % : renforcer la supervision des fiches.")
+        s.attention.append(tr("Complétude moyenne sous 80 % : renforcer la supervision des fiches."))
     if incoh:
-        s.attention.append(f"{len(incoh)} fiche(s) avec des dates incohérentes à corriger.")
+        s.attention.append(trf("{n} fiche(s) avec des dates incohérentes à corriger.", n=len(incoh)))
     return s
 
 
@@ -536,10 +592,12 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
             secs.append(_actions(cases, fin))
         elif k == "qualite":
             secs.append(_qualite(cases, brouillons, len(find_dbl(cases))))
-    resume = [f"{len(cases)} cas notifiés du {debut:%d/%m/%Y} au {fin:%d/%m/%Y}"
-              f"{' en ' + province if province else ''} ({total} cas au total dans le périmètre)."]
+    lieu = trf(" en {province}", province=province) if province else ""
+    resume = [trf("{n} cas notifiés du {debut} au {fin}{lieu} ({total} cas au total dans le périmètre).",
+                  n=len(cases), debut=f"{debut:%d/%m/%Y}", fin=f"{fin:%d/%m/%Y}", lieu=lieu, total=total)]
     for s_ in secs:
         resume += s_.attention[:1]
     if len(resume) == 1:
-        resume.append("Aucun point d'attention majeur sur la période.")
-    return Rapport(debut, fin, province, perimetre, len(cases), total, secs, resume[:7], NON_COUVERTS)
+        resume.append(tr("Aucun point d'attention majeur sur la période."))
+    non_couverts = [(tr(a), tr(q), tr(d)) for a, q, d in NON_COUVERTS]
+    return Rapport(debut, fin, province, perimetre, len(cases), total, secs, resume[:7], non_couverts)

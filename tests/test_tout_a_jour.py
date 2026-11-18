@@ -198,15 +198,26 @@ def test_champs_obligatoires(app):
 
 def test_carte_contours():
     from core import geo
-    g = geo.charger()
-    assert len(g["aires"]) == 661 and g["limites_zs"] and "Nord-Kivu" in g["provinces"]
-    assert geo.trouver_aire("Nord-Kivu", "Katwa", "vighole")
+    n = geo.niveaux()
+    assert len(n["provinces"]) == 26 and len(n["zones"]) == 519
+    assert len(geo.aires_province("Nord-Kivu")) == 661
+    assert geo.trouver_aire("Nord-Kivu", "Katwa", "vighole") and geo.trouver_aire("", "Katwa", "Vighole")
+    assert geo.trouver_zone("", "Beni")["p"] == "Nord-Kivu"
     c = _cas("RDC-NOK-KAT-26-001", zs="Katwa")
     c.province, c.aire_sante = "Nord-Kivu", "Vighole"
     ct = CARTE.construire([c], {})
     assert ct.points[0].source == "aire de santé"
     s = CARTE.svg(ct, REF)
-    assert "<path" in s and "KATWA" in s and "GRID3" in s
+    assert "<path" in s and "Zone de santé Katwa" in s and "VIGHOLE" in s and "GRID3" in s
+    nat = CARTE.svg_niveau(ct, "national", ref=REF, lien=lambda n, p, z: f"?niveau={n}&province={p}&zs={z}")
+    assert "NORD-KIVU" in nat and "?niveau=province&amp;province=Nord-Kivu" in nat and "1 cas placés" in nat
+    prov = CARTE.svg_niveau(ct, "province", "Nord-Kivu", ref=REF, lien=lambda n, p, z: f"?niveau={n}&zs={z}")
+    assert "KATWA" in prov and "?niveau=zone&amp;zs=Beni" in prov
+    zone = CARTE.svg_niveau(ct, "zone", "Nord-Kivu", "Katwa", ref=REF)
+    assert "VIGHOLE" in zone
+    from core.langue import utiliser
+    with utiliser("en"):
+        assert "cases by province" in CARTE.svg_niveau(ct, "national", ref=REF)
 
 
 

@@ -86,6 +86,7 @@ class Point:
     dernier: Optional[date] = None
     source: str = ""
     aire_geo: Optional[dict] = None
+    province: str = ""
 
 
 @dataclass
@@ -114,14 +115,15 @@ def construire(cases: List[Case], coords=None) -> Carte:
             ll = coords.get((prov, zs, aire)) or coords[("", zs, aire)]
             key, nom, src = ("as", zs, aire), c.aire_sante, "aire de santé"
         else:
-            cand = par_zs.get((prov, zs)) or par_zs.get(("", zs)) or [
-                (x["c"][1], x["c"][0]) for x in geo.charger()["aires"] if _k(x["z"])[0] == zs]
+            zg = geo.trouver_zone(c.province, c.zs) if c.zs else None
+            cand = par_zs.get((prov, zs)) or par_zs.get(("", zs)) or ([(zg["c"][1], zg["c"][0])] if zg else [])
             if not cand:
                 sans.append(c)
                 continue
             ll = (sum(x for x, _ in cand) / len(cand), sum(y for _, y in cand) / len(cand))
             key, nom, src = ("zs", zs), f"ZS {c.zs}", "centre de la ZS"
-        p = pts.setdefault(key, Point(ll[0], ll[1], nom, (ga or {}).get("z") or c.zs, source=src))
+        p = pts.setdefault(key, Point(ll[0], ll[1], nom, (ga or {}).get("z") or c.zs, source=src,
+                                      province=(ga or {}).get("p") or c.province or (geo.provinces_de_zone(c.zs) or [""])[0]))
         if ga:
             p.aire_geo = ga
         p.cas.append(c)
@@ -137,100 +139,194 @@ def couleur(jours: Optional[int]) -> str:
     return theme.RED if jours <= 7 else theme.ORANGE if jours <= 21 else theme.YELLOW if jours <= 42 else theme.GREEN
 
 
-def svg(carte: Carte, ref: Optional[date] = None, width: int = 980, height: int = 640, vue: str = "cas") -> str:
-    """Carte des cas : sur les contours des aires de santé quand ils sont connus, sinon sur un quadrillage."""
+def svg(carte: Carte, ref: Optional[date] = None, width: int = 980, height: int = 640, vue: str = "cas",
+        niveau: str = "", province: str = "", zs: str = "", lien=None) -> str:
+    """Carte des cas : nationale (provinces), d'une province (zones de santé) ou d'une zone (aires de santé),
+    sur les contours réels ; sans contours, sur un quadrillage."""
     ref = ref or date.today()
-    G = geo.charger()
-    if G["aires"] and carte.points:
-        return _svg_contours(carte, ref, G, width, height, vue)
+    if geo.niveaux()["provinces"]:
+        if not niveau:          # ancien appel : vue autour des cas
+            provs = sorted({p.province for p in carte.points if p.province})
+            zss = sorted({(p.province, p.zs) for p in carte.points if p.province})
+            niveau, province, zs = (("zone", zss[0][0], zss[0][1]) if len(zss) == 1 else
+                                    ("province", provs[0], "") if len(provs) == 1 else ("national", "", ""))
+        return svg_niveau(carte, niveau, province, zs, ref, lien=lien)
     return _svg_simple(carte, ref, width, height)
 
 
-def _svg_contours(carte: Carte, ref: date, G: dict, width: int, height: int, vue: str) -> str:
+def _recence(cas: List[Case], ref: date) -> Optional[int]:
+    """Jours depuis le dernier cas notifié du groupe (None si aucune date)."""
+    ds = [d for d in (IND.date_notification(c)[0] for c in cas) if d]
+    return (ref - max(ds)).days if ds else None
+
+
+def svg_niveau(carte: Carte, niveau: str, province: str = "", zs: str = "", ref: Optional[date] = None,
+               width: int = 1000, height: int = 700, lien=None) -> str:
+    """niveau « national » : provinces ; « province » : zones de santé de la province ; « zone » : aires de santé.
+    Couleur : délai depuis le dernier cas notifié. `lien(niveau, province, zs)` → adresse du niveau inférieur."""
     import math
+    from core.langue import tr, trf
     e = html.escape
+    ref = ref or date.today()
+    N = geo.niveaux()
+    cp, cz = _k(province)[0], _k(zs)[0]
     pts = carte.points
-    # étendue : aires et points des cas (+ marge), ou provinces entières
-    if vue == "province":
-        provs = {_k(p.aire_geo["p"])[0] for p in pts if p.aire_geo} or {_k(a["p"])[0] for a in G["aires"]}
-        bbs = [a["bb"] for a in G["aires"] if _k(a["p"])[0] in provs]
+    if niveau == "zone":
+        zone = geo.trouver_zone(province, zs)
+        aires = [a for a in geo.aires_province(province) if _k(a["z"])[0] == cz]
+        formes = [{"nom": a["a"], "anneaux": [r for poly in a["polys"] for r in poly], "c": a["c"], "bb": a["bb"],
+                   "cle": (_k(a["z"])[0], _k(a["a"])[0])} for a in aires]
+        cadre = [zone] if zone else []
+        groupe = lambda p: (_k(p.aire_geo["z"])[0], _k(p.aire_geo["a"])[0]) if p.aire_geo else None
+        pts = [p for p in pts if _k(p.zs)[0] == cz and (not cp or _k(p.province)[0] == cp)]
+    elif niveau == "province":
+        zones = [z for z in N["zones"] if _k(z["p"])[0] == cp]
+        formes = [{"nom": z["z"], "anneaux": z["r"], "c": z["c"], "bb": z["bb"], "cle": _k(z["z"])[0]} for z in zones]
+        cadre = [x for x in N["provinces"] if _k(x["p"])[0] == cp]
+        groupe = lambda p: _k(p.zs)[0]
+        pts = [p for p in pts if _k(p.province)[0] == cp]
     else:
-        bbs = [p.aire_geo["bb"] for p in pts if p.aire_geo] + [[p.lon, p.lat, p.lon, p.lat] for p in pts]
-    x0 = min(b[0] for b in bbs); y0 = min(b[1] for b in bbs)
-    x1 = max(b[2] for b in bbs); y1 = max(b[3] for b in bbs)
-    marge = 0.04 if vue == "province" else max(0.12, 0.25 * max(x1 - x0, y1 - y0))
-    x0, y0, x1, y1 = x0 - marge, y0 - marge, x1 + marge, y1 + marge
+        niveau = "national"
+        formes = [{"nom": x["p"], "anneaux": x["r"], "c": x["c"], "bb": x["bb"], "cle": _k(x["p"])[0]}
+                  for x in N["provinces"]]
+        cadre = []
+        groupe = lambda p: _k(p.province)[0]
+    if not formes:
+        return '<p class="muted">' + e(tr("Contours introuvables pour ce niveau.")) + "</p>"
+    par_forme: Dict = {}
+    for p in pts:
+        g = groupe(p)
+        if g is not None:
+            par_forme.setdefault(g, []).extend(p.cas)
+    x0 = min(f["bb"][0] for f in formes); y0 = min(f["bb"][1] for f in formes)
+    x1 = max(f["bb"][2] for f in formes); y1 = max(f["bb"][3] for f in formes)
+    m = 0.02 * max(x1 - x0, y1 - y0)
+    x0, y0, x1, y1 = x0 - m, y0 - m, x1 + m, y1 + m
     k = math.cos(math.radians((y0 + y1) / 2))
-    s = min((width - 20) / ((x1 - x0) * k), (height - 20) / (y1 - y0))
+    haut = 46
+    s = min((width - 24) / ((x1 - x0) * k), (height - haut - 24) / (y1 - y0))
     ox = (width - s * (x1 - x0) * k) / 2
-    oy = (height - s * (y1 - y0)) / 2
+    oy = haut + (height - haut - s * (y1 - y0)) / 2
 
     def P(lon, lat):
         return ox + (lon - x0) * k * s, oy + (y1 - lat) * s
 
     def chemin(anneaux):
-        d = []
-        for r in anneaux:
-            d.append("M" + "L".join(f"{P(x, y)[0]:.1f} {P(x, y)[1]:.1f}" for x, y in r) + "Z")
-        return "".join(d)
+        return "".join("M" + "L".join(f"{P(x, y)[0]:.1f} {P(x, y)[1]:.1f}" for x, y in r) + "Z" for r in anneaux)
 
-    # aires touchées : dernier cas notifié
-    touchees: Dict[int, Point] = {}
-    for p in pts:
-        if p.aire_geo:
-            touchees[id(p.aire_geo)] = p
-    visibles = [a for a in G["aires"] if a["bb"][2] >= x0 and a["bb"][0] <= x1 and a["bb"][3] >= y0 and a["bb"][1] <= y1]
-    out = [f'<svg class="carte-svg" viewBox="0 0 {width} {height}" width="100%" style="max-width:{width}px; '
-           f'font-family:{e(theme.FONT_STACK)}; background:#EEF3F7; border-radius:10px; touch-action:none" role="img" '
-           f'aria-label="Carte des cas"><g class="carte-zoom">']
-    for a in visibles:
-        p = touchees.get(id(a))
-        if p:
-            j = (ref - p.dernier).days if p.dernier else None
-            fill, op = couleur(j), ".55"
-            titre = f"{a['a']} (ZS {a['z']}) : {len(p.cas)} cas ; dernier cas notifié " + (
-                f"{p.dernier:%d/%m/%Y}" if p.dernier else "?")
-        else:
-            fill, op, titre = "#FFFFFF", "1", f"{a['a']} (ZS {a['z']})"
-        out.append(f'<path d="{"".join(chemin(poly) for poly in a["polys"])}" fill="{fill}" fill-opacity="{op}" '
-                   f'stroke="#9AA8B6" stroke-width=".5" vector-effect="non-scaling-stroke" fill-rule="evenodd"><title>{e(titre)}</title></path>')
-    for l in G["limites_zs"]:
-        if any(x0 <= x <= x1 and y0 <= y <= y1 for x, y in l[:: max(1, len(l) // 8)] + [l[-1]]):
-            out.append('<polyline points="' + " ".join(f"{P(x, y)[0]:.1f},{P(x, y)[1]:.1f}" for x, y in l)
-                       + '" fill="none" stroke="#3E5368" stroke-width="1.6" stroke-linejoin="round" '
-                       'vector-effect="non-scaling-stroke"/>')
-    # noms des zones de santé (centre de leurs aires visibles)
-    zones: Dict[str, List[Tuple[float, float]]] = {}
-    for a in visibles:
-        zones.setdefault(a["z"], []).append(P(*a["c"]))
-    zs_cas = {_k(p.zs)[0] for p in pts}
-    for z, xy in zones.items():
-        cx, cy = sum(x for x, _ in xy) / len(xy), sum(y for _, y in xy) / len(xy)
-        fort = _k(z)[0] in zs_cas
-        out.append(f'<text class="fixe" data-x="{cx:.1f}" data-y="{cy:.1f}" x="{cx:.1f}" y="{cy:.1f}" '
-                   f'font-size="{12 if fort else 10}" text-anchor="middle" '
-                   f'font-weight="{750 if fort else 500}" fill="{"#1F3A5F" if fort else "#6B7785"}" paint-order="stroke" '
-                   f'stroke="#fff" stroke-width="3" style="pointer-events:none">{e(z.upper() if fort else z)}</text>')
-    # cas : nombre au centre de l'aire (ou au point GPS)
-    for p in sorted(pts, key=lambda p: -len(p.cas)):
-        x, y = P(p.lon, p.lat)
-        j = (ref - p.dernier).days if p.dernier else None
-        r = 7 + 3.2 * (len(p.cas) ** 0.5)
-        dc = sum(1 for c in p.cas if c.issue == "Décès")
-        codes = ", ".join(c.code_cas or "?" for c in p.cas[:12]) + (" …" if len(p.cas) > 12 else "")
-        quand = f"dernier cas notifié {p.dernier:%d/%m/%Y}" if p.dernier else "date inconnue"
-        out.append(f'<g class="fixe" data-x="{x:.1f}" data-y="{y:.1f}"><circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{couleur(j)}" stroke="#fff" stroke-width="1.6"/>'
-                   f'<text x="{x:.1f}" y="{y + 4:.1f}" font-size="11" font-weight="750" text-anchor="middle" fill="#fff">'
-                   f'{len(p.cas)}</text><title>{e(p.nom)} (ZS {e(p.zs)}) : {len(p.cas)} cas, {dc} décès ; {quand} ; '
-                   f'position : {e(p.source)}\n{e(codes)}</title></g>')
-    out.append("</g></svg>")
-    leg = "".join(f'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'
-                  f'<span style="width:12px;height:12px;border-radius:3px;background:{c}"></span>{t}</span>'
-                  for c, t in ((theme.RED, "dernier cas ≤ 7 j"), (theme.ORANGE, "8 à 21 j"), (theme.YELLOW, "22 à 42 j"),
-                               (theme.GREEN, "plus de 42 j")))
-    return ("".join(out) + f'<div style="font-size:12.5px;margin-top:6px">{leg} · chiffre : nombre de cas · traits épais : '
-            "limites des zones de santé · molette ou pincement pour zoomer, glisser pour déplacer</div>"
-            '<div class="muted" style="font-size:11.5px">Contours des aires de santé : GRID3 / CIESIN, simplifiés.</div>')
+    titre = {"national": tr("République démocratique du Congo : cas par province"),
+             "province": trf("Province {p} : cas par zone de santé", p=province),
+             "zone": trf("Zone de santé {z} ({p}) : cas par aire de santé", z=zs, p=province)}[niveau]
+    n_cas = sum(len(v) for v in par_forme.values())
+    sous = trf("{n} cas placés", n=n_cas) + " · " + tr("couleur : délai depuis le dernier cas notifié")
+    out = [f'<svg class="carte-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="100%" '
+           f'style="max-width:{width}px; font-family:{e(theme.FONT_STACK)}; background:#F4F7FA; border-radius:10px; '
+           f'touch-action:none" role="img" aria-label="{e(titre)}">',
+           f'<rect width="{width}" height="{height}" fill="#F4F7FA"/>',
+           f'<text x="18" y="24" font-size="17" font-weight="800" fill="#1F3A5F">{e(titre)}</text>',
+           f'<text x="18" y="40" font-size="11.5" fill="#4A5868">{e(sous)}</text>',
+           '<g class="carte-zoom">']
+    for f in formes:
+        cas = par_forme.get(f["cle"], [])
+        j = _recence(cas, ref) if cas else None
+        fill = couleur(j) if cas else "#FFFFFF"
+        op = ".62" if cas else "1"
+        info = f"{f['nom']} : " + (trf("{n} cas", n=len(cas)) + (
+            " ; " + trf("dernier cas notifié il y a {j} j", j=j) if j is not None else "") if cas else tr("aucun cas"))
+        url = None
+        if lien and niveau == "national":
+            url = lien("province", f["nom"], "")
+        elif lien and niveau == "province":
+            url = lien("zone", province, f["nom"])
+        forme = (f'<path d="{chemin(f["anneaux"])}" fill="{fill}" fill-opacity="{op}" stroke="#8796A6" '
+                 f'stroke-width="{1.1 if niveau == "national" else .8}" vector-effect="non-scaling-stroke" '
+                 f'fill-rule="evenodd"><title>{e(info)}</title></path>')
+        out.append(f'<a href="{e(url)}" class="carte-lien">{forme}</a>' if url else forme)
+    for c in cadre:          # contour du niveau supérieur
+        out.append(f'<path d="{chemin(c["r"])}" fill="none" stroke="#1F3A5F" stroke-width="2.4" '
+                   'vector-effect="non-scaling-stroke" fill-rule="evenodd" style="pointer-events:none"/>')
+    # ronds chiffrés : par forme (national, province) ou par aire / point GPS (zone)
+    ronds = []
+    if niveau == "zone":
+        for p in pts:
+            x, y = P(p.lon, p.lat)
+            ronds.append({"x": x, "y": y, "cas": p.cas, "nom": p.nom})
+    else:
+        for f in formes:
+            cas = par_forme.get(f["cle"], [])
+            if cas:
+                x, y = P(*f["c"])
+                ronds.append({"x": x, "y": y, "cas": cas, "nom": f["nom"]})
+    for r in ronds:
+        r["r"] = 8 + 3.4 * (len(r["cas"]) ** 0.5)
+    for _ in range(40):           # ronds voisins : écartés pour ne pas se recouvrir
+        bouge = False
+        for a in range(len(ronds)):
+            for b in range(a + 1, len(ronds)):
+                A, B = ronds[a], ronds[b]
+                dx, dy = B["x"] - A["x"], B["y"] - A["y"]
+                d = math.hypot(dx, dy) or 0.01
+                mini = A["r"] + B["r"] + 3
+                if d < mini:
+                    pousse = (mini - d) / 2
+                    ux, uy = (dx / d, dy / d) if d > 0.01 else (1.0, 0.0)
+                    A["x"] -= ux * pousse; A["y"] -= uy * pousse
+                    B["x"] += ux * pousse; B["y"] += uy * pousse
+                    bouge = True
+        if not bouge:
+            break
+    # noms des formes sans cas (au centre, si la forme est assez grande et si la place est libre)
+    avec_cas = {r["nom"] for r in ronds}
+    pris = []
+    for R in ronds:
+        lw = len(R["nom"]) * 12 * 0.62 / 2
+        pris.append((R["x"] - max(R["r"], lw), R["y"] - R["r"] - 18, R["x"] + max(R["r"], lw), R["y"] + R["r"]))
+
+    def libre(b):
+        return all(b[2] < q[0] or b[0] > q[2] or b[3] < q[1] or b[1] > q[3] for q in pris)
+    for f in formes:
+        if f["nom"] in avec_cas or par_forme.get(f["cle"]):
+            continue
+        x, y = P(*f["c"])
+        w_px = (f["bb"][2] - f["bb"][0]) * k * s
+        taille = 10.5 if niveau != "zone" else 9.5
+        lw = len(f["nom"]) * taille * 0.56
+        if lw > w_px * 0.95:
+            continue
+        boite = (x - lw / 2, y - taille, x + lw / 2, y + 4)
+        if not libre(boite):
+            continue
+        pris.append(boite)
+        out.append(f'<text class="fixe" data-x="{x:.1f}" data-y="{y:.1f}" x="{x:.1f}" y="{y + 3:.1f}" font-size="{taille}" '
+                   f'text-anchor="middle" font-weight="500" fill="#5F6B7A" paint-order="stroke" stroke="#fff" '
+                   f'stroke-width="3" style="pointer-events:none">{e(f["nom"])}</text>')
+    # ronds et noms en gras au-dessus de chaque rond
+    for R in sorted(ronds, key=lambda r: -len(r["cas"])):
+        x, y, r, cas = R["x"], R["y"], R["r"], R["cas"]
+        j = _recence(cas, ref)
+        dc = sum(1 for c in cas if c.issue == "Décès")
+        codes = ", ".join(c.code_cas or "?" for c in cas[:12]) + (" …" if len(cas) > 12 else "")
+        info = f"{R['nom']} : " + trf("{n} cas, {d} décès", n=len(cas), d=dc) + f"\n{codes}"
+        out.append(f'<g class="fixe" data-x="{x:.1f}" data-y="{y:.1f}" style="pointer-events:none">'
+                   f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="{couleur(j)}" stroke="#fff" stroke-width="2"/>'
+                   f'<text x="{x:.1f}" y="{y + 4:.1f}" font-size="11.5" font-weight="800" text-anchor="middle" fill="#fff">'
+                   f'{len(cas)}</text>'
+                   f'<text x="{x:.1f}" y="{y - r - 4:.1f}" font-size="{12 if niveau != "zone" else 11}" font-weight="800" '
+                   f'text-anchor="middle" fill="#13243A" paint-order="stroke" stroke="#fff" stroke-width="3.2">'
+                   f'{e(R["nom"].upper())}</text><title>{e(info)}</title></g>')
+    out.append("</g>")
+    # légende (dans l'image, pour le téléchargement)
+    ly = height - 14
+    lx = 18
+    for c, t in ((theme.RED, tr("dernier cas ≤ 7 j")), (theme.ORANGE, tr("8 à 21 j")), (theme.YELLOW, tr("22 à 42 j")),
+                 (theme.GREEN, tr("plus de 42 j")), ("#FFFFFF", tr("aucun cas"))):
+        out.append(f'<rect x="{lx}" y="{ly - 10}" width="12" height="12" rx="3" fill="{c}" fill-opacity=".8" '
+                   f'stroke="#8796A6" stroke-width=".8"/><text x="{lx + 17}" y="{ly}" font-size="11.5" fill="#1F2933">{e(t)}</text>')
+        lx += 30 + 6.2 * len(t)
+    src = tr("Contours : aires de santé GRID3 / CIESIN, simplifiés ; Mapping Épi")
+    out.append(f'<text x="{width - 14}" y="{ly}" font-size="10" text-anchor="end" fill="#5F6B7A">{e(src)}</text>')
+    out.append("</svg>")
+    return "".join(out)
 
 
 def _svg_simple(carte: Carte, ref: date, width: int, height: int) -> str:

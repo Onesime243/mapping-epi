@@ -30,7 +30,7 @@
   {% if me %}
   <div class="bandeau-compte">
     <span class="avatar" aria-hidden="true">{{ (me.nom or me.username)[:1]|upper }}</span>
-    <span class="bandeau-qui" title="{{ me.perimetre }}"><b>{{ me.nom or me.username }}</b>
+    <span class="bandeau-qui" title="{{ t(me.perimetre) }}"><b>{{ me.nom or me.username }}</b>
       <small>{% if droits.super %}{{ t("Super-administrateur") }}{% elif me.is_admin and me.niveau == "province" %}{{ t("Administrateur provincial") }}{% elif me.is_admin %}{{ t("Administrateur national") }}{% elif me.is_partenaire %}{{ t("Partenaire") }}{% else %}{{ t(me.niveau_label) }}{% endif %} · {{ t(me.perimetre) }}</small></span>
     <a class="btn small" href="{{ url_for('logout') }}">{{ t("Déconnexion") }}</a>
   </div>
@@ -38,7 +38,7 @@
 </header>
 <div class="tricolore" aria-hidden="true"></div>
 <header class="topbar">
-  <button type="button" class="nav-toggle" aria-label="Menu" onclick="this.parentNode.classList.toggle('open')">☰ {{ t("Menu") }}</button>
+  <button type="button" class="nav-toggle" aria-label="{{ t('Menu') }}" onclick="this.parentNode.classList.toggle('open')">☰ {{ t("Menu") }}</button>
   <nav>
     {% if me %}
       <a href="/" class="{{ 'on' if request.path == '/' }}">{{ t("Accueil") }}</a>

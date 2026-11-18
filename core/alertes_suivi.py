@@ -76,5 +76,9 @@ def appliquer(groupes: List[dict], suivi: Dict[str, dict]) -> None:
             g["etat"] = "prise"
         else:                                   # résolue : encore vraie ?
             avant = set((s.get("signature") or "").split("|")) - {""}
+            # alertes affichées dans la langue de l'utilisateur ; la signature a été prise dans la langue de celui
+            # qui a résolu : on compare les textes affichés et leur version française (texte_fr)
             maintenant = {type_alerte(t) for t in textes}
-            g["etat"] = "reapparue" if maintenant and maintenant <= avant else "nouvelle"
+            fr = {type_alerte(it.get("texte_fr") or it["texte"]) for it in g["liste"]}
+            encore = bool(maintenant and maintenant <= avant) or bool(fr and fr <= avant)
+            g["etat"] = "reapparue" if encore else "nouvelle"

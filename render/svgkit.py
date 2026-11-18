@@ -53,7 +53,8 @@ def card(x, y, w, h, rx=9) -> str:
 
 
 def pill(x, y, text) -> str:
-    w = 16 + len(text) * 6.6
+    # largeur mesurée (police réelle + espacement des lettres) : un libellé traduit plus long reste dans la pastille
+    w = max(16 + len(text) * 6.6, 20 + text_width(text.upper(), 9.5, 800) + 0.6 * len(text))
     return (f'<rect x="{x}" y="{y}" width="{w:.0f}" height="20" rx="5" fill="{theme.NAVY}"/>'
             f'<text x="{x + 10}" y="{y + 13.8}" fill="#fff" font-size="9.5" font-weight="800" letter-spacing=".6">'
             f'{esc(text.upper())}</text>')

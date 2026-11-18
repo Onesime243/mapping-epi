@@ -18,6 +18,7 @@ from config import theme
 from core import indicateurs as IND
 from core import pyramide, rules
 from core import riposte as R
+from core.langue import actuelle, tr, trf
 from core.models import Action, Case
 from core.piliers import pilier_action
 
@@ -30,16 +31,34 @@ SEUILS = {
 }
 HAUT_RISQUE = {"Très haut", "Haut"}
 
+class _Categories(list):
+    """Liste (clé, libellé, classe CSS) dont le libellé sort dans la langue courante quand on la parcourt."""
+
+    def __iter__(self):
+        for k, lib, cl in list.__iter__(self):
+            yield k, tr(lib), cl
+
+
+class _Libelles(dict):
+    """Libellés des catégories, traduits à la lecture (LIB_CAT[clé])."""
+
+    def __getitem__(self, k):
+        return tr(dict.__getitem__(self, k))
+
+    def get(self, k, defaut=None):
+        return self[k] if k in self else defaut
+
+
 # catégories d'actions : (clé, libellé, classe CSS)
-CATEGORIES = [
+CATEGORIES = _Categories([
     ("verifiee", "Vérifiées", "c-ok"),
     ("a_verifier", "Réalisées, à vérifier", "c-av"),
     ("sans_preuve", "Réalisées sans preuve", "c-sp"),
     ("en_cours", "En cours ou à faire", "c-ec"),
     ("retard", "En retard", "c-re"),
     ("bloquee", "Bloquées", "c-bl"),
-]
-LIB_CAT = {k: v for k, v, _ in CATEGORIES}
+])
+LIB_CAT = _Libelles({k: v for k, v, _ in list.__iter__(CATEGORIES)})
 CLS_CAT = {k: c for k, _v, c in CATEGORIES}
 
 
@@ -67,6 +86,12 @@ class Alerte:
     texte: str
     cid: Optional[str] = None            # fiche concernée
     code: str = ""
+    texte_fr: str = ""                   # même texte en français (signature du suivi des alertes, indépendante de la langue)
+
+
+def _alerte(niveau: str, texte: str, cid: Optional[str] = None, code: str = "", **valeurs) -> Alerte:
+    """Alerte dans la langue courante ; `texte` est le modèle français (à trous {…})."""
+    return Alerte(niveau, trf(texte, **valeurs), cid, code, texte.format(**valeurs))
 
 
 @dataclass
@@ -128,9 +153,9 @@ def _code(c: Case) -> str:
 
 def _num(v: Optional[float], unite: str = "") -> str:
     if v is None:
-        return "non renseigné"
+        return tr("non renseigné")
     s = f"{v:.1f}".rstrip("0").rstrip(".").replace(".", ",")
-    return f"{s} {unite}".strip()
+    return f"{s} {tr(unite) if unite else ''}".strip()
 
 
 def _pct(a: int, b: int) -> Optional[float]:
@@ -138,7 +163,7 @@ def _pct(a: int, b: int) -> Optional[float]:
 
 
 def _fmt_pct(p: Optional[float]) -> str:
-    return "non renseigné" if p is None else f"{p:.0f} %"
+    return tr("non renseigné") if p is None else f"{p:.0f} %"
 
 
 def selection(cases: List[Case], debut: date, fin: date, province: str = "", zs: str = "") -> List[Case]:
@@ -202,29 +227,29 @@ def ligne_cas(c: Case, ref: date) -> LigneCas:
     al = lc.alertes
     if hr_n:
         if hr_s == 0:
-            al.append(Alerte("crit", f"{hr_n} contacts à haut risque listés, aucun en suivi.", c.id, code))
+            al.append(_alerte("crit", "{n} contacts à haut risque listés, aucun en suivi.", c.id, code, n=hr_n))
         elif hr_s is None:
-            al.append(Alerte("alerte", f"{hr_n} contacts à haut risque listés, suivi non renseigné.", c.id, code))
+            al.append(_alerte("alerte", "{n} contacts à haut risque listés, suivi non renseigné.", c.id, code, n=hr_n))
         elif 100 * hr_s / hr_n < SEUILS["suivi_min"]:
-            al.append(Alerte("alerte", f"{hr_s} sur {hr_n} contacts à haut risque suivis ({100 * hr_s / hr_n:.0f} %).",
-                             c.id, code))
+            al.append(_alerte("alerte", "{s} sur {n} contacts à haut risque suivis ({p:.0f} %).", c.id, code,
+                              s=hr_s, n=hr_n, p=100 * hr_s / hr_n))
     if not c.contacts:
-        al.append(Alerte("alerte", "aucun contact listé.", c.id, code))
+        al.append(_alerte("alerte", "aucun contact listé.", c.id, code))
     if dl is not None and dl > SEUILS["delai_conf"]:
         niv = "crit" if dl > SEUILS["delai_conf_crit"] else "alerte"
-        al.append(Alerte(niv, f"{dl} jours entre début des symptômes et confirmation (seuil {SEUILS['delai_conf']} j).",
-                         c.id, code))
+        al.append(_alerte(niv, "{d} jours entre début des symptômes et confirmation (seuil {s} j).", c.id, code,
+                          d=dl, s=SEUILS["delai_conf"]))
     mauvais = [s for s in c.ipc if s.statut in ("Non", "Inconnu")]
     if mauvais:
-        al.append(Alerte("alerte", f"{len(mauvais)} lieu(x) avec PCI « Non » ou inconnue "
-                                   f"({', '.join(s.site for s in mauvais[:3] if s.site)}).", c.id, code))
+        al.append(_alerte("alerte", "{n} lieu(x) avec PCI « Non » ou inconnue ({sites}).", c.id, code,
+                          n=len(mauvais), sites=", ".join(s.site for s in mauvais[:3] if s.site)))
     urg = [a for a in acts if a.priorite == "Urgent" and a.statut != "Fait" and a.echeance
            and (ref - a.echeance).days > SEUILS["retard_crit"]]
     if urg:
-        al.append(Alerte("crit", f"{len(urg)} action(s) urgente(s) en retard de plus de {SEUILS['retard_crit']} jours.",
-                         c.id, code))
+        al.append(_alerte("crit", "{n} action(s) urgente(s) en retard de plus de {j} jours.", c.id, code,
+                          n=len(urg), j=SEUILS["retard_crit"]))
     if rules.noms_personnes(c):
-        al.append(Alerte("alerte", "nom de personne dans un texte libre (n’écrire que des identifiants).", c.id, code))
+        al.append(_alerte("alerte", "nom de personne dans un texte libre (n’écrire que des identifiants).", c.id, code))
     if any(a.niveau == "crit" for a in al):
         lc.statut = "Critique"
     elif al or comp < SEUILS["completude"]:
@@ -259,25 +284,25 @@ def _ton(p: Optional[float], bon: float = 80, moyen: float = 50) -> str:
 def _tuiles(cur: dict, prev: dict) -> List[Tuile]:
     out = []
     # 1. cas mappés
-    t = Tuile("Cas mappés", "Axes A, B", str(cur["n"]),
-              (f"complétude moyenne {cur['completude']:.0f} % · {cur['complets']} fiche(s) à 90 % ou plus"
-               if cur["completude"] is not None else "aucun cas sur la période"),
+    t = Tuile(tr("Cas mappés"), tr("Axes A, B"), str(cur["n"]),
+              (trf("complétude moyenne {p:.0f} % · {n} fiche(s) à 90 % ou plus", p=cur["completude"], n=cur["complets"])
+               if cur["completude"] is not None else tr("aucun cas sur la période")),
               cur["completude"], _ton(cur["completude"], 90, 70), onglet="qualite")
     if prev["n"]:
         d = cur["n"] - prev["n"]
-        t.delta, t.delta_ton = (f"{d:+d} vs période précédente", "") if d else ("stable", "")
+        t.delta, t.delta_ton = (trf("{d:+d} vs période précédente", d=d), "") if d else (tr("stable"), "")
     out.append(t)
     # 2. actions vérifiées
     p = _pct(cur["verifiees"], cur["actions"])
-    out.append(Tuile("Actions vérifiées", "Axes N, H", f"{cur['verifiees']} / {cur['actions']}",
-                     f"{_fmt_pct(p)} · {cur['retard']} en retard · {cur['bloquees']} bloquée(s) · "
-                     f"{cur['sans_preuve']} sans preuve" if cur["actions"] else "aucune action prescrite",
+    out.append(Tuile(tr("Actions vérifiées"), tr("Axes N, H"), f"{cur['verifiees']} / {cur['actions']}",
+                     trf("{p} · {r} en retard · {b} bloquée(s) · {s} sans preuve", p=_fmt_pct(p), r=cur["retard"],
+                         b=cur["bloquees"], s=cur["sans_preuve"]) if cur["actions"] else tr("aucune action prescrite"),
                      p, _ton(p, 70, 40), onglet="actions"))
     # 3. délai symptômes → confirmation
     p = _pct(cur["delai_ok"], cur["n_delai"])
-    t = Tuile("Délai symptômes → confirmation", "Axes C, F, I", _num(cur["delai"], "j"),
-              f"médiane · {cur['n_delai']} cas renseignés sur {cur['n']} · {_fmt_pct(p)} en {SEUILS['delai_conf']} j "
-              f"ou moins", p, _ton(p, 80, 50), onglet="transmission")
+    t = Tuile(tr("Délai symptômes → confirmation"), tr("Axes C, F, I"), _num(cur["delai"], "j"),
+              trf("médiane · {k} cas renseignés sur {n} · {p} en {s} j ou moins", k=cur["n_delai"], n=cur["n"],
+                  p=_fmt_pct(p), s=SEUILS["delai_conf"]), p, _ton(p, 80, 50), onglet="transmission")
     if cur["delai"] is not None and prev["delai"] is not None:
         d = cur["delai"] - prev["delai"]
         if d:
@@ -286,9 +311,9 @@ def _tuiles(cur: dict, prev: dict) -> List[Tuile]:
     out.append(t)
     # 4. lieux d'exposition sécurisés
     p = _pct(cur["lieux_ok"], cur["lieux"])
-    out.append(Tuile("Lieux d'exposition décontaminés", "Axes G, L, O, P", f"{cur['lieux_ok']} / {cur['lieux']}",
-                     f"{_fmt_pct(p)} · {cur['lieux_mauvais']} avec PCI « Non » ou inconnue" if cur["lieux"]
-                     else "aucun lieu PCI renseigné", p, _ton(p, 80, 50), onglet="contacts"))
+    out.append(Tuile(tr("Lieux d'exposition décontaminés"), tr("Axes G, L, O, P"), f"{cur['lieux_ok']} / {cur['lieux']}",
+                     trf("{p} · {n} avec PCI « Non » ou inconnue", p=_fmt_pct(p), n=cur["lieux_mauvais"]) if cur["lieux"]
+                     else tr("aucun lieu PCI renseigné"), p, _ton(p, 80, 50), onglet="contacts"))
     return out
 
 
@@ -309,20 +334,21 @@ def _evolution(serie: List[Optional[float]], unite: str, mieux_si_bas: bool = Fa
     """Évolution entre les deux dernières semaines renseignées (la semaine en cours est souvent encore vide)."""
     idx = [i for i, v in enumerate(serie) if v is not None]
     if not idx:
-        return "aucune donnée sur 8 semaines", ""
+        return tr("aucune donnée sur 8 semaines"), ""
     quand = ""
     if idx[-1] != len(serie) - 1 and semaines:
-        quand = f" (semaine du {semaines[idx[-1]]:%d/%m})"
+        quand = " " + trf("(semaine du {d})", d=f"{semaines[idx[-1]]:%d/%m}")
     if len(idx) < 2:
-        return "une seule semaine avec des données" + quand, ""
+        return tr("une seule semaine avec des données") + quand, ""
     d = serie[idx[-1]] - serie[idx[-2]]
     if abs(d) < 1e-9:
-        return "stable" + quand, ""
+        return tr("stable") + quand, ""
     mieux = (d < 0) if mieux_si_bas else (d > 0)
     if unite == "cas":
-        return f"{'▲' if d > 0 else '▼'} {d:+.0f} vs semaine précédente" + quand, ""
-    val = _num(abs(d), "j") if unite == "j" else f"{abs(d):.0f} point{'s' if abs(d) >= 2 else ''}"
-    return f"{'▲ +' if d > 0 else '▼ −'}{val} : {'mieux' if mieux else 'moins bien'}" + quand, ("up" if mieux else "dn")
+        return f"{'▲' if d > 0 else '▼'} " + trf("{d:+.0f} vs semaine précédente", d=d) + quand, ""
+    val = _num(abs(d), "j") if unite == "j" else trf("{n:.0f} point" + ("s" if abs(d) >= 2 else ""), n=abs(d))
+    return (f"{'▲ +' if d > 0 else '▼ −'}{val}{': ' if actuelle() == 'en' else ' : '}{tr('mieux') if mieux else tr('moins bien')}" + quand,
+            ("up" if mieux else "dn"))
 
 
 def sparkline(serie: List[Optional[float]], seuil: Optional[float] = None, w: int = 150, h: int = 38) -> str:
@@ -413,7 +439,7 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
     alertes = [a for x in lignes for a in x.alertes]
     alertes.sort(key=lambda a: a.niveau != "crit")
     if bilan.get("sans_preuve"):
-        alertes.append(Alerte("alerte", f"{bilan['sans_preuve']} action(s) déclarée(s) réalisée(s) sans preuve."))
+        alertes.append(_alerte("alerte", "{n} action(s) déclarée(s) réalisée(s) sans preuve.", n=bilan["sans_preuve"]))
     groupes = []
     for x in lignes:
         if not x.alertes:
@@ -422,14 +448,15 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
         autres = [a for a in x.alertes if a.niveau != "crit"]
         groupes.append({"cid": x.case.id, "code": x.code, "zs": x.case.zs or "?", "province": x.case.province or "?",
                         "notif": x.notif, "crit": len(crit), "alertes": len(autres),
-                        "liste": [{"niveau": a.niveau, "texte": a.texte.rstrip(". ")} for a in crit + autres]})
+                        "liste": [{"niveau": a.niveau, "texte": a.texte.rstrip(". "),
+                                   "texte_fr": (a.texte_fr or a.texte).rstrip(". ")} for a in crit + autres]})
     groupes.sort(key=lambda g: (-g["crit"], -g["alertes"], -(g["notif"] or date.min).toordinal()))
     generales = [a for a in alertes if not a.cid]
 
     # par zone de santé
     zs_map: Dict[str, List[LigneCas]] = defaultdict(list)
     for x in lignes:
-        zs_map[x.case.zs or "ZS non renseignée"].append(x)
+        zs_map[x.case.zs or tr("ZS non renseignée")].append(x)
     par_zs = []
     for nom, xs in sorted(zs_map.items(), key=lambda kv: -len(kv[1])):
         cs = [x.case for x in xs]
@@ -454,15 +481,15 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
     for c in cases:
         for ev in c.events:
             if ev.contact_corps:
-                expo["Contact avec le corps"] += 1
+                expo[tr("Contact avec le corps")] += 1
             if ev.liquides:
-                expo["Liquides biologiques"] += 1
+                expo[tr("Liquides biologiques")] += 1
             if ev.sans_pci:
-                expo["Soins sans PCI"] += 1
+                expo[tr("Soins sans PCI")] += 1
             if ev.type in ("Funérailles", "Enterrement"):
-                expo["Funérailles ou enterrement"] += 1
+                expo[tr("Funérailles ou enterrement")] += 1
             if ev.lieu_arrivee.strip():
-                expo["Déplacements"] += 1
+                expo[tr("Déplacements")] += 1
     transmission = {
         "lien": [(k, lien.get(k, 0)) for k in ["Contact connu suivi", "Contact connu", "Non contact", "Inconnu"]
                  if lien.get(k)],
@@ -497,7 +524,7 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
 # -- graphique : cas par semaine et délai médian ----------------------------------------------------------------------
 def svg_semaines(sem: List[Tuple[date, int, Optional[float]]], width: int = 640, height: int = 230) -> str:
     if not sem:
-        return '<p class="muted">Aucune semaine dans la période.</p>'
+        return f'<p class="muted">{e(tr("Aucune semaine dans la période."))}</p>'
     ml, mr, mt, mb = 36, 40, 14, 34
     pw, ph = width - ml - mr, height - mt - mb
     n = len(sem)
@@ -508,7 +535,7 @@ def svg_semaines(sem: List[Tuple[date, int, Optional[float]]], width: int = 640,
     dtop = ((int(dmax) + 4) // 5) * 5
     bw = pw / n
     o = [f'<svg class="tb-svg" viewBox="0 0 {width} {height}" width="100%" role="img" '
-         f'aria-label="Cas par semaine et délai médian">']
+         f'aria-label="{e(tr("Cas par semaine et délai médian"))}">']
     for v in range(0, top + 1, pas):
         y = mt + ph - ph * v / top
         o.append(f'<line class="grille" x1="{ml}" x2="{ml + pw}" y1="{y:.1f}" y2="{y:.1f}"/>'
@@ -518,25 +545,25 @@ def svg_semaines(sem: List[Tuple[date, int, Optional[float]]], width: int = 640,
         x = ml + i * bw
         h = ph * c / top
         o.append(f'<rect class="barre-cas" x="{x + bw * .2:.1f}" y="{mt + ph - h:.1f}" width="{bw * .6:.1f}" height="{h:.1f}" '
-                 f'rx="3"><title>Semaine du {d:%d/%m} : {c} cas</title></rect>')
+                 f'rx="3"><title>{e(trf("Semaine du {d} : {n} cas", d=f"{d:%d/%m}", n=c))}</title></rect>')
         if c:
             o.append(f'<text class="val" x="{x + bw / 2:.1f}" y="{mt + ph - h - 4:.1f}" text-anchor="middle">{c}</text>')
         if n <= 16 or i % 2 == 0:
             o.append(f'<text class="axe" x="{x + bw / 2:.1f}" y="{mt + ph + 16}" text-anchor="middle">'
-                     f'S{d.isocalendar()[1]}</text>')
+                     f'{trf("S{n}", n=d.isocalendar()[1])}</text>')
         if m is not None:
             pts.append((x + bw / 2, mt + ph - ph * m / dtop, m, d))
     for v in range(0, dtop + 1, 5):
         y = mt + ph - ph * v / dtop
-        o.append(f'<text class="axe-d" x="{ml + pw + 6}" y="{y + 4:.1f}">{v} j</text>')
+        o.append(f'<text class="axe-d" x="{ml + pw + 6}" y="{y + 4:.1f}">{v} {tr("j")}</text>')
     ys = mt + ph - ph * SEUILS["delai_conf"] / dtop
     o.append(f'<line class="seuil" x1="{ml}" x2="{ml + pw}" y1="{ys:.1f}" y2="{ys:.1f}"/>'
              '')
     if len(pts) > 1:
         o.append('<polyline class="ligne-delai" points="' + " ".join(f"{x:.1f},{y:.1f}" for x, y, _m, _d in pts) + '"/>')
     for x, y, m, d in pts:
-        o.append(f'<circle class="pt-delai" cx="{x:.1f}" cy="{y:.1f}" r="3.5"><title>Semaine du {d:%d/%m} : délai médian '
-                 f'{_num(m, "j")}</title></circle>')
+        o.append(f'<circle class="pt-delai" cx="{x:.1f}" cy="{y:.1f}" r="3.5"><title>'
+                 f'{e(trf("Semaine du {d} : délai médian {v}", d=f"{d:%d/%m}", v=_num(m, "j")))}</title></circle>')
     o.append(f'<line class="axe-l" x1="{ml}" x2="{ml + pw}" y1="{mt + ph}" y2="{mt + ph}"/></svg>')
     return "".join(o)
 
@@ -546,5 +573,5 @@ def barre_empilee(compte: Dict[str, int]) -> str:
     if not tot:
         return ""
     return '<div class="tb-pile">' + "".join(
-        f'<i class="{cl}" style="width:{100 * compte[k] / tot:.2f}%" title="{e(lib)} : {compte[k]}"></i>'
+        f'<i class="{cl}" style="width:{100 * compte[k] / tot:.2f}%" title="{e(lib)}{': ' if actuelle() == 'en' else ' : '}{compte[k]}"></i>'
         for k, lib, cl in CATEGORIES if compte.get(k)) + "</div>"

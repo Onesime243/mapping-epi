@@ -40,7 +40,7 @@
   <table class="list">
     <tr><th>{{ t("Fiche") }}</th><th>{{ t("Zone de santé") }}</th><th>{{ t("Modifiée le") }}</th><th></th></tr>
     {% for cid, upd, c in exemples %}
-    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or "Exemple" }}</a></td><td>{{ c.zs }}</td>
+    <tr><td><a href="{{ url_for('editor', cid=cid) }}">{{ c.code_cas or t("Exemple") }}</a></td><td>{{ c.zs }}</td>
       <td class="muted">{{ upd[:16].replace("T", " ") }}</td><td style="text-align:right"><a class="btn small" href="{{ url_for('editor', cid=cid) }}">{{ t("Ouvrir") }}</a></td></tr>
     {% endfor %}
   </table>
@@ -77,16 +77,16 @@
     <tr>
       <td><a href="{{ url_for('editor', cid=it.id) }}"><b>{{ it.code or it.titre }}</b></a><div class="muted" style="font-size:12.5px">{{ it.sub }}</div></td>
       <td style="white-space:nowrap">{{ it.province or "?" }}</td><td>{{ it.zs or "?" }}</td><td>{{ it['as'] or "?" }}</td><td class="muted">{{ it.j0 }}</td>
-      {% if multi %}<td>{% if it.mine %}<b>{{ t("moi") }}</b>{% else %}{{ it.owner or "bureau" }}{% endif %}</td>{% endif %}
+      {% if multi %}<td>{% if it.mine %}<b>{{ t("moi") }}</b>{% else %}{{ it.owner or t("bureau") }}{% endif %}</td>{% endif %}
       <td class="muted">{{ it.cree }}</td>
       <td class="muted">{{ it.updated }}</td>
-      <td style="text-align:right; white-space:nowrap"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}"{% if not it.edit %} title="Lecture seule"{% endif %}>{{ t("Ouvrir") if it.edit else t("Consulter") }}</a>
+      <td style="text-align:right; white-space:nowrap"><a class="btn small" href="{{ url_for('editor', cid=it.id) }}"{% if not it.edit %} title="{{ t('Lecture seule') }}"{% endif %}>{{ t("Ouvrir") if it.edit else t("Consulter") }}</a>
         <a class="btn small" href="{{ url_for('preview', cid=it.id, key='mapping') }}" target="_blank" title="{{ t('Voir le mapping') }}">{{ t("Mapping") }}</a></td>
     </tr>
     {% endfor %}
   </table></div>
   {% if pages > 1 %}
-  <nav class="pager" aria-label="Pages">
+  <nav class="pager" aria-label="{{ t('Pages') }}">
     {% if page > 1 %}<a class="btn small" href="{{ url_for('cases', **dict(args_page, page=page - 1)) }}">← {{ t("Précédent") }}</a>{% endif %}
     {% for p in range(1, pages + 1) %}
       {% if p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
@@ -97,18 +97,17 @@
   </nav>
   {% endif %}
   {% else %}
-  <p class="muted">Aucune fiche{% if total %} pour ces filtres{% endif %}. Cliquez sur « Nouveau cas » pour commencer.</p>
+  <p class="muted">{{ t("Aucune fiche") }}{% if total %} {{ t("pour ces filtres") }}{% endif %}. {{ t("Cliquez sur « Nouveau cas » pour commencer.") }}</p>
   {% endif %}
 </div>
 {% endif %}
 {% if not droits.partenaire %}<div class="card" style="margin-top:14px">
   <form class="row" method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <b>{{ t("Importer une fiche") }}</b> <span class="muted">(Excel rempli à partir du
-      <a href="{{ url_for('excel_model') }}">modèle Excel vierge</a>, du
-      <a href="{{ url_for('word_model') }}">modèle Word</a> ou du <a href="{{ url_for('pptx_model') }}">modèle PowerPoint</a>
-      (mêmes champs que l'Excel, lus tableau par tableau), ou ancien narratif Word / PowerPoint libre :
-      les champs sont remplis automatiquement, à vérifier)</span>
+    <b>{{ t("Importer une fiche") }}</b> <span class="muted">({{ t("Excel rempli à partir du") }}
+      <a href="{{ url_for('excel_model') }}">{{ t("modèle Excel vierge") }}</a>{{ t(", du") }}
+      <a href="{{ url_for('word_model') }}">{{ t("modèle Word") }}</a> {{ t("ou du") }} <a href="{{ url_for('pptx_model') }}">{{ t("modèle PowerPoint") }}</a>
+      {{ t("(mêmes champs que l'Excel, lus tableau par tableau), ou ancien narratif Word / PowerPoint libre : les champs sont remplis automatiquement, à vérifier)") }}</span>
     <input type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required style="max-width:340px">
     <button class="btn">{{ t("Importer") }}</button>
   </form>

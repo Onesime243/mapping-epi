@@ -14,10 +14,11 @@ from typing import Dict, List, Optional, Tuple
 from config import theme
 from core import rules
 from core.models import Case, Event
-from core.lieux import case_label, cle
+from core.lieux import cle
 from render import svgkit as K
 from render.html_renderer import date_label, render_svg_page
 from render.icons import icon_group
+from render.libelles import cas, tr, trf, val
 from render.network import PLACE_ICON
 
 NON_PATIENT = {"Investigation", "Laboratoire", "Riposte", "Prélèvement"}
@@ -111,10 +112,11 @@ def render_svg(case: Case) -> str:
     order, legs = build_legs(case)
     box = (30, 80, 820, 586)
     pos, kmpx = _positions(case, order, box)
-    mode = "géographique (GPS)" if kmpx else "schématique (sans GPS)"
+    mode = tr("géographique (GPS)") if kmpx else tr("schématique (sans GPS)")
     out = [K.svg_open(), K.header(
-        f"CARTE DU PARCOURS – {case_label(case).upper()} {case.maladie} | ZS {(case.zs or '?').upper()}",
-        f"Déplacements du cas dans l'ordre chronologique • vue {mode} • fonctionne hors ligne")]
+        trf("CARTE DU PARCOURS – {cas} {maladie} | ZS {zs}", cas=cas(case).upper(), maladie=val(case.maladie),
+            zs=(case.zs or '?').upper()),
+        trf("Déplacements du cas dans l'ordre chronologique • vue {mode} • fonctionne hors ligne", mode=mode))]
     out.append('<style>.halo text{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}</style>')
     out.append(K.card(16, 66, 848, 616))
     if kmpx:
@@ -173,7 +175,7 @@ def render_svg(case: Case) -> str:
         col = theme.risk_color(risk)
         icon = PLACE_ICON.get(p.type if p else "", "pin")
         nodes.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{col}" stroke="#fff" stroke-width="3.5" filter="url(#sh)">'
-                     f'<title>{K.esc(o)} : {K.esc(risk)}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
+                     f'<title>{K.esc(o)} : {K.esc(val(risk))}</title></circle>' + icon_group(icon, x, y, 26, "#fff", 2))
         lines = K.wrap_px(o, 168, 12, 800, 2)
         adr = _adresse_pci(o, case)
         dx, dy = x - mx_c, y - my_c
@@ -183,14 +185,14 @@ def render_svg(case: Case) -> str:
             prefer = ["right", "below-right", "above-right"] if dx > 0 else ["left", "below-left", "above-left"]
         labels.append(placer.place(x, y, 31, [(ln, 12, 800, theme.INK) for ln in lines]
                                    + ([(K.ellipsize(adr, 190, 9), 9, 500, "#000000")] if adr else [])
-                                   + [(risk, 9.5, 700, col)],
+                                   + [(val(risk), 9.5, 700, col)],
                                    prefer=prefer))
     out += arrows + nodes + badges + ['<g class="halo">'] + labels + ['</g>']
 
     # Liste des étapes
     x0 = 876
     out.append(K.card(x0, 66, 388, 616))
-    out.append(K.pill(x0 + 12, 78, "Étapes du parcours"))
+    out.append(K.pill(x0 + 12, 78, tr("Étapes du parcours")))
     y = 116
     tw = 388 - 42 - 14            # largeur utile du texte dans le panneau
     shown = 0
@@ -205,11 +207,11 @@ def render_svg(case: Case) -> str:
         dw = K.text_width(dl + " ", 10, 800)
         first, rest = K.split_first(route, tw - dw, 10, 700)
         line2 = K.ellipsize(rest, tw, 10, 700) if rest else ""
-        detail = leg.ev.titre or leg.ev.type
+        detail = val(leg.ev.titre) or val(leg.ev.type)
         if leg.ev.transport:
-            detail += f" • {leg.ev.transport}"
+            detail += f" • {val(leg.ev.transport)}"
         if leg.corps:
-            detail += " • transport du corps"
+            detail += " • " + tr("transport du corps")
         need = 30 + (13 if line2 else 0)
         if y + need > bas_etapes:
             break
@@ -224,27 +226,27 @@ def render_svg(case: Case) -> str:
         y += 30 + 8
         shown += 1
     if len(legs) > shown:
-        out.append(f'<text x="{x0 + 42}" y="{y}" font-size="9.5" fill="{theme.MUTED}">… {len(legs) - shown} autre(s) étape(s)</text>')
+        out.append(f'<text x="{x0 + 42}" y="{y}" font-size="9.5" fill="{theme.MUTED}">… {K.esc(trf("{n} autre(s) étape(s)", n=len(legs) - shown))}</text>')
     if not legs:
-        out.append(f'<text x="{x0 + 20}" y="{y}" font-size="11" fill="{theme.MUTED}">Aucun déplacement documenté.</text>')
+        out.append(f'<text x="{x0 + 20}" y="{y}" font-size="11" fill="{theme.MUTED}">{K.esc(tr("Aucun déplacement documenté."))}</text>')
     if sites:                     # adresses des sites PCI (absentes du mapping)
         yb = bas_etapes + 4
-        out.append(K.pill(x0 + 12, yb, "Sites PCI · adresses"))
+        out.append(K.pill(x0 + 12, yb, tr("Sites PCI · adresses")))
         yb += 34
         for s in sites:
             sc = theme.IPC_STATUS.get(s.statut, theme.BLUE)
             out.append(f'<circle cx="{x0 + 24}" cy="{yb - 3}" r="5" fill="{sc}"/>'
                        f'<text x="{x0 + 36}" y="{yb}" font-size="10" font-weight="800" fill="{theme.INK}">'
-                       f'{K.esc(K.ellipsize(s.site + " · " + s.statut, tw, 10, 800))}</text>'
+                       f'{K.esc(K.ellipsize(s.site + " · " + val(s.statut), tw, 10, 800))}</text>'
                        f'<text x="{x0 + 36}" y="{yb + 13}" font-size="9.5" fill="#000000">'
                        f'{K.esc(K.ellipsize(s.adresse, tw, 9.5))}</text>')
             yb += 30
     ly = 632
-    out.append(K.legend_item(x0 + 14, ly, theme.ORANGE, "Déplacement du cas", "line"))
-    out.append(K.legend_item(x0 + 190, ly, theme.RED, "Transport du corps", "line", dashed=True))
-    out.append(K.legend_item(x0 + 14, ly + 22, theme.GREY, "Couleur = niveau de risque", "circle"))
-    out.append(K.footer("Les étapes laboratoire / investigation / riposte ne sont pas des déplacements du cas et ne figurent pas sur la carte. "
-                        + ("Ajoutez la latitude/longitude des lieux pour une carte géographique." if not kmpx else "")))
+    out.append(K.legend_item(x0 + 14, ly, theme.ORANGE, K.ellipsize(tr("Déplacement du cas"), 145, 10), "line"))
+    out.append(K.legend_item(x0 + 190, ly, theme.RED, K.ellipsize(tr("Transport du corps"), 160, 10), "line", dashed=True))
+    out.append(K.legend_item(x0 + 14, ly + 22, theme.GREY, tr("Couleur = niveau de risque"), "circle"))
+    out.append(K.footer(tr("Les étapes laboratoire / investigation / riposte ne sont pas des déplacements du cas et ne figurent pas sur la carte. ")
+                        + (tr("Ajoutez la latitude/longitude des lieux pour une carte géographique.") if not kmpx else "")))
     out.append("</svg>")
     return "".join(out)
 

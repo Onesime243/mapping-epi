@@ -1,57 +1,61 @@
 {% extends "base.html" %}
-{% block title %}Carte des cas · Mapping Épi{% endblock %}
+{% block title %}{{ t("Carte des cas") }} · Mapping Épi{% endblock %}
 {% block content %}
-<h1>Carte des cas</h1>
-<p class="hint">Périmètre : {{ me.perimetre }}{% if prov %} · province {{ prov }}{% endif %} · {{ n }} cas
-  {% if periode %}notifiés dans les {{ periode }} derniers jours{% else %}depuis le début{% endif %}.
-  Chaque cas est placé dans son aire de santé (contours réels{% if geo_provinces %} : {{ geo_provinces|join(", ") }}{% endif %}),
-  ou au point GPS de la fiche. Fonctionne sans internet.</p>
+<h1>{{ t("Carte des cas") }}</h1>
+<p class="hint">{{ t("Périmètre :") }} {{ t(me.perimetre) }}{% if prov %} · {{ t("province") }} {{ prov }}{% endif %} · {{ n }} {{ t("cas") }}
+  {% if periode %}{{ tf("notifiés dans les {n} derniers jours", n=periode) }}{% else %}{{ t("depuis le début") }}{% endif %}.
+  {{ t("Chaque cas est placé dans son aire de santé, ou au point GPS de la fiche. Fonctionne sans internet.") }}</p>
 <div class="card">
   <form class="filters" method="get">
-    <select name="province" onchange="this.form.submit()"><option value="">Toutes les provinces</option>
+    <select name="province" onchange="this.form.submit()"><option value="">{{ t("Toutes les provinces") }}</option>
       {% for p in provinces %}<option{% if p == prov %} selected{% endif %}>{{ p }}</option>{% endfor %}</select>
     <select name="periode" onchange="this.form.submit()">
       {% for v, l in [("21", "21 derniers jours"), ("42", "42 derniers jours"), ("0", "Depuis le début")] %}
-      <option value="{{ v }}"{% if (periode or 0)|string == v %} selected{% endif %}>Cas : {{ l }}</option>{% endfor %}</select>
-    <select name="vue" onchange="this.form.submit()">
-      <option value="cas"{% if vue == "cas" %} selected{% endif %}>Vue : autour des cas</option>
-      <option value="province"{% if vue == "province" %} selected{% endif %}>Vue : province entière</option></select>
-    <button type="button" class="btn" onclick="carteReset()">Recentrer</button>
+      <option value="{{ v }}"{% if (periode or 0)|string == v %} selected{% endif %}>{{ t("Cas :") }} {{ t(l) }}</option>{% endfor %}</select>
+    <input type="hidden" name="niveau" value="{{ 'province' if niveau != 'national' else '' }}">
+    <button type="button" class="btn" onclick="carteReset()">{{ t("Recentrer") }}</button>
+    <button type="button" class="btn primary" onclick="cartePNG()">⬇ {{ t("Télécharger la carte (PNG)") }}</button>
   </form>
+<nav class="carte-fil" aria-label="{{ t('Niveau de la carte') }}">
+  <a href="{{ url_for('riposte_carte', niveau='national', periode=periode or 0) }}" class="{{ 'on' if niveau == 'national' }}">{{ t("RDC (nationale)") }}</a>
+  {% if niveau in ("province", "zone") %}<span>›</span>
+  <a href="{{ url_for('riposte_carte', niveau='province', province=province_carte, periode=periode or 0) }}" class="{{ 'on' if niveau == 'province' }}">{{ t("Province") }} {{ province_carte }}</a>{% endif %}
+  {% if niveau == "zone" %}<span>›</span><span class="on">{{ t("ZS") }} {{ zs_carte }}</span>{% endif %}
+  <span class="carte-fil-aide">{{ t("Cliquez sur une province, puis sur une zone de santé, pour descendre d'un niveau.") }}</span>
+</nav>
   {{ svg|safe }}
 </div>
 {% if carte.sans_position %}
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">{{ carte.sans_position|length }} cas sans position</h2>
-  <p class="hint">Ni GPS dans la fiche, ni coordonnées connues pour leur aire ou leur zone de santé.</p>
+  <h2 style="margin-top:0">{{ carte.sans_position|length }} {{ t("cas sans position") }}</h2>
+  <p class="hint">{{ t("Ni GPS dans la fiche, ni coordonnées connues pour leur aire ou leur zone de santé.") }}</p>
   <p>{% for c in carte.sans_position[:80] %}<a href="{{ url_for('editor', cid=c.id) }}">{{ c.code_cas or c.titre_court() }}</a>{% if c.aire_sante %} ({{ c.aire_sante }}, {{ c.zs }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
 </div>
 {% endif %}
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">Contours des aires de santé</h2>
-  <p class="hint">{{ n_aires }} aires de santé avec contours{% if geo_provinces %} ({{ geo_provinces|join(", ") }}){% endif %}.
-    Pour une autre province (Ituri, Haut-Uélé…), importez le fichier GeoPackage (.gpkg) des aires de santé GRID3 :
-    colonnes Province, Zone, Aire. Il est simplifié et gardé sur le serveur.</p>
+  <h2 style="margin-top:0">{{ t("Contours des aires de santé") }}</h2>
+  <p class="hint">{{ tf("Contours livrés avec l'outil : {p} provinces, {z} zones de santé, {a} aires de santé (GRID3 / CIESIN).", p=geo_provinces|length, z=n_zones, a=n_aires) }}
+    {{ t("Pour une autre province (Ituri, Haut-Uélé…), importez le fichier GeoPackage (.gpkg) des aires de santé GRID3 : colonnes Province, Zone, Aire. Il est simplifié et gardé sur le serveur.") }}</p>
   {% if me.is_admin or me.niveau == "national" %}
   <form method="post" enctype="multipart/form-data" class="row">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="file" name="contours" accept=".gpkg" required>
-    <button class="btn primary">Importer les contours (.gpkg)</button>
+    <button class="btn primary">{{ t("Importer les contours (.gpkg)") }}</button>
   </form>
   {% endif %}
 </div>
 <div class="card" style="margin-top:14px">
-  <h2 style="margin-top:0">Coordonnées des aires de santé (sans contours)</h2>
-  <p class="hint">{{ carte.n_coord }} aire(s) de santé avec coordonnées. Fichier CSV avec les colonnes
-    <code>province;zone_sante;aire_sante;latitude;longitude</code> (par exemple les centres des aires de santé GRID3 / OCHA).
-    Les lignes hors de la RDC ou sans nombre valide sont ignorées.</p>
+  <h2 style="margin-top:0">{{ t("Coordonnées des aires de santé (sans contours)") }}</h2>
+  <p class="hint">{{ carte.n_coord }} {{ t("aire(s) de santé avec coordonnées. Fichier CSV avec les colonnes") }}
+    <code>province;zone_sante;aire_sante;latitude;longitude</code> {{ t("(par exemple les centres des aires de santé GRID3 / OCHA).") }}
+    {{ t("Les lignes hors de la RDC ou sans nombre valide sont ignorées.") }}</p>
   {% if me.is_admin or me.niveau == "national" %}
   <form method="post" enctype="multipart/form-data" class="row">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="file" name="coordonnees" accept=".csv,.txt" required>
-    <button class="btn primary">Importer les coordonnées</button>
+    <button class="btn primary">{{ t("Importer les coordonnées") }}</button>
   </form>
-  {% else %}<p class="muted">Import réservé aux administrateurs et au niveau national.</p>{% endif %}
+  {% else %}<p class="muted">{{ t("Import réservé aux administrateurs et au niveau national.") }}</p>{% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
@@ -70,9 +74,14 @@
     return [(ev.clientX - r.left) * vb.width / r.width, (ev.clientY - r.top) * vb.height / r.height]; }
   function zoomAt(p, f) { var nz = Math.max(1, Math.min(40, z * f)); tx = p[0] - (p[0] - tx) * nz / z; ty = p[1] - (p[1] - ty) * nz / z; z = nz; apply(); }
   svg.addEventListener('wheel', function (ev) { ev.preventDefault(); zoomAt(local(ev), ev.deltaY < 0 ? 1.25 : 0.8); }, {passive: false});
-  svg.addEventListener('pointerdown', function (ev) { svg.setPointerCapture(ev.pointerId); pts[ev.pointerId] = local(ev); });
+  /* un clic sur une province ou une zone ouvre le niveau inférieur ; un glissé déplace la carte sans ouvrir */
+  var depart = null, glisse = false;
+  svg.addEventListener('pointerdown', function (ev) { pts[ev.pointerId] = local(ev); depart = [ev.clientX, ev.clientY]; glisse = false; });
+  svg.addEventListener('click', function (ev) { if (glisse) { ev.preventDefault(); ev.stopPropagation(); } }, true);
   svg.addEventListener('pointermove', function (ev) {
     if (!(ev.pointerId in pts)) return;
+    if (!glisse && depart && Math.hypot(ev.clientX - depart[0], ev.clientY - depart[1]) < 5) return;
+    if (!glisse) { glisse = true; try { svg.setPointerCapture(ev.pointerId); } catch (e) {} }
     var p = local(ev), ids = Object.keys(pts);
     if (ids.length === 1) { tx += p[0] - pts[ev.pointerId][0]; ty += p[1] - pts[ev.pointerId][1]; pts[ev.pointerId] = p; apply(); }
     else if (ids.length === 2) {
@@ -84,6 +93,25 @@
   });
   ['pointerup', 'pointercancel'].forEach(function (t) { svg.addEventListener(t, function (ev) { delete pts[ev.pointerId]; }); });
   window.carteReset = function () { z = 1; tx = 0; ty = 0; apply(); };
+  /* téléchargement de la carte affichée en PNG (2 fois la taille), sans serveur */
+  window.cartePNG = function () {
+    var clone = svg.cloneNode(true), vb = svg.viewBox.baseVal, f = 2;
+    clone.setAttribute('width', vb.width); clone.setAttribute('height', vb.height);
+    clone.querySelectorAll('a').forEach(function (a) { a.removeAttribute('href'); });
+    var data = new XMLSerializer().serializeToString(clone);
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement('canvas'); c.width = vb.width * f; c.height = vb.height * f;
+      var ctx = c.getContext('2d'); ctx.fillStyle = '#F4F7FA'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function (b) {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(b);
+        a.download = {{ ("Carte_" ~ (zs_carte or province_carte or "RDC"))|replace(" ", "_")|tojson }} + '.png';
+        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.parentNode.removeChild(a); }, 500);
+      }, 'image/png');
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(data);
+  };
   svg.addEventListener('dblclick', window.carteReset);
 })();
 </script>

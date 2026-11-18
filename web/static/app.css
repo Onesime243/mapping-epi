@@ -470,3 +470,11 @@ table.tb-table td b { white-space: nowrap; }
 .pci-bilan span { font-size: 13px; color: var(--muted); }
 .pci-bilan .manque b { color: var(--warn); }
 td.pci-manque { color: var(--warn); font-weight: 700; }
+
+/* carte des cas : fil des niveaux et formes cliquables */
+.carte-fil { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 14px; }
+.carte-fil a, .carte-fil span.on { font-weight: 700; }
+.carte-fil a.on, .carte-fil span.on { color: var(--text); text-decoration: none; }
+.carte-fil-aide { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+.carte-svg .carte-lien path { cursor: pointer; transition: fill-opacity .15s; }
+.carte-svg .carte-lien:hover path { fill-opacity: .9; stroke: #1F3A5F; }
