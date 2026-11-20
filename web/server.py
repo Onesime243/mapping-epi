@@ -15,7 +15,7 @@ import os
 import re
 import secrets
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
@@ -499,7 +499,12 @@ def create_app(store: storage.Store | None = None) -> Flask:
         if g.user.is_admin_provincial and not g.user.is_super:
             comptes = [u for u in comptes if u.username == g.user.username or
                        (not u.is_admin and _same(u.province, g.user.province))]
+        from collections import Counter as _C
+        par_zone = _C((u.province or "?", u.zs) for u in comptes if u.actif and u.zs and not u.is_partenaire)
+        par_zone = sorted(((p, z, n) for (p, z), n in par_zone.items()), key=lambda x: (pyramide.norm(x[0]), -x[2], x[1]))
+        n_actifs = sum(1 for u in comptes if u.actif)
         return render_template("users.html", users=comptes, new_pwd=new_pwd, err=err, counts=counts,
+                               par_zone=par_zone, n_actifs=n_actifs,
                                suggested=generate_password(), niveaux=NIVEAUX, suppressions=app.users.suppressions(),
                                super_admin=SUPER_ADMIN, provincial=g.user.is_admin_provincial and not g.user.is_super)
 
@@ -571,10 +576,14 @@ def create_app(store: storage.Store | None = None) -> Flask:
             page = 1
         items = items[(page - 1) * par_page: page * par_page]
         args_page = dict(args, **{k: f[k] for k in ("tri", "ordre") if f[k]})
+        n_comptes_zs = None
+        if f["zs"]:
+            from core.access import _same as _meme
+            n_comptes_zs = sum(1 for u in app.users.list() if u.actif and _meme(u.zs, f["zs"]))
         return render_template("cases.html", items=items, q=f["q"], f=f, opts=opts, total=len(rows),
                                tri=tri, desc=desc, sorts=SORTS, args=args, brouillons=brouillons,
                                exemples=exemples, onglet=onglet, page=page, pages=pages, n_filtres=n_filtres,
-                               par_page=par_page, args_page=args_page)
+                               par_page=par_page, args_page=args_page, n_comptes_zs=n_comptes_zs)
 
     # ------------------------------------------------- analyses multi-cas (limitées au périmètre du compte)
     def _selection(niveau: str):
@@ -796,14 +805,30 @@ def create_app(store: storage.Store | None = None) -> Flask:
             zs = ""
         n_brouillons = sum(1 for _i, _u, _o, c in app.store.brouillons()
                            if not c.exemple() and (not prov or _same(c.province, prov)))
+        # filtres croisés de la vue d'ensemble (aire de santé, statut, risque, lien) : appliqués à toute la page
+        from core import vue_ensemble as VE
+        aires = sorted({c.aire_sante for c in allc if c.aire_sante and (not zs or _same(c.zs, zs))
+                        and (not prov or _same(c.province, prov))}, key=pyramide.norm)
+        fx = {k: request.args.get(k, "").strip() for k in ("as", "statut", "risque", "lien")}
+        if fx["as"] not in aires:
+            fx["as"] = ""
+        perimetre_complet = allc
+        allc = VE.filtrer(allc, fx["as"], fx["statut"], fx["risque"], fx["lien"])
         tb = TB.construire(allc, debut, fin, prov, zs, pil, n_brouillons)
         from core import alertes_suivi as AS
         AS.appliquer(tb.groupes, AS.etats(app.store))
         resolues = AS.resolues_depuis(app.store, 7)
         base = [c for c in allc if not zs or _same(c.zs, zs)]
         matrice = PIL.construire(base, debut, fin, prov, None, g.user.perimetre, app.store.created_dates(), n_brouillons)
+        cas_vue = TB.selection(allc, debut, fin, prov, zs)
+        niveau = ("zone", prov or (cas_vue[0].province if cas_vue else ""), zs) if zs else (
+            ("province", prov, "") if prov else ("national", "", ""))
+        vue = VE.construire(cas_vue, debut, fin, perimetre_complet, niveau)
+        focus = request.args.get("focus", "")
         return render_template("tableau_bord.html", tb=tb, TB=TB, matrice=matrice, provinces=provinces, zones=zones,
-                               resolues=resolues,
+                               resolues=resolues, vue=vue, VE=VE, aires=aires, fx=fx,
+                               focus=focus if focus in vue.focus else "", maintenant=datetime.now(),
+                               statuts=theme.ISSUE_CHOICES, risques=["Très élevé", "Élevé", "Modéré", "Faible", "Inconnu"],
                                piliers=theme.PILIERS, piliers_rapport=PIL.PILIERS_RAPPORT,
                                svg_semaines=TB.svg_semaines(tb.semaines))
 

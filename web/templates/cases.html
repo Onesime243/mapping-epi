@@ -64,6 +64,7 @@
     {% if f.q or f.agent or f.province or f.zs or f['as'] %}<a class="btn" href="{{ url_for('cases') }}">{{ t("Effacer") }}</a>{% endif %}
   </form>
   {% set premier = (page - 1) * par_page + 1 %}{% set dernier = premier + items|length - 1 %}
+  {% if n_comptes_zs is not none %}<p class="u-badge" style="margin:4px 0 8px">{{ tf("{n} compte(s) actif(s) dans la ZS {z}", n=n_comptes_zs, z=f.zs) }}</p>{% endif %}
   <p class="hint">{% if lang == "en" %}{% if items %}{{ premier }}–{{ dernier }} of {% endif %}{{ n_filtres }} record(s){% if n_filtres != total %} ({{ total }} in all){% endif %}.{% else %}{% if items %}Fiches {{ premier }} à {{ dernier }} sur {% endif %}{{ n_filtres }}{% if n_filtres != total %} (sur {{ total }} au total){% endif %}.{% endif %}
     {% if me.is_admin %}{{ t("En tant qu'administrateur, vous voyez et corrigez les mappings de tous les comptes.") }}
     {% elif me.niveau == "zone" %}{{ t("Vous voyez et corrigez les cas de votre zone de santé, dont ceux de ses aires de santé.") }}

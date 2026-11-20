@@ -314,3 +314,28 @@ def test_surveillance_contacts_par_lieu(app):
     assert ws["A3"].value == "NK-BUT-777" and ws["D3"].value == "Domicile" and ws["E3"].value == "2/12"
     assert c.get("/pci/lieux-adresses.xlsx").status_code == 200
     assert c.get("/tableau-de-bord").status_code == 403                     # le reste reste fermé
+
+
+def test_vue_ensemble_et_recherche_utilisateurs(app):
+    from datetime import date, timedelta
+    from core import storage
+    us = Users(app.store)
+    us.create("adminone", "Secret123", role="admin")
+    us.create("mve_a_b", "Secret123", "A B_MVE_One_Jnk", niveau="zone", province="Ituri", zs="Bunia")
+    c0 = storage.load_json(__import__("pathlib").Path(__file__).resolve().parent.parent / "sample_data" / "cas_exemple_fictif.json")
+    c0.entrainement, c0.code_cas = False, "EQ-TUM-26-500"
+    c0.date_notification = date.today() - timedelta(days=2)
+    app.store.save(c0, owner="adminone")
+    c = app.test_client()
+    _login(c, "adminone", "Secret123")
+    html = c.get("/tableau-de-bord").get_data(as_text=True)
+    assert 'data-panneau="vue"' in html and "Complétude des données" in html and "Délai signes → confirmation" in html
+    assert "Matrice risque × délai" in html and "Vaccination en anneau" in html
+    f = c.get("/tableau-de-bord?focus=delai&onglet=vue").get_data(as_text=True)
+    assert 'id="ve-focus"' in f and "EQ-TUM-26-500" in f
+    assert c.get("/tableau-de-bord?statut=Vivant&lien=connu").status_code == 200        # filtres croisés
+    u = c.get("/utilisateurs").get_data(as_text=True)
+    assert 'id="u-cherche"' in u and "Comptes actifs par zone de santé" in u and 'data-zone="Bunia"' in u
+    assert "1 compte(s) actif(s) dans la ZS Bunia" in c.get("/cas?zs=Bunia").get_data(as_text=True)
+    c.get("/langue/en")
+    assert "Global dashboard" in c.get("/tableau-de-bord").get_data(as_text=True)

@@ -19,9 +19,17 @@
     {% for z in zones %}<option {{ 'selected' if z == tb.zs }}>{{ z }}</option>{% endfor %}</select></label>
   <label>{{ t("Du") }}<input type="date" name="debut" value="{{ tb.debut.isoformat() }}"></label>
   <label>{{ t("Au") }}<input type="date" name="fin" value="{{ tb.fin.isoformat() }}"></label>
+  <label>{{ t("Aire de santé") }}<select name="as" onchange="this.form.submit()"><option value="">{{ t("Toutes") }}</option>
+    {% for a in aires %}<option {{ 'selected' if a == fx['as'] }}>{{ a }}</option>{% endfor %}</select></label>
+  <label>{{ t("Statut du cas") }}<select name="statut" onchange="this.form.submit()"><option value="">{{ t("Tous") }}</option>
+    {% for s in statuts %}<option value="{{ s }}" {{ 'selected' if s == fx.statut }}>{{ t(s) }}</option>{% endfor %}</select></label>
+  <label>{{ t("Risque") }}<select name="risque" onchange="this.form.submit()"><option value="">{{ t("Tous") }}</option>
+    {% for s in risques %}<option value="{{ s }}" {{ 'selected' if s == fx.risque }}>{{ t(s) }}</option>{% endfor %}</select></label>
+  <label>{{ t("Lien épidémiologique") }}<select name="lien" onchange="this.form.submit()"><option value="">{{ t("Tous") }}</option>
+    {% for v_, l_ in [("connu", "Connu"), ("inconnu", "Inconnu (non contact)"), ("investiguer", "À investiguer")] %}<option value="{{ v_ }}" {{ 'selected' if v_ == fx.lien }}>{{ t(l_) }}</option>{% endfor %}</select></label>
   <label>{{ t("Pilier (actions)") }}<select name="pilier" onchange="this.form.submit()"><option value="">{{ t("Tous les piliers") }}</option>
     {% for p in piliers %}<option value="{{ p }}" {{ 'selected' if p == tb.pilier }}>{{ t(p) }}</option>{% endfor %}</select></label>
-  <input type="hidden" name="onglet" id="tb-onglet-champ" value="{{ request.args.get('onglet', 'synthese') }}">
+  <input type="hidden" name="onglet" id="tb-onglet-champ" value="{{ request.args.get('onglet', 'vue') }}">
   <div class="tb-boutons">
     <button class="btn small primary" type="submit">{{ t("Appliquer") }}</button>
     <a class="btn small" href="{{ url_for('tableau_bord') }}">{{ t("Réinitialiser") }}</a>
@@ -89,11 +97,13 @@
 {% endif %}
 
 <div class="tb-onglets" role="tablist">
-  {% for k, lib in [("synthese", "Synthèse"), ("actions", "Actions"), ("contacts", "Contacts, PCI et vaccination"),
+  {% for k, lib in [("vue", "Vue d'ensemble"), ("synthese", "Synthèse"), ("actions", "Actions"), ("contacts", "Contacts, PCI et vaccination"),
                     ("transmission", "Parcours et transmission"), ("qualite", "Qualité des données"), ("matrice", "Matrice des questions")] %}
   <button type="button" role="tab" data-onglet="{{ k }}">{{ t(lib) }}</button>
   {% endfor %}
 </div>
+
+{% include "_vue_ensemble.html" %}
 
 {# ---------------------------------------------------------------- Synthèse #}
 <section class="tb-panneau" data-panneau="synthese">
@@ -308,8 +318,8 @@
   }
   document.querySelectorAll('.tb-onglets button').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.onglet); }; });
   document.querySelectorAll('[data-aller]').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.aller); window.scrollTo({top: document.querySelector('.tb-onglets').offsetTop - 60, behavior: 'smooth'}); }; });
-  var valides = ['synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
-  ouvrir(valides.indexOf(champ.value) >= 0 ? champ.value : 'synthese');
+  var valides = ['vue', 'synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
+  ouvrir(valides.indexOf(champ.value) >= 0 ? champ.value : 'vue');
   // plan de travail : filtre par état
   var plan = document.getElementById('tb-plan');
   if (plan) {

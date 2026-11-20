@@ -1,0 +1,111 @@
+{# ---------------------------------------------------------------- Vue d'ensemble (tour de contrôle) #}
+{% set args_vue = dict(request.args) %}
+{% macro lien_focus(k) -%}{{ url_for('tableau_bord', **dict(args_vue, focus=k, onglet='vue')) }}#ve-focus{%- endmacro %}
+<section class="tb-panneau ve" data-panneau="vue">
+  <div class="ve-tete">
+    <div>
+      <h2>{{ t("Tableau de bord global · Réponse MVE") }} · {{ (fx['as'] and (t("AS") ~ " " ~ fx['as'])) or (tb.zs and (t("ZS") ~ " " ~ tb.zs)) or (tb.province and (t("Province") ~ " " ~ tb.province)) or t("Toute la RDC") }}</h2>
+      <div class="ve-sous">{{ tf("Cas notifiés du {d} au {f}", d=tb.debut.strftime("%d/%m/%Y"), f=tb.fin.strftime("%d/%m/%Y")) }} · {{ vue.n }} {{ t("cas") }}
+        · {{ tf("mise à jour {d}", d=maintenant.strftime("%d/%m/%Y %H:%M")) }}</div>
+    </div>
+    <div class="ve-comp {{ 'ok' if vue.completude is not none and vue.completude >= VE.CIBLE_COMPLETUDE else 'bas' }}">
+      {{ t("Complétude des données") }} : <b>{{ vue.completude|round|int if vue.completude is not none else "?" }} %</b>
+      <small>{{ tf("cible ≥ {c} %", c=VE.CIBLE_COMPLETUDE) }}</small>
+    </div>
+  </div>
+
+  {% if focus %}
+  <div class="card ve-focus" id="ve-focus">
+    <div class="tb-ligne"><h3>{{ t(VE.TITRES_FOCUS[focus]) }} · {{ vue.focus[focus]|length }}</h3>
+      <a class="btn small" style="margin-left:auto" href="{{ url_for('tableau_bord', **dict(args_vue, focus='', onglet='vue')) }}">{{ t("Fermer la liste") }}</a></div>
+    {% if vue.focus[focus] %}
+    <table class="list"><thead><tr><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Détail") }}</th><th></th></tr></thead><tbody>
+      {% for c, det in vue.focus[focus] %}<tr><td><b>{{ TB._code(c) }}</b></td><td>{{ c.zs or "?" }}</td><td>{{ det }}</td>
+        <td style="text-align:right"><a href="{{ url_for('editor', cid=c.id) }}">{{ t("Ouvrir le mapping") }} →</a></td></tr>{% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">{{ t("Aucun cas concerné.") }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="ve-kpis">
+    {% for k in vue.kpis %}
+    <a class="ve-kpi {{ k.ton }}" href="{{ lien_focus(k.cle) }}" title="{{ t('Voir les cas concernés') }}">
+      <div class="kt">{{ k.titre }}</div><div class="kv">{{ k.valeur }}</div><div class="ks">{{ k.detail }}</div>
+      {% if k.graphe %}<div class="kg">{{ k.graphe|safe }}</div>{% endif %}
+      {% if k.bandeau %}<div class="kal {{ k.bandeau_ton }}">{{ k.bandeau }}</div>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="ve-cols">
+    <div>
+      <div class="ve-sec">{{ t("Épidémiologie et surveillance") }}</div>
+      <div class="ve-g2">
+        <div class="card ve-carte"><h3>{{ t("Délai depuis le dernier cas") }}</h3>{{ vue.carte|safe }}</div>
+        <div>
+          <div class="card"><h3>{{ t("Cas par semaine épidémiologique") }}</h3>{{ vue.semaines|safe }}</div>
+          <div class="card ve-mt"><h3>{{ t("Délai signes → confirmation par ZS") }}</h3><div class="ve-h">{{ tf("moyenne, seuil d'alerte {seuil} jours", seuil=TB.SEUILS.delai_conf) }}</div>{{ vue.delais_zs|safe }}</div>
+        </div>
+      </div>
+      <div class="ve-g2">
+        <div class="card"><h3>{{ t("Lien épidémiologique") }}</h3>{{ vue.lien|safe }}
+          <a class="ve-plus" href="{{ lien_focus('lien') }}">{{ t("Voir les cas sans lien connu") }} →</a></div>
+        <div class="card"><h3>{{ t("Délai de notification") }}</h3><div class="ve-h">{{ t("moyenne sur la période") }}</div>
+          <table class="ve-t">{% for l, val, rouge in vue.notification %}<tr><td>{{ l }}</td><td class="n {{ 'r' if rouge }}">{{ val }}</td></tr>{% endfor %}</table></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="ve-sec">{{ t("Suivi des contacts et exposition") }}</div>
+      <div class="card ve-mt"><h3>{{ t("Contacts suivis / contacts identifiés, par catégorie") }}</h3>{{ vue.contacts_cat|safe }}
+        {% if vue.contacts_cat_info %}<div class="ve-h">{{ vue.contacts_cat_info }}</div>{% endif %}</div>
+      <div class="card ve-mt"><h3>{{ t("Contacts actifs chaque jour (fenêtre de 21 jours)") }}</h3>
+        <div class="ve-h">{{ t("calculé à partir de la date du dernier contact de chaque groupe") }}</div>{{ vue.actifs|safe }}</div>
+      <div class="card ve-mt"><h3>{{ t("Zones de santé avec le plus de contacts actifs") }}</h3>
+        {% if vue.top_zs %}<table class="ve-t"><tr><th>#</th><th>{{ t("Zone de santé") }}</th><th class="n">{{ t("Contacts actifs") }}</th><th class="n">{{ t("À lister") }}</th></tr>
+          {% for z, n, al in vue.top_zs %}<tr><td>{{ loop.index }}</td><td>{{ z }}</td><td class="n">{{ n }}</td><td class="n {{ 'r' if al }}">{{ al if al is not none else "?" }}</td></tr>{% endfor %}</table>
+          <a class="ve-plus" href="{{ url_for('surveillance_page') }}">{{ t("Détail par lieu : menu Surveillance") }} →</a>
+        {% else %}<p class="muted">{{ t("Aucun contact en cours de suivi.") }}</p>{% endif %}</div>
+    </div>
+
+    <div>
+      <div class="ve-sec">{{ t("PCI et opérations") }}</div>
+      <div class="card ve-mt"><h3>{{ t("Sites d'exposition et de soins") }}</h3>
+        {% set tot_pci = vue.pci.values()|sum %}
+        {% if tot_pci %}
+        <div class="ve-pci">{% for st, col in [("Décontaminé", "#2E8B57"), ("Partiel", "#F28C28"), ("Non", "#C8202A"), ("Inconnu", "#9AA5B1")] %}{% if vue.pci.get(st) %}<i style="width:{{ 100 * vue.pci[st] / tot_pci }}%;background:{{ col }}" title="{{ t(st) }} : {{ vue.pci[st] }}"></i>{% endif %}{% endfor %}</div>
+        <div class="ve-leg">{% for st, col in [("Décontaminé", "#2E8B57"), ("Partiel", "#F28C28"), ("Non", "#C8202A"), ("Inconnu", "#9AA5B1")] %}<span style="--c:{{ col }}">{{ t(st) }} {{ vue.pci.get(st, 0) }}</span>{% endfor %}</div>
+        {% else %}<p class="muted">{{ t("Aucun site PCI saisi.") }}</p>{% endif %}</div>
+      <div class="card ve-mt"><h3>{{ t("Sites critiques (non faits ou statut inconnu)") }}</h3>
+        {% if vue.sites %}<table class="ve-t">{% for s in vue.sites %}<tr><td>{{ s.site }} <span class="muted">({{ s.zs }})</span></td>
+          <td><span class="ve-pill {{ 'r' if s.statut == 'Non' else 'g' }}">{{ t("Non fait") if s.statut == "Non" else t("Statut inconnu") }}</span></td>
+          <td class="n"><a href="{{ url_for('editor', cid=s.cid) }}">{{ s.code }} →</a></td></tr>{% endfor %}</table>
+        {% else %}<p class="muted">{{ t("Aucun site critique.") }}</p>{% endif %}</div>
+      <div class="card ve-mt"><h3>{{ t("Actions urgentes et importantes") }}</h3>
+        {% if vue.actions %}<table class="ve-t"><tr><th>{{ t("Priorité") }}</th><th>{{ t("Action") }}</th><th class="n">{{ t("Faites") }}</th><th class="n">{{ t("Retard") }}</th></tr>
+          {% for a in vue.actions %}<tr><td><span class="ve-pr {{ 'u' if a.priorite == 'Urgent' else 'i' }}">{{ t(a.priorite) }}</span></td><td>{{ t(a.texte) }}</td>
+            <td class="n">{{ a.faites }} / {{ a.total }}</td><td class="n {{ 'r' if a.retard }}">{{ a.retard }}</td></tr>{% endfor %}</table>
+        {% else %}<p class="muted">{{ t("Aucune action urgente ou importante saisie.") }}</p>{% endif %}</div>
+      <div class="card ve-mt"><h3>{{ t("Qualité des fiches par ZS") }}</h3><div class="ve-h">{{ t("les plus faibles d'abord") }}</div>
+        <table class="ve-t">{% for z, q in vue.qualite %}<tr><td>{{ z }}</td><td style="width:45%"><div class="ve-qb"><i style="width:{{ q }}%;background:{{ '#2E8B57' if q >= VE.CIBLE_COMPLETUDE else '#F28C28' if q >= 85 else '#9B1B1B' }}"></i></div></td><td class="n">{{ q|round|int }} %</td></tr>{% endfor %}</table></div>
+    </div>
+  </div>
+
+  <div class="ve-bas">
+    <div class="card"><h3>{{ t("Matrice risque × délai : cas à traiter en priorité") }}</h3>
+      <div class="ve-h">{{ tf("risque très élevé ou élevé avec délai > {seuil} j, action urgente ouverte, lien inconnu ou site PCI non fait", seuil=TB.SEUILS.delai_conf) }}</div>
+      {% if vue.priorites %}<table class="ve-t"><tr><th>{{ t("Cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Risque") }}</th><th class="n">{{ t("Délai") }}</th><th>{{ t("Motif") }}</th><th></th></tr>
+        {% for p in vue.priorites %}<tr><td><b>{{ p.code }}</b></td><td>{{ p.zs }}</td><td><span class="ve-pill {{ 'r' if p.risque == 'Très élevé' else 'o' }}">{{ t(p.risque) }}</span></td>
+          <td class="n {{ 'r' if p.delai and p.delai > TB.SEUILS.delai_conf }}">{{ (p.delai ~ " " ~ t("j")) if p.delai is not none else "?" }}</td><td>{{ p.motifs }}</td>
+          <td class="n"><a href="{{ url_for('editor', cid=p.cid) }}">{{ t("mapping") }} →</a></td></tr>{% endfor %}</table>
+        {% if vue.focus.priorites|length > vue.priorites|length %}<a class="ve-plus" href="{{ lien_focus('priorites') }}">{{ tf("Voir les {n} cas", n=vue.focus.priorites|length) }} →</a>{% endif %}
+      {% else %}<p class="muted">{{ t("Aucun cas prioritaire selon ces critères.") }}</p>{% endif %}</div>
+    <div class="card"><h3>{{ t("Prise en charge, laboratoire, EDS") }}</h3>
+      <table class="ve-t">{% for l, val, rouge in vue.prise_en_charge %}<tr><td>{{ l }}</td><td class="n {{ 'r' if rouge }}">{{ val }}</td></tr>{% endfor %}</table>
+      <a class="ve-plus" href="{{ lien_focus('soignants') }}">{{ t("Voir les agents de santé parmi les cas") }} →</a></div>
+    <div class="card"><h3>{{ t("Vaccination en anneau") }}</h3>
+      <table class="ve-t">{% for l, val, rouge in vue.vaccination %}<tr><td>{{ l }}</td><td class="n {{ 'r' if rouge }}">{{ val }}</td></tr>{% endfor %}</table>
+      <a class="ve-plus" href="{{ lien_focus('anneau') }}">{{ t("Voir les cas sans date d'anneau") }} →</a></div>
+  </div>
+  <p class="hint" style="margin-top:10px">{{ t("« ? » : non renseigné dans les fiches, jamais compté comme 0. Cliquez sur un indicateur pour voir les cas concernés, puis ouvrir leur mapping.") }}</p>
+</section>

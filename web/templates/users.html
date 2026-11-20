@@ -47,10 +47,25 @@
 {% else %}
 <p class="hint">{{ t("Niveau national : vous pouvez consulter et supprimer des comptes. Chaque suppression est inscrite dans l'historique.") }}</p>
 {% endif %}
+<div class="u-outils">
+  <div class="card u-recherche">
+    <h3 style="margin:0 0 8px">{{ t("Rechercher un utilisateur") }} <span class="u-badge">{{ tf("{n} comptes actifs", n=n_actifs) }}</span></h3>
+    <input type="search" id="u-cherche" placeholder="{{ t('Identifiant, nom, province ou zone de santé…') }}" autocomplete="off">
+    <p class="hint" id="u-resultat" style="margin:6px 0 0"></p>
+  </div>
+  <div class="card u-zones">
+    <h3 style="margin:0 0 8px">{{ t("Comptes actifs par zone de santé") }}</h3>
+    {% if par_zone %}<div class="u-zones-liste"><table class="list">
+      <tr><th>{{ t("Province") }}</th><th>{{ t("Zone de santé") }}</th><th style="text-align:right">{{ t("Comptes") }}</th></tr>
+      {% for p, z, n in par_zone %}<tr class="u-zone" data-zone="{{ z }}" title="{{ t('Filtrer la liste sur cette zone') }}"><td>{{ p }}</td><td>{{ z }}</td><td style="text-align:right"><b>{{ n }}</b></td></tr>{% endfor %}
+    </table></div>{% else %}<p class="muted">{{ t("Aucun compte rattaché à une zone de santé.") }}</p>{% endif %}
+  </div>
+</div>
 <div class="card" style="margin-top:14px; overflow-x:auto">
-  <table class="list">
-    <tr><th>{{ t("Identifiant") }}</th><th>{{ t("Nom") }}</th><th>{{ t("Niveau") }}</th><th>{{ t("Périmètre") }}</th><th>{{ t("Fiches") }}</th><th>{{ t("Statut") }}</th><th>{{ t("Dernière connexion") }}</th><th></th></tr>
+  <table class="list" id="u-table">
+    <thead><tr><th>{{ t("Identifiant") }}</th><th>{{ t("Nom") }}</th><th>{{ t("Niveau") }}</th><th>{{ t("Périmètre") }}</th><th>{{ t("Fiches") }}</th><th>{{ t("Statut") }}</th><th>{{ t("Dernière connexion") }}</th><th></th></tr></thead>
     {% for u in users %}
+    <tbody class="u-bloc" data-q="{{ (u.username ~ ' ' ~ u.nom ~ ' ' ~ (u.province or '') ~ ' ' ~ (u.zs or '') ~ ' ' ~ (u.aire or ''))|lower }}">
     <tr>
       <td><b>{{ u.username }}</b>{% if u.is_admin %} <span class="pill">{{ t("admin") }}</span>{% elif u.is_partenaire %} <span class="pill">{{ t("partenaire") }}</span>{% endif %}</td><td>{{ u.nom }}</td><td>{{ t(u.niveau_label) }}</td><td>{{ t(u.perimetre) }}</td>
       <td>{{ counts.get(u.username, 0) }}</td>
@@ -86,6 +101,7 @@
       </details>
     </td></tr>
     {% endif %}
+    </tbody>
     {% endfor %}
   </table>
 </div>
@@ -103,6 +119,27 @@
 </div>
 {% endblock %}
 {% block scripts %}
+<script>
+/* recherche d'un utilisateur pendant la frappe ; clic sur une zone : filtre la liste */
+(function () {
+  var champ = document.getElementById('u-cherche'); if (!champ) return;
+  var blocs = Array.prototype.slice.call(document.querySelectorAll('#u-table tbody.u-bloc'));
+  var info = document.getElementById('u-resultat');
+  function norm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function filtre() {
+    var mots = norm(champ.value).split(/\s+/).filter(Boolean), n = 0;
+    blocs.forEach(function (b) {
+      var q = norm(b.dataset.q), ok = mots.every(function (m) { return q.indexOf(m) >= 0; });
+      b.hidden = !ok; if (ok) n++;
+    });
+    info.textContent = mots.length ? {{ t("comptes trouvés :")|tojson }} + ' ' + n : '';
+  }
+  champ.addEventListener('input', filtre);
+  document.querySelectorAll('.u-zone').forEach(function (tr) {
+    tr.onclick = function () { champ.value = tr.dataset.zone; filtre(); champ.scrollIntoView({behavior: 'smooth', block: 'center'}); };
+  });
+})();
+</script>
 <script>
 (async function () {
   'use strict';
