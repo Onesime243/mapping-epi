@@ -313,4 +313,7 @@ EN = {
     "ID du cas source (contact connu)": "Source case ID (known contact)",
     "Date du dernier contact avec le cas source": "Date of last contact with the source case",
     "Personnes présentes : {n} étape(s) à compléter": "People present: {n} step(s) to complete",
+    "Plein écran": "Full screen", "Réduire": "Exit full screen",
+    "Voir le visuel sur tout l’écran, sans téléchargement": "Show the visual on the whole screen, without downloading",
+    "Réduire (touche Échap)": "Exit full screen (Esc key)",
 }

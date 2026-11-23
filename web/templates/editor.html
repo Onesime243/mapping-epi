@@ -77,6 +77,8 @@
   <section class="preview">
     <div class="vtabs" id="vtabs">
       {% for k, label in visuals.items() %}{% if droits.admin or k in ("mapping", "network") or (droits.partenaire and k in droits.vues_partenaire) %}<button data-v="{{ k }}" class="{{ 'on' if loop.first }}">{{ t(label) }}</button>{% endif %}{% endfor %}
+      <button type="button" class="vt-plein" id="pleinEcran" title="{{ t('Voir le visuel sur tout l’écran, sans téléchargement') }}">⛶ {{ t("Plein écran") }}</button>
+      <button type="button" class="vt-reduire" id="reduireEcran" title="{{ t('Réduire (touche Échap)') }}">✕ {{ t("Réduire") }}</button>
     </div>
     <div class="frame" id="frame"><iframe id="pv" title="{{ t("Aperçu") }}" loading="eager"></iframe></div>
     <div class="dl" id="dl">

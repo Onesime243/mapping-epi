@@ -675,9 +675,36 @@
     updateDownloads();
   }
   function scaleFrame() {
-    const fr = $('#frame'); const s = fr.clientWidth / 1280;
-    $('#pv').style.transform = 'scale(' + s + ')';
+    const fr = $('#frame'), pv = $('#pv');
+    if (enPleinEcran()) {          // plein écran : le visuel entier, centré, sans déformation
+      const s = Math.min(fr.clientWidth / 1280, fr.clientHeight / 720);
+      pv.style.left = Math.max(0, (fr.clientWidth - 1280 * s) / 2) + 'px';
+      pv.style.top = Math.max(0, (fr.clientHeight - 720 * s) / 2) + 'px';
+      pv.style.transform = 'scale(' + s + ')';
+      return;
+    }
+    pv.style.left = '0px';
+    pv.style.top = '0px';
+    pv.style.transform = 'scale(' + (fr.clientWidth / 1280) + ')';
   }
+
+  // ------------------------------------------------- plein écran (sans téléchargement)
+  const zonePreview = () => document.querySelector('section.preview');
+  const enPleinEcran = () => !!(zonePreview() && zonePreview().classList.contains('plein'));
+  function pleinEcran(oui) {
+    const z = zonePreview(); if (!z) return;
+    z.classList.toggle('plein', oui);
+    document.body.classList.toggle('apercu-plein', oui);
+    if (oui && z.requestFullscreen && !document.fullscreenElement) {
+      z.requestFullscreen().catch(() => {});          // sans plein écran du navigateur : la vue couvre la fenêtre
+    } else if (!oui && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setTimeout(scaleFrame, 60);
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && enPleinEcran()) pleinEcran(false); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && enPleinEcran()) pleinEcran(false); });
+  window.addEventListener('resize', () => { if (enPleinEcran()) scaleFrame(); });
   function updateDownloads() {
     $$('#dl a').forEach(a => {
       const fmt = a.dataset.fmt;
@@ -705,10 +732,13 @@
       $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
       $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + b.dataset.p));
     }));
-    $$('#vtabs button').forEach(b => b.addEventListener('click', () => {
-      $$('#vtabs button').forEach(x => x.classList.toggle('on', x === b));
+    $$('#vtabs button[data-v]').forEach(b => b.addEventListener('click', () => {
+      $$('#vtabs button[data-v]').forEach(x => x.classList.toggle('on', x === b));
       visual = b.dataset.v; refreshPreview();
     }));
+    const bp = $('#pleinEcran'), br = $('#reduireEcran');
+    if (bp) bp.addEventListener('click', () => pleinEcran(true));
+    if (br) br.addEventListener('click', () => pleinEcran(false));
     $$('[data-add]').forEach(b => b.addEventListener('click', () => {
       const t = b.dataset.add; const r = blankRow(t); r.id = Math.random().toString(16).slice(2, 12);
       C[t].push(r); renderTable(t); changed();
