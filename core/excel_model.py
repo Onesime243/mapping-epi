@@ -64,6 +64,8 @@ CASE_SECTIONS = [
         ("agent_sante_structure", "Catégorie et structure de l'agent de santé", "ex. Infirmier, CS Nzala", False, "text"),
         ("vaccine", "Vacciné", "Oui / Non / Inconnu", True, "oui_non"),
         ("date_vaccination", "Date de vaccination", "JJ/MM/AAAA si vacciné", False, "date"),
+        ("date_debut_anneau", "Début de la vaccination de l'anneau", "JJ/MM/AAAA : début de la vaccination en anneau "
+         "autour du cas", False, "date"),
     ]),
     ("LOCALISATION (pyramide sanitaire RDC)", [
         ("province", "Province", "Choisir dans la liste", True, "province"),
@@ -88,6 +90,7 @@ CASE_SECTIONS = [
         ("date_confirmation", "Date confirmation", "JJ/MM/AAAA", True, "date"),
         ("issue", "État", "Vivant / Décès / Guéri / En traitement / Inconnu", True, "issue"),
         ("date_deces", "Date décès", "JJ/MM/AAAA si décès", False, "date"),
+        ("sequencage", "Séquençage", "Résultat du séquençage : clade, lignée, lien génomique", False, "text"),
         ("risque_global", "Risque global (vide = auto)", "Laisser vide : l'outil le calcule", False, "risque"),
     ]),
     ("INVESTIGATION", [
@@ -134,11 +137,13 @@ TABLES = [
       ("suivis", "Suivis", 9, "int?", "Nombre suivi"),
       ("risque", "Risque", 12, "contact_risk", "Très haut / Haut / Modéré / Faible"),
       ("lieu", "Lieu de contact", 22, "text", "Doit correspondre à un lieu de la feuille Lieux"),
-      ("dernier_contact", "Dernier contact", 14, "date", "JJ/MM/AAAA ; fin du suivi = +21 j")]),
+      ("dernier_contact", "Dernier contact", 14, "date", "JJ/MM/AAAA ; fin du suivi = +21 j"),
+      ("vaccines", "Vaccinés (? si inconnu)", 12, "int?", "Contacts vaccinés (vaccination en anneau)")]),
     ("PCI", "PCI / DÉCONTAMINATION", "Documenter date, équipe et produit pour chaque site.",
      [("site", "Site", 28, "text", ""), ("statut", "Statut", 14, "ipc", "Décontaminé / Partiel / Non"),
       ("date", "Date", 13, "date", "JJ/MM/AAAA"), ("equipe", "Équipe", 22, "text", ""),
-      ("produit", "Produit", 22, "text", "")]),
+      ("produit", "Produit", 22, "text", ""),
+      ("adresse", "Adresse du site", 32, "text", "Avenue, quartier, repère (carte du parcours, pas le mapping)")]),
     ("Laboratoire", "LABORATOIRE", "Dates et heures au format JJ/MM/AAAA HH:MM. Le délai est calculé par l'outil.",
      [("type", "Échantillon", 14, "sample", ""), ("laboratoire", "Nom laboratoire", 20, "text", ""),
       ("prelevement", "Prélèvement", 17, "datetime", "JJ/MM/AAAA HH:MM"),
@@ -147,7 +152,11 @@ TABLES = [
     ("Actions", "ACTIONS IMMÉDIATES", "Vide = l'outil propose des actions automatiquement.",
      [("texte", "Action", 46, "text", ""), ("priorite", "Priorité", 12, "priority", "Urgent / Important / Normal"),
       ("responsable", "Responsable", 22, "text", ""), ("echeance", "Échéance", 13, "date", "JJ/MM/AAAA"),
-      ("statut", "Statut", 12, "action_status", "")]),
+      ("statut", "Statut", 12, "action_status", ""),
+      ("pilier", "Pilier", 18, "pilier", "Vide = déduit du texte de l'action"),
+      ("obstacle", "Blocage / obstacle", 24, "obstacle", "Cause de retard ; vide = aucun"),
+      ("preuve", "Preuve de réalisation", 26, "text", "Photo, fiche, rapport, référence"),
+      ("valide_par", "Validé par", 18, "text", "Superviseur qui a vérifié")]),
 ]
 LIST_ATTR = {"Chronologie": "events", "Lieux": "places", "Contacts": "contacts", "PCI": "ipc",
              "Laboratoire": "labs", "Actions": "actions"}
@@ -161,6 +170,7 @@ LISTS = {
     "result": theme.LAB_RESULTS,
     "priority": theme.ACTION_PRIORITY_CHOICES, "action_status": theme.ACTION_STATUS_CHOICES, "bool": ["oui", "non"],
     "phase_dds": theme.PHASE_DDS_CHOICES, "oui_non": theme.OUI_NON,
+    "pilier": theme.PILIERS, "obstacle": theme.OBSTACLES,
 }
 
 

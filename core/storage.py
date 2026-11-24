@@ -314,6 +314,7 @@ _CASE_FIELDS = [
     ("phase_dds", "Phase des premiers signes"), ("date_contact_source", "Date du dernier contact avec le cas source"),
     ("date_notification", "Date de notification"), ("vaccine", "Vacciné"), ("date_vaccination", "Date de vaccination"),
     ("agent_sante", "Agent de santé (PPL)"), ("agent_sante_structure", "Catégorie et structure de l'agent de santé"),
+    ("date_debut_anneau", "Début de la vaccination de l'anneau"), ("sequencage", "Séquençage"),
 ]
 # anciens libellés de la feuille « Cas » encore acceptés à l'import
 CASE_ALIAS = {"Issue": "issue"}
@@ -335,15 +336,17 @@ SHEETS = {
     "Contacts": (ContactGroup, [
         ("categorie", "Catégorie"), ("lien", "Lien avec le cas"), ("nombre", "Nombre (? si inconnu)"),
         ("libelle_nombre", "Libellé"), ("suivis", "Suivis"), ("risque", "Risque"), ("lieu", "Lieu de contact"),
-        ("dernier_contact", "Dernier contact")]),
+        ("dernier_contact", "Dernier contact"), ("vaccines", "Vaccinés (? si inconnu)")]),
     "PCI": (IPCSite, [
-        ("site", "Site"), ("statut", "Statut"), ("date", "Date"), ("equipe", "Équipe"), ("produit", "Produit")]),
+        ("site", "Site"), ("statut", "Statut"), ("date", "Date"), ("equipe", "Équipe"), ("produit", "Produit"),
+        ("adresse", "Adresse du site")]),
     "Laboratoire": (LabSample, [
         ("type", "Échantillon"), ("laboratoire", "Nom laboratoire"), ("prelevement", "Prélèvement"),
         ("envoi", "Envoi"), ("reception", "Réception"), ("resultat_le", "Résultat le"), ("resultat", "Résultat")]),
     "Actions": (Action, [
         ("texte", "Action"), ("priorite", "Priorité"), ("responsable", "Responsable"),
-        ("echeance", "Échéance"), ("statut", "Statut")]),
+        ("echeance", "Échéance"), ("statut", "Statut"), ("pilier", "Pilier"), ("obstacle", "Blocage / obstacle"),
+        ("preuve", "Preuve de réalisation"), ("valide_par", "Validé par")]),
 }
 # colonnes qui font exister une ligne (les autres seules (risque, type, statut, oui/non) ne suffisent pas)
 ESSENTIEL = {

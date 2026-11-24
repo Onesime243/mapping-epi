@@ -1127,6 +1127,80 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                # traductions du formulaire (editor.js : T("…")) ; vide en français
                                i18n_fiche=(LGF.dictionnaire() if LGF.actuelle() == "en" else {}))
 
+    # ----------------------------------- fiche modifiable : Word / Excel pré-remplis, puis réimport dans la même fiche
+    def _nom_fiche(c: Case, ext: str) -> str:
+        return re.sub(r"[^A-Za-z0-9_-]+", "_", f"Fiche_{c.code_cas or 'cas'}").strip("_") + ext
+
+    @app.route("/cas/<cid>/fiche.xlsx")
+    @login_required
+    def fiche_excel(cid):
+        c = get_case(cid)
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.xlsx"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        storage.export_excel(c, out)
+        return _send_and_delete(out, _nom_fiche(c, ".xlsx"))
+
+    @app.route("/cas/<cid>/fiche.docx")
+    @login_required
+    def fiche_word(cid):
+        from core import modele_narratif
+        c = get_case(cid)
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.docx"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        modele_narratif.generer_docx(out, c)
+        return _send_and_delete(out, _nom_fiche(c, ".docx"))
+
+    @app.route("/cas/<cid>/reimporter", methods=["POST"])
+    @login_required
+    def reimporter(cid):
+        """Fichier Word / Excel corrigé (téléchargé depuis cette fiche) : met à jour la même fiche (même ID, même compte)."""
+        c = get_case(cid, edit=True)
+        f = request.files.get("fichier")
+        if not f or not f.filename:
+            flash(tr("Choisissez le fichier Word ou Excel corrigé."), "err")
+            return redirect(url_for("editor", cid=cid))
+        nom = f.filename.lower()
+        tmp = data_dir() / "exports" / f"reimport_{secrets.token_hex(4)}{Path(nom).suffix}"
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        f.save(str(tmp))
+        try:
+            if nom.endswith(".xlsx"):
+                try:
+                    new = storage.import_excel(tmp, base=c)
+                except storage.ExcelImportError as exc:
+                    new = exc.case
+            elif nom.endswith((".docx", ".pptx")):
+                from core import modele_narratif
+                lu = modele_narratif.lire_modele(tmp)
+                if lu is None:
+                    flash(tr("Ce fichier n'est pas une fiche Mapping Épi : utilisez le fichier téléchargé depuis cette fiche."), "err")
+                    return redirect(url_for("editor", cid=cid))
+                new = lu.case
+            else:
+                flash(tr("Format non reconnu : fichier Word (.docx) ou Excel (.xlsx) attendu."), "err")
+                return redirect(url_for("editor", cid=cid))
+        except Exception as exc:
+            flash(trf("Fichier illisible : {e}", e=exc), "err")
+            return redirect(url_for("editor", cid=cid))
+        finally:
+            tmp.unlink(missing_ok=True)
+        new.id, new.entrainement = c.id, c.entrainement
+        pyr = pyramide.get()
+        new.province, new.zs, new.aire_sante = pyr.canonical(new.province, new.zs, new.aire_sante)
+        manque = OBL.manquants(new)
+        officielle = app.store.load(cid)
+        if manque:
+            app.store.save_brouillon(new, g.case_owner or g.user.username)
+            flash(tr("Fichier réimporté, gardé en brouillon : complétez") + " " + ", ".join(manque) + ".", "err")
+        else:
+            if officielle is not None:          # l'état d'avant reste dans l'historique des versions
+                app.store.save(officielle, version=True, auteur=g.user.username, commentaire="Avant réimport")
+            app.store.save(new, version=True, auteur=g.user.username, commentaire=f"Réimport {f.filename}"[:200],
+                           owner=None if officielle is not None else (g.case_owner or g.user.username))
+            flash(trf("Fiche mise à jour à partir de « {f} ». L'état précédent reste dans l'historique des versions.",
+                      f=f.filename), "ok")
+        return redirect(url_for("editor", cid=cid))
+
     @app.route("/cas/<cid>/supprimer", methods=["POST"])
     @login_required
     def delete_case(cid):

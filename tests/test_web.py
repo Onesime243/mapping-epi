@@ -339,3 +339,41 @@ def test_vue_ensemble_et_recherche_utilisateurs(app):
     assert "1 compte(s) actif(s) dans la ZS Bunia" in c.get("/cas?zs=Bunia").get_data(as_text=True)
     c.get("/langue/en")
     assert "Global dashboard" in c.get("/tableau-de-bord").get_data(as_text=True)
+
+
+def test_fiche_modifiable_et_reimport(app):
+    import io, re as _re
+    from core import storage, modele_narratif
+    us = Users(app.store)
+    us.create("agent.r", "Secret123")
+    c0 = storage.load_json(__import__("pathlib").Path(__file__).resolve().parent.parent / "sample_data" / "cas_exemple_fictif.json")
+    c0.entrainement, c0.code_cas = False, "EQ-TUM-26-777"
+    app.store.save(c0, owner="agent.r")
+    c = app.test_client()
+    tok = _login(c, "agent.r", "Secret123")
+    page = c.get(f"/cas/{c0.id}").get_data(as_text=True)
+    assert "Fiche modifiable" in page and "reimporter" in page
+    x = c.get(f"/cas/{c0.id}/fiche.xlsx")
+    assert x.status_code == 200 and x.data[:2] == b"PK"
+    w = c.get(f"/cas/{c0.id}/fiche.docx")
+    assert w.status_code == 200 and w.data[:2] == b"PK"
+    # correction dans Excel : âge et séquençage, puis réimport dans la même fiche
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(x.data))
+    ws = wb["Cas"]
+    for row in ws.iter_rows():
+        if row[0].value == "Âge":
+            row[1].value = 52
+        if row[0].value == "Séquençage":
+            row[1].value = "Clade Zaïre"
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    r = c.post(f"/cas/{c0.id}/reimporter", data={"csrf": tok, "fichier": (buf, "Fiche_corrigee.xlsx")},
+               content_type="multipart/form-data")
+    assert r.status_code == 302
+    apres = app.store.load(c0.id)
+    assert apres.age == 52 and apres.sequencage == "Clade Zaïre" and apres.code_cas == "EQ-TUM-26-777"
+    assert app.store.owner_of(c0.id) == "agent.r" and len([x for x in app.store.list_full()]) == 1   # pas de doublon
+    # réimport du Word téléchargé : même fiche
+    r = c.post(f"/cas/{c0.id}/reimporter", data={"csrf": tok, "fichier": (io.BytesIO(w.data), "Fiche.docx")},
+               content_type="multipart/form-data")
+    assert r.status_code == 302 and app.store.load(c0.id).code_cas == "EQ-TUM-26-777"

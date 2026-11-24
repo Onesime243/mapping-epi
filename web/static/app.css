@@ -555,3 +555,7 @@ table.surv td { vertical-align: top; }
 .preview.plein .frame { flex: 1; aspect-ratio: auto; border-radius: 6px; background: #111A26; border: 0; box-shadow: none; }
 .preview.plein .dl, .preview.plein > .hint { display: none; }
 body.apercu-plein { overflow: hidden; }
+
+/* fiche modifiable (Word / Excel) et réimport */
+.fiche-modif { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); }
+.preview.plein .fiche-modif { display: none; }

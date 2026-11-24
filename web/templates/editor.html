@@ -94,6 +94,24 @@
       <a class="btn small" data-fmt="json" data-any="1">JSON</a>{% endif %}
     </div>
     <p class="hint" style="margin-top:8px">{{ t("Les fichiers sont générés par le serveur au moment du clic (quelques secondes pour PNG / PDF).") }}</p>
+    {% if not droits.partenaire %}
+    <div class="fiche-modif">
+      <b>{{ t("Fiche modifiable (Word / Excel)") }}</b>
+      <p class="hint" style="margin:2px 0 8px">{{ t("Téléchargez la fiche remplie avec tout ce qui est saisi, corrigez-la dans Word ou Excel, puis réimportez-la ici : ce mapping est mis à jour (même cas, sans doublon).") }}</p>
+      <div class="row">
+        <a class="btn small" href="{{ url_for('fiche_word', cid=case.id) }}">⬇ {{ t("Fiche Word") }}</a>
+        <a class="btn small" href="{{ url_for('fiche_excel', cid=case.id) }}">⬇ {{ t("Fiche Excel") }}</a>
+      </div>
+      {% if not readonly %}
+      <form class="row" method="post" action="{{ url_for('reimporter', cid=case.id) }}" enctype="multipart/form-data" style="margin-top:8px"
+            onsubmit="return confirm({{ t('Remplacer le contenu de cette fiche par celui du fichier ? L’état actuel reste dans l’historique des versions.')|tojson|forceescape }})">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="file" name="fichier" accept=".docx,.xlsx" required style="max-width:260px">
+        <button class="btn small primary">⇪ {{ t("Réimporter dans cette fiche") }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
   </section>
 </div>
 <div class="toast" id="toast"></div>

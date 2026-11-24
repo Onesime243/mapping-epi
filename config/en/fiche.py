@@ -316,4 +316,17 @@ EN = {
     "Plein écran": "Full screen", "Réduire": "Exit full screen",
     "Voir le visuel sur tout l’écran, sans téléchargement": "Show the visual on the whole screen, without downloading",
     "Réduire (touche Échap)": "Exit full screen (Esc key)",
+    "Fiche modifiable (Word / Excel)": "Editable record (Word / Excel)",
+    "Téléchargez la fiche remplie avec tout ce qui est saisi, corrigez-la dans Word ou Excel, puis réimportez-la ici : ce mapping est mis à jour (même cas, sans doublon).":
+        "Download the record filled with everything entered, correct it in Word or Excel, then re-import it here: this mapping is updated (same case, no duplicate).",
+    "Fiche Word": "Word record", "Fiche Excel": "Excel record", "Réimporter dans cette fiche": "Re-import into this record",
+    "Remplacer le contenu de cette fiche par celui du fichier ? L’état actuel reste dans l’historique des versions.":
+        "Replace this record's content with the file's? The current state stays in the version history.",
+    "Choisissez le fichier Word ou Excel corrigé.": "Choose the corrected Word or Excel file.",
+    "Ce fichier n'est pas une fiche Mapping Épi : utilisez le fichier téléchargé depuis cette fiche.":
+        "This file is not a Mapping Épi record: use the file downloaded from this record.",
+    "Format non reconnu : fichier Word (.docx) ou Excel (.xlsx) attendu.": "Unknown format: Word (.docx) or Excel (.xlsx) file expected.",
+    "Fichier réimporté, gardé en brouillon : complétez": "File re-imported, kept as a draft: complete",
+    "Fiche mise à jour à partir de « {f} ». L'état précédent reste dans l'historique des versions.":
+        "Record updated from \"{f}\". The previous state stays in the version history.",
 }
