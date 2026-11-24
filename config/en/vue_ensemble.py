@@ -75,4 +75,13 @@ EN = {
     "Filtrer la liste sur cette zone": "Filter the list on this zone",
     "Aucun compte rattaché à une zone de santé.": "No account linked to a health zone.",
     "comptes trouvés :": "accounts found:", "{n} compte(s) actif(s) dans la ZS {z}": "{n} active account(s) in HZ {z}",
+    "Analyse": "Analysis", "À traiter": "To handle", "Tableau de bord · Réponse MVE": "Dashboard · EVD response",
+    "Plus de filtres": "More filters", "actifs": "active", "Aller à": "Go to", "Aller à :": "Go to:",
+    "Indicateurs": "Indicators", "Épidémiologie": "Epidemiology", "PCI et qualité": "IPC and quality",
+    "Délais, prise en charge, vaccination": "Delays, case management, vaccination",
+    "Voir les sites critiques": "See critical sites", "complétude moyenne, cible {c} %": "mean completeness, target {c}%",
+    "« ? » : non renseigné dans les fiches, jamais compté comme 0. Cliquez sur un indicateur pour voir les cas concernés dans l'onglet « À traiter », puis ouvrir leur mapping.":
+        "\"?\": not entered in the records, never counted as 0. Click an indicator to see the cases concerned in the \"To handle\" tab, then open their mapping.",
+    "Plan de travail": "Work plan", "Cas prioritaires": "Priority cases", "Sites PCI critiques": "Critical IPC sites",
+    "Zones de santé": "Health zones",
 }

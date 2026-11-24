@@ -57,7 +57,7 @@ def client(app):
 PAGES_FR = {
     "/utilisateurs": ["Nouveau compte", "Dernière connexion", "Historique des suppressions de comptes", "Créer le compte"],
     "/donnees": ["Données : listes, rapports et échange de fiches", "Importer un paquet", "Exporter un paquet de fiches (.zip)"],
-    "/tableau-de-bord": ["Tableau de bord de la riposte", "Appliquer", "Réinitialiser", "Registre des actions"],
+    "/tableau-de-bord": ["Tableau de bord · Réponse MVE", "Appliquer", "Réinitialiser", "Registre des actions"],
     "/rapports": ["Rapports par pilier", "Rapport détaillé (Word)", "Présentation (PowerPoint)"],
     "/analyse/zones": ["Catégories des zones de santé, délais et incubation", "Délais et incubation observés"],
     "/mon-compte": ["Mot de passe actuel", "Créer un jeton"],
@@ -67,7 +67,7 @@ PAGES_FR = {
 PAGES_EN = {
     "/utilisateurs": ["New account", "Last sign-in", "Account deletion history", "Create the account", "Full name"],
     "/donnees": ["Data: lists, reports and record exchange", "Import a package", "Export a record package (.zip)"],
-    "/tableau-de-bord": ["Response dashboard", "Apply", "Reset", "Action register"],
+    "/tableau-de-bord": ["Dashboard · EVD response", "Apply", "Reset", "Action register"],
     "/rapports": ["Reports by pillar", "Detailed report (Word)", "Presentation (PowerPoint)", "All provinces"],
     "/analyse/zones": ["Health zone categories, delays and incubation", "Observed delays and incubation"],
     "/mon-compte": ["Current password", "Create a token"],

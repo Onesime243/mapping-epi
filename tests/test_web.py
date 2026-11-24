@@ -153,7 +153,7 @@ def test_tutoriel_public(app):
     assert c.get("/tutoriel").status_code in (301, 302, 308)
     r = c.get("/tutoriel/")
     assert r.status_code == 200 and "Parcours guidé Mapping Épi".encode() in r.data
-    assert c.get("/tutoriel/frames/w01.jpg").status_code == 200
+    assert c.get("/tutoriel/frames/t01.jpg").status_code == 200
     assert c.get("/tutoriel/Exemple_Mapping_rempli_FICTIF.xlsx").status_code == 200
     assert c.get("/tutoriel/../server.py").status_code == 404
 
@@ -338,7 +338,7 @@ def test_vue_ensemble_et_recherche_utilisateurs(app):
     assert 'id="u-cherche"' in u and "Comptes actifs par zone de santé" in u and 'data-zone="Bunia"' in u
     assert "1 compte(s) actif(s) dans la ZS Bunia" in c.get("/cas?zs=Bunia").get_data(as_text=True)
     c.get("/langue/en")
-    assert "Global dashboard" in c.get("/tableau-de-bord").get_data(as_text=True)
+    assert "Dashboard · EVD response" in c.get("/tableau-de-bord").get_data(as_text=True)
 
 
 def test_fiche_modifiable_et_reimport(app):

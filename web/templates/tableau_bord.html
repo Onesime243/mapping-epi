@@ -3,12 +3,15 @@
 {% block mainclass %}tb-main{% endblock %}
 {% block content %}
 {% set qs = "debut=" ~ tb.debut.isoformat() ~ "&fin=" ~ tb.fin.isoformat() ~ "&province=" ~ (tb.province|urlencode) %}
-<div class="tb-tete">
+<div class="ve-tete">
   <div>
-    <h1>{{ t("Tableau de bord de la riposte") }}</h1>
-    <div class="hint" style="margin:0">{{ tf("Fiches enregistrées · cas notifiés du {d} au {f}", d=tb.debut.strftime("%d/%m/%Y"), f=tb.fin.strftime("%d/%m/%Y")) }}
-      · <b>{{ tb.n }}</b> {{ t("cas sur la période") }}{% if tb.province or tb.zs %} ({{ tb.zs or tb.province }}){% endif %}
-      · {{ tf("{n} cas au total dans le périmètre", n=tb.n_total) }}</div>
+    <h1 class="ve-titre">{{ t("Tableau de bord · Réponse MVE") }} · {{ (fx['as'] and (t("AS") ~ " " ~ fx['as'])) or (tb.zs and (t("ZS") ~ " " ~ tb.zs)) or (tb.province and (t("Province") ~ " " ~ tb.province)) or t("Toute la RDC") }}</h1>
+    <div class="ve-sous">{{ tf("Cas notifiés du {d} au {f}", d=tb.debut.strftime("%d/%m/%Y"), f=tb.fin.strftime("%d/%m/%Y")) }} · {{ vue.n }} {{ t("cas") }}
+      · {{ tf("{n} cas au total dans le périmètre", n=tb.n_total) }} · {{ tf("mise à jour {d}", d=maintenant.strftime("%d/%m/%Y %H:%M")) }}</div>
+  </div>
+  <div class="ve-comp {{ 'ok' if vue.completude is not none and vue.completude >= VE.CIBLE_COMPLETUDE else 'bas' }}">
+    {{ t("Complétude des données") }} : <b>{{ vue.completude|round|int if vue.completude is not none else "?" }} %</b>
+    <small>{{ tf("cible ≥ {c} %", c=VE.CIBLE_COMPLETUDE) }}</small>
   </div>
 </div>
 
@@ -19,6 +22,8 @@
     {% for z in zones %}<option {{ 'selected' if z == tb.zs }}>{{ z }}</option>{% endfor %}</select></label>
   <label>{{ t("Du") }}<input type="date" name="debut" value="{{ tb.debut.isoformat() }}"></label>
   <label>{{ t("Au") }}<input type="date" name="fin" value="{{ tb.fin.isoformat() }}"></label>
+  {% set avances = fx['as'] or fx.statut or fx.risque or fx.lien or tb.pilier %}
+  <details class="tb-plus"{% if avances %} open{% endif %}><summary>+ {{ t("Plus de filtres") }}{% if avances %} ({{ t("actifs") }}){% endif %}</summary><div class="tb-plus-champs">
   <label>{{ t("Aire de santé") }}<select name="as" onchange="this.form.submit()"><option value="">{{ t("Toutes") }}</option>
     {% for a in aires %}<option {{ 'selected' if a == fx['as'] }}>{{ a }}</option>{% endfor %}</select></label>
   <label>{{ t("Statut du cas") }}<select name="statut" onchange="this.form.submit()"><option value="">{{ t("Tous") }}</option>
@@ -29,7 +34,8 @@
     {% for v_, l_ in [("connu", "Connu"), ("inconnu", "Inconnu (non contact)"), ("investiguer", "À investiguer")] %}<option value="{{ v_ }}" {{ 'selected' if v_ == fx.lien }}>{{ t(l_) }}</option>{% endfor %}</select></label>
   <label>{{ t("Pilier (actions)") }}<select name="pilier" onchange="this.form.submit()"><option value="">{{ t("Tous les piliers") }}</option>
     {% for p in piliers %}<option value="{{ p }}" {{ 'selected' if p == tb.pilier }}>{{ t(p) }}</option>{% endfor %}</select></label>
-  <input type="hidden" name="onglet" id="tb-onglet-champ" value="{{ request.args.get('onglet', 'vue') }}">
+  </div></details>
+  <input type="hidden" name="onglet" id="tb-onglet-champ" value="{{ 'traiter' if focus else request.args.get('onglet', 'vue') }}">
   <div class="tb-boutons">
     <button class="btn small primary" type="submit">{{ t("Appliquer") }}</button>
     <a class="btn small" href="{{ url_for('tableau_bord') }}">{{ t("Réinitialiser") }}</a>
@@ -38,68 +44,10 @@
   </div>
 </form>
 
-{% if tb.groupes or tb.alertes_generales %}
-{% set n_crit = tb.groupes|selectattr("crit")|list|length %}
-{% set n_new = tb.groupes|selectattr("etat", "equalto", "nouvelle")|list|length %}
-{% set n_prise = tb.groupes|selectattr("etat", "equalto", "prise")|list|length %}
-{% set n_re = tb.groupes|selectattr("etat", "equalto", "reapparue")|list|length %}
-<div class="tb-plan" id="tb-plan">
-  <div class="tb-plan-tete">
-    <b class="tb-plan-n">{{ tb.groupes|length }} {{ t("cas en alerte") }}</b>
-    {% if n_crit %}<span class="tb-chip crit">{{ n_crit }} {{ t("avec alerte critique") }}</span>{% endif %}
-    {% if tb.groupes|length - n_crit %}<span class="tb-chip al">{{ tb.groupes|length - n_crit }} {{ t("à surveiller") }}</span>{% endif %}
-    <span class="hint" style="margin:0 0 0 auto">{{ t("Les cas avec une alerte critique passent en premier.") }}</span>
-  </div>
-  <div class="tb-plan-filtres" role="tablist">
-    <button type="button" class="on" data-f="traiter">{{ t("À traiter") }} ({{ n_new + n_re }})</button>
-    <button type="button" data-f="prise">{{ t("Prises en charge") }} ({{ n_prise }})</button>
-    <button type="button" data-f="reapparue">{{ t("Réapparues") }} ({{ n_re }})</button>
-    <button type="button" data-f="resolues">{{ t("Résolues cette semaine") }} ({{ resolues|length }})</button>
-  </div>
-  {% for g in tb.groupes %}
-  <div class="tb-cas {{ 'crit' if g.crit else 'al' }}" data-etat="{{ g.etat }}">
-    <div class="tb-cas-top">
-      <b class="tb-cas-id">{{ g.code }}</b>
-      <span class="muted">{{ g.zs }} ({{ g.province }}){% if g.notif %} · {{ t("notifié le") }} {{ g.notif.strftime("%d/%m") }}{% endif %}</span>
-      {% if g.crit %}<span class="tb-chip crit">{{ g.crit }} {{ t("critiques") if g.crit > 1 else t("critique") }}</span>{% endif %}
-      {% if g.alertes %}<span class="tb-chip al">{{ g.alertes }} {{ t("alertes") if g.alertes > 1 else t("alerte") }}</span>{% endif %}
-      {% if g.etat == "prise" %}<span class="tb-etat prise">{{ tf("Prise en charge · {p}", p=g.suivi.par) }} · {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }}</span>
-      {% elif g.etat == "reapparue" %}<span class="tb-etat re">{{ t("Réapparue · résolue le") }} {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }} {{ t("par") }} {{ g.suivi.par }}</span>
-      {% else %}<span class="tb-etat new">{{ t("Nouvelle") }}</span>{% endif %}
-      <a class="tb-cas-lien" href="{{ url_for('editor', cid=g.cid) }}">{{ t("Ouvrir la fiche") }} →</a>
-    </div>
-    <div class="tb-cas-items">{% for it in g.liste %}<span class="tb-it {{ 'c' if it.niveau == 'crit' }}">{{ t(it.texte) }}</span>{% endfor %}</div>
-    <form method="post" action="{{ url_for('tableau_bord_alerte') }}" class="tb-cas-actions">
-      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="cid" value="{{ g.cid }}">
-      <input type="hidden" name="retour" value="{{ request.query_string.decode() }}">
-      {% if g.etat != "prise" %}<button class="btn small primary" name="action" value="prendre">{{ t("Je m’en occupe") }}</button>{% endif %}
-      <button class="btn small" name="action" value="resoudre">{{ t("Marquer résolue") }}</button>
-      <input name="note" maxlength="200" placeholder="{{ t('Note (facultatif)') }}" class="tb-note" value="">
-      {% if g.etat == "prise" and g.suivi.note %}<span class="muted">{{ t("Note :") }} « {{ g.suivi.note }} »</span>{% endif %}
-      {% if g.etat == "reapparue" %}<span class="muted">{{ t("La fiche montre toujours le problème : mettre la fiche à jour.") }}</span>{% endif %}
-    </form>
-  </div>
-  {% endfor %}
-  <p class="muted tb-vide" hidden>{{ t("Aucun cas dans cette catégorie.") }}</p>
-  <nav class="pager tb-pager" aria-label="{{ t('Pages') }}" hidden></nav>
-  <div class="tb-resolues" data-etat="resolues" hidden>
-    {% for r in resolues %}
-    <div class="tb-res"><b>✓</b> {{ r.code or "?" }} · {{ r.resume or t("alertes") }} · {{ r.par }} · {{ r.le[8:10] }}/{{ r.le[5:7] }}{% if r.note %} · « {{ r.note }} »{% endif %}</div>
-    {% else %}<p class="muted">{{ t("Aucune alerte résolue ces 7 derniers jours.") }}</p>{% endfor %}
-  </div>
-  {% for a in tb.alertes_generales %}
-  <div class="tb-cas gen" data-etat="toujours"><div class="tb-cas-top"><b class="tb-cas-id">{{ t("Toutes fiches") }}</b><span>{{ t(a.texte) }}</span>
-    <a class="tb-cas-lien" href="?{{ qs }}&onglet=actions">{{ t("Voir les actions") }} →</a></div></div>
-  {% endfor %}
-</div>
-{% else %}
-<div class="tb-alertes ok"><div class="tb-alertes-ic" aria-hidden="true">✓</div><div><b>{{ t("Aucune alerte") }}</b> {{ t("sur la période et le périmètre choisis.") }}</div></div>
-{% endif %}
-
 <div class="tb-onglets" role="tablist">
-  {% for k, lib in [("vue", "Vue d'ensemble"), ("synthese", "Synthèse"), ("actions", "Actions"), ("contacts", "Contacts, PCI et vaccination"),
+  {% for k, lib in [("vue", "Analyse"), ("traiter", "À traiter"), ("synthese", "Synthèse"), ("actions", "Actions"), ("contacts", "Contacts, PCI et vaccination"),
                     ("transmission", "Parcours et transmission"), ("qualite", "Qualité des données"), ("matrice", "Matrice des questions")] %}
-  <button type="button" role="tab" data-onglet="{{ k }}">{{ t(lib) }}</button>
+  <button type="button" role="tab" data-onglet="{{ k }}">{{ t(lib) }}{% if k == "traiter" and tb.groupes %} <span class="tb-onglet-n">{{ tb.groupes|length }}</span>{% endif %}</button>
   {% endfor %}
 </div>
 
@@ -318,7 +266,7 @@
   }
   document.querySelectorAll('.tb-onglets button').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.onglet); }; });
   document.querySelectorAll('[data-aller]').forEach(function (b) { b.onclick = function () { ouvrir(b.dataset.aller); window.scrollTo({top: document.querySelector('.tb-onglets').offsetTop - 60, behavior: 'smooth'}); }; });
-  var valides = ['vue', 'synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
+  var valides = ['vue', 'traiter', 'synthese', 'actions', 'contacts', 'transmission', 'qualite', 'matrice'];
   ouvrir(valides.indexOf(champ.value) >= 0 ? champ.value : 'vue');
   // plan de travail : filtre par état
   var plan = document.getElementById('tb-plan');

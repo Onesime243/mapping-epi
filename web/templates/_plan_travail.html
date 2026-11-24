@@ -1,0 +1,57 @@
+{% if tb.groupes or tb.alertes_generales %}
+{% set n_crit = tb.groupes|selectattr("crit")|list|length %}
+{% set n_new = tb.groupes|selectattr("etat", "equalto", "nouvelle")|list|length %}
+{% set n_prise = tb.groupes|selectattr("etat", "equalto", "prise")|list|length %}
+{% set n_re = tb.groupes|selectattr("etat", "equalto", "reapparue")|list|length %}
+<div class="tb-plan" id="tb-plan">
+  <div class="tb-plan-tete">
+    <b class="tb-plan-n">{{ tb.groupes|length }} {{ t("cas en alerte") }}</b>
+    {% if n_crit %}<span class="tb-chip crit">{{ n_crit }} {{ t("avec alerte critique") }}</span>{% endif %}
+    {% if tb.groupes|length - n_crit %}<span class="tb-chip al">{{ tb.groupes|length - n_crit }} {{ t("à surveiller") }}</span>{% endif %}
+    <span class="hint" style="margin:0 0 0 auto">{{ t("Les cas avec une alerte critique passent en premier.") }}</span>
+  </div>
+  <div class="tb-plan-filtres" role="tablist">
+    <button type="button" class="on" data-f="traiter">{{ t("À traiter") }} ({{ n_new + n_re }})</button>
+    <button type="button" data-f="prise">{{ t("Prises en charge") }} ({{ n_prise }})</button>
+    <button type="button" data-f="reapparue">{{ t("Réapparues") }} ({{ n_re }})</button>
+    <button type="button" data-f="resolues">{{ t("Résolues cette semaine") }} ({{ resolues|length }})</button>
+  </div>
+  {% for g in tb.groupes %}
+  <div class="tb-cas {{ 'crit' if g.crit else 'al' }}" data-etat="{{ g.etat }}">
+    <div class="tb-cas-top">
+      <b class="tb-cas-id">{{ g.code }}</b>
+      <span class="muted">{{ g.zs }} ({{ g.province }}){% if g.notif %} · {{ t("notifié le") }} {{ g.notif.strftime("%d/%m") }}{% endif %}</span>
+      {% if g.crit %}<span class="tb-chip crit">{{ g.crit }} {{ t("critiques") if g.crit > 1 else t("critique") }}</span>{% endif %}
+      {% if g.alertes %}<span class="tb-chip al">{{ g.alertes }} {{ t("alertes") if g.alertes > 1 else t("alerte") }}</span>{% endif %}
+      {% if g.etat == "prise" %}<span class="tb-etat prise">{{ tf("Prise en charge · {p}", p=g.suivi.par) }} · {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }}</span>
+      {% elif g.etat == "reapparue" %}<span class="tb-etat re">{{ t("Réapparue · résolue le") }} {{ g.suivi.le[8:10] }}/{{ g.suivi.le[5:7] }} {{ t("par") }} {{ g.suivi.par }}</span>
+      {% else %}<span class="tb-etat new">{{ t("Nouvelle") }}</span>{% endif %}
+      <a class="tb-cas-lien" href="{{ url_for('editor', cid=g.cid) }}">{{ t("Ouvrir la fiche") }} →</a>
+    </div>
+    <div class="tb-cas-items">{% for it in g.liste %}<span class="tb-it {{ 'c' if it.niveau == 'crit' }}">{{ t(it.texte) }}</span>{% endfor %}</div>
+    <form method="post" action="{{ url_for('tableau_bord_alerte') }}" class="tb-cas-actions">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="cid" value="{{ g.cid }}">
+      <input type="hidden" name="retour" value="{{ request.query_string.decode() }}">
+      {% if g.etat != "prise" %}<button class="btn small primary" name="action" value="prendre">{{ t("Je m’en occupe") }}</button>{% endif %}
+      <button class="btn small" name="action" value="resoudre">{{ t("Marquer résolue") }}</button>
+      <input name="note" maxlength="200" placeholder="{{ t('Note (facultatif)') }}" class="tb-note" value="">
+      {% if g.etat == "prise" and g.suivi.note %}<span class="muted">{{ t("Note :") }} « {{ g.suivi.note }} »</span>{% endif %}
+      {% if g.etat == "reapparue" %}<span class="muted">{{ t("La fiche montre toujours le problème : mettre la fiche à jour.") }}</span>{% endif %}
+    </form>
+  </div>
+  {% endfor %}
+  <p class="muted tb-vide" hidden>{{ t("Aucun cas dans cette catégorie.") }}</p>
+  <nav class="pager tb-pager" aria-label="{{ t('Pages') }}" hidden></nav>
+  <div class="tb-resolues" data-etat="resolues" hidden>
+    {% for r in resolues %}
+    <div class="tb-res"><b>✓</b> {{ r.code or "?" }} · {{ r.resume or t("alertes") }} · {{ r.par }} · {{ r.le[8:10] }}/{{ r.le[5:7] }}{% if r.note %} · « {{ r.note }} »{% endif %}</div>
+    {% else %}<p class="muted">{{ t("Aucune alerte résolue ces 7 derniers jours.") }}</p>{% endfor %}
+  </div>
+  {% for a in tb.alertes_generales %}
+  <div class="tb-cas gen" data-etat="toujours"><div class="tb-cas-top"><b class="tb-cas-id">{{ t("Toutes fiches") }}</b><span>{{ t(a.texte) }}</span>
+    <a class="tb-cas-lien" href="?{{ qs }}&onglet=actions">{{ t("Voir les actions") }} →</a></div></div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="tb-alertes ok"><div class="tb-alertes-ic" aria-hidden="true">✓</div><div><b>{{ t("Aucune alerte") }}</b> {{ t("sur la période et le périmètre choisis.") }}</div></div>
+{% endif %}

@@ -178,6 +178,7 @@ class Vue:
     sites: List[dict] = field(default_factory=list)
     actions: List[dict] = field(default_factory=list)
     qualite: List[Tuple[str, float]] = field(default_factory=list)
+    qualite_svg: str = ""
     priorites: List[dict] = field(default_factory=list)
     prise_en_charge: List[Tuple[str, str, bool]] = field(default_factory=list)
     vaccination: List[Tuple[str, str, bool]] = field(default_factory=list)
@@ -363,6 +364,9 @@ def construire(cases: List[Case], debut: date, fin: date, cases_perimetre: List[
     for c, q in zip(cases, comps):
         par_q[c.zs or "?"].append(q)
     v.qualite = sorted(((z, mean(x)) for z, x in par_q.items()), key=lambda zq: zq[1])[:6]
+    v.qualite_svg = svg_barres([q for _z, q in v.qualite], [z for z, _q in v.qualite],
+                               [GRN if q >= CIBLE_COMPLETUDE else AMB if q >= 85 else DRED for _z, q in v.qualite],
+                               "{:.0f} %", w=340, px=170)
 
     # -- priorités (risque × délai)
     rang = {"Très élevé": 0, "Élevé": 1}

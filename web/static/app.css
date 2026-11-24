@@ -559,3 +559,20 @@ body.apercu-plein { overflow: hidden; }
 /* fiche modifiable (Word / Excel) et réimport */
 .fiche-modif { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); }
 .preview.plein .fiche-modif { display: none; }
+
+/* tableau de bord réorganisé : bandeau, filtres sur une ligne, onglets Analyse / À traiter */
+.ve-tete h1.ve-titre { margin: 0; font-size: 21px; color: #fff; text-transform: uppercase; letter-spacing: .2px; }
+.tb-filtres .tb-plus { flex-basis: 100%; order: 10; }
+.tb-filtres .tb-plus summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: 13.5px; padding: 2px 0; }
+.tb-filtres .tb-plus-champs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.tb-onglet-n { display: inline-block; background: #C8202A; color: #fff; border-radius: 999px; padding: 0 7px; font-size: 12px; margin-left: 4px; }
+.ve-allera { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.ve-allera a { border: 1px dashed var(--accent); border-radius: 999px; padding: 3px 11px; font-weight: 600; text-decoration: none; }
+.ve-g4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 1300px) { .ve-g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .ve-g4 { grid-template-columns: 1fr; } }
+.ve-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 1000px) { .ve-g3 { grid-template-columns: 1fr; } }
+.ve-traiter { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .ve-traiter { grid-template-columns: 1fr; } }
+.ve-traiter .tb-plan { margin: 0; }
