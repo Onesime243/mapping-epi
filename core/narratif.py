@@ -25,7 +25,7 @@ from typing import Iterable, List, Optional, Tuple
 from config import theme
 from core.models import Action, Case, ContactGroup, Event, IPCSite, LabSample
 
-FORMATS = (".docx", ".pptx", ".ppt")
+FORMATS = (".docx", ".doc", ".pptx", ".ppt")
 
 MOIS = {"janvier": 1, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5, "juin": 6, "juillet": 7, "aout": 8,
         "septembre": 9, "octobre": 10, "novembre": 11, "decembre": 12}
@@ -136,6 +136,9 @@ def lire(path: Path | str) -> Document:
         return _lire_pptx(path)
     if ext == ".ppt":
         return _lire_pptx(_ppt_vers_pptx(path))
+    if ext == ".doc":
+        from core import modele_terrain as MT
+        return _lire_docx(MT.doc_vers_docx(path))
     raise ValueError("Format non reconnu : utilisez un narratif Word (.docx) ou PowerPoint (.pptx, .ppt).")
 
 
@@ -788,6 +791,9 @@ def importer(path: Path | str) -> Resultat:
     Un narratif rempli à partir du modèle Word / PowerPoint (core/modele_narratif.py) est lu tableau par tableau,
     comme le classeur Excel ; un ancien narratif libre est analysé à partir du récit."""
     from core import modele_narratif as M
+    from core import modele_terrain as MT
+    if Path(path).suffix.lower() == ".doc":          # ancien Word : converti une fois, puis lu comme un .docx
+        path = MT.doc_vers_docx(Path(path))
     if Path(path).suffix.lower() in (".docx", ".pptx"):
         lu = M.lire_modele(path)
         if lu is not None:
@@ -796,6 +802,10 @@ def importer(path: Path | str) -> Resultat:
             trouves = [f"modèle Mapping Épi reconnu, {lu.champs} champ(s) de la fiche"] + \
                       [f"{lu.tableaux[k]} {noms[k]}" for k in noms if k in lu.tableaux]
             return Resultat(lu.case, trouves, M.manquants(lu.case) + lu.erreurs)
+    if Path(path).suffix.lower() == ".docx":         # modèle Word des investigateurs de terrain
+        terrain = MT.lire(path)
+        if terrain is not None:
+            return Resultat(terrain.case, terrain.trouves, terrain.manquants)
     res = extraire(lire(path))
     res.case.note_pied = ""
     return res

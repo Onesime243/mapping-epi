@@ -1169,15 +1169,22 @@ def create_app(store: storage.Store | None = None) -> Flask:
                     new = storage.import_excel(tmp, base=c)
                 except storage.ExcelImportError as exc:
                     new = exc.case
-            elif nom.endswith((".docx", ".pptx")):
-                from core import modele_narratif
-                lu = modele_narratif.lire_modele(tmp)
-                if lu is None:
-                    flash(tr("Ce fichier n'est pas une fiche Mapping Épi : utilisez le fichier téléchargé depuis cette fiche."), "err")
-                    return redirect(url_for("editor", cid=cid))
-                new = lu.case
+            elif nom.endswith((".docx", ".pptx", ".doc")):
+                # notre modèle Word / PowerPoint, sinon le modèle Word des investigateurs de terrain (.docx ou .doc)
+                from core import modele_narratif, modele_terrain
+                lecture = modele_terrain.doc_vers_docx(tmp) if nom.endswith(".doc") else tmp
+                lu = modele_narratif.lire_modele(lecture)
+                if lu is not None:
+                    new = lu.case
+                else:
+                    terrain = modele_terrain.lire(lecture) if not nom.endswith(".pptx") else None
+                    if terrain is None:
+                        flash(tr("Fichier non reconnu : utilisez la fiche Word ou Excel de Mapping Épi, ou le rapport "
+                                 "d'investigation MVE (modèle terrain)."), "err")
+                        return redirect(url_for("editor", cid=cid))
+                    new = terrain.case
             else:
-                flash(tr("Format non reconnu : fichier Word (.docx) ou Excel (.xlsx) attendu."), "err")
+                flash(tr("Format non reconnu : fichier Word (.docx, .doc) ou Excel (.xlsx) attendu."), "err")
                 return redirect(url_for("editor", cid=cid))
         except Exception as exc:
             flash(trf("Fichier illisible : {e}", e=exc), "err")

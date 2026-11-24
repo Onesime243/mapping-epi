@@ -329,4 +329,11 @@ EN = {
     "Fichier réimporté, gardé en brouillon : complétez": "File re-imported, kept as a draft: complete",
     "Fiche mise à jour à partir de « {f} ». L'état précédent reste dans l'historique des versions.":
         "Record updated from \"{f}\". The previous state stays in the version history.",
+    "Le rapport d'investigation MVE (modèle terrain, .doc ou .docx) est aussi accepté.":
+        "The EVD investigation report (field template, .doc or .docx) is also accepted.",
+    "Fichier non reconnu : utilisez la fiche Word ou Excel de Mapping Épi, ou le rapport d'investigation MVE (modèle terrain).":
+        "File not recognised: use the Mapping Épi Word or Excel record, or the EVD investigation report (field template).",
+    "Format non reconnu : fichier Word (.docx, .doc) ou Excel (.xlsx) attendu.": "Unknown format: Word (.docx, .doc) or Excel (.xlsx) file expected.",
+    "Formats acceptés : fiche Excel (.xlsx) ou Word (.docx) de Mapping Épi, rapport d'investigation MVE des investigateurs (modèle terrain, .doc ou .docx), PowerPoint (.pptx), ou ancien narratif libre.":
+        "Accepted formats: Mapping Épi Excel (.xlsx) or Word (.docx) record, field investigators' EVD investigation report (field template, .doc or .docx), PowerPoint (.pptx), or older free-text narrative.",
 }

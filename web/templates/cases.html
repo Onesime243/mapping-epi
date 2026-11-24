@@ -109,7 +109,7 @@
       <a href="{{ url_for('excel_model') }}">{{ t("modèle Excel vierge") }}</a>{{ t(", du") }}
       <a href="{{ url_for('word_model') }}">{{ t("modèle Word") }}</a> {{ t("ou du") }} <a href="{{ url_for('pptx_model') }}">{{ t("modèle PowerPoint") }}</a>
       {{ t("(mêmes champs que l'Excel, lus tableau par tableau), ou ancien narratif Word / PowerPoint libre : les champs sont remplis automatiquement, à vérifier)") }}</span>
-    <input type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required style="max-width:340px">
+    <input type="file" name="fichier" accept=".xlsx,.docx,.doc,.pptx,.ppt,.json" required style="max-width:340px">
     <button class="btn">{{ t("Importer") }}</button>
   </form>
 </div>{% endif %}

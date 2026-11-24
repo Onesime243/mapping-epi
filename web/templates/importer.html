@@ -8,8 +8,8 @@
   <form method="post" action="{{ url_for('import_case') }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="depuis" value="page">
     <label class="f" for="fichier">{{ t("Fichier de la fiche") }}</label>
-    <input id="fichier" type="file" name="fichier" accept=".xlsx,.docx,.pptx,.ppt,.json" required>
-    <p class="hint">{{ t("Formats acceptés : Excel (.xlsx), Word (.docx), PowerPoint (.pptx), ou ancien narratif Word / PowerPoint libre.") }}</p>
+    <input id="fichier" type="file" name="fichier" accept=".xlsx,.docx,.doc,.pptx,.ppt,.json" required>
+    <p class="hint">{{ t("Formats acceptés : fiche Excel (.xlsx) ou Word (.docx) de Mapping Épi, rapport d'investigation MVE des investigateurs (modèle terrain, .doc ou .docx), PowerPoint (.pptx), ou ancien narratif libre.") }}</p>
     <div class="row" style="margin-top:14px"><button class="btn primary">{{ t("Importer et ouvrir la fiche") }}</button>
       <a class="btn" href="{{ url_for('cases') }}">{{ t("Annuler") }}</a></div>
   </form>
