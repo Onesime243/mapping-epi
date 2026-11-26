@@ -121,7 +121,15 @@ window.__T = window.__T || (function () {
   function ajoute(table) { const b = document.querySelector('[data-add="' + table + '"]'); if (b) b.click(); }
   function boite(el, marge) {
     if (!el) return null;
-    const r = el.getBoundingClientRect(), m = marge || 4, w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+    let r = el.getBoundingClientRect(); const m = marge || 4, w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+    // partie visible seulement : un tableau qui défile horizontalement ne doit pas déborder sur l'aperçu
+    let lim = {left: 0, top: 0, right: w, bottom: h};
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll|hidden)/.test(cs.overflowX + cs.overflowY)) { const q = p.getBoundingClientRect();
+        lim = {left: Math.max(lim.left, q.left), top: Math.max(lim.top, q.top), right: Math.min(lim.right, q.right), bottom: Math.min(lim.bottom, q.bottom)}; }
+    }
+    r = {left: Math.max(r.left, lim.left), top: Math.max(r.top, lim.top), right: Math.min(r.right, lim.right), bottom: Math.min(r.bottom, lim.bottom)};
     const x0 = Math.max(0, r.left - m), y0 = Math.max(0, r.top - m), x1 = Math.min(w, r.right + m), y1 = Math.min(h, r.bottom + m);
     return [100 * x0 / w, 100 * y0 / h, 100 * (x1 - x0) / w, 100 * (y1 - y0) / h].map(v => Math.round(v * 100) / 100);
   }
