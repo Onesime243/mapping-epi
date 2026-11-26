@@ -81,6 +81,7 @@ def lignes(path: Path | str) -> List[str]:
 
 
 # ------------------------------------------------------------------------------------------------ outils
+CODE = r"\b[A-Z]{2,5}[-\s]?[A-Z]{2,4}[-\s]?[A-Z]{2,4}[-\s]?\d{2}[-\s]?\d{3,9}(?:-[A-Z]{2,4})?\b"
 def _n(s: str) -> str:
     s = unicodedata.normalize("NFD", s or "").encode("ascii", "ignore").decode().upper()
     s = s.replace("’", "'")
@@ -126,7 +127,9 @@ def _valeur(ls: List[str], *labels: str, max_lignes: int = 1) -> str:
 
 def _bloc(ls: List[str], debut: str, fins: Tuple[str, ...]) -> List[str]:
     """Lignes entre un titre de section et le suivant."""
-    i0 = next((i for i, l in enumerate(ls) if debut in _n(l)), None)
+    i0 = next((i for i, l in enumerate(ls) if debut in _n(l) and re.match(r"([A-Z]|[IVX]+)\s*[-.):]", _n(l))), None)
+    if i0 is None:
+        i0 = next((i for i, l in enumerate(ls) if debut in _n(l) and len(_n(l)) < 160), None)
     if i0 is None:
         return []
     out = []
@@ -191,7 +194,8 @@ def _date1(texte: str) -> Optional[date]:
 
 
 # ------------------------------------------------------------------------------------------------ chronologie
-_LIEU = re.compile(r"((?i:village|quartier|CTE|CSR|CS|HGR|PS|poste de santé|AS|ZS)\s+[A-ZÀ-Ü][\w’'\-]+(?:\s+[A-ZÀ-Ü][A-ZÀ-Ü’'\-]+)?)")
+_LIEU = re.compile(r"((?i:village|quartier|CTE|CSR|CS|HGR|PS|poste de santé|église|marché|cimetière|AS|ZS)\s+(?:(?:de|du|d’|d')\s*)?"
+                   r"[A-ZÀ-Ü][\w’'\-]+(?:\s+[A-ZÀ-Ü][\wÀ-ÿ’'\-]+){0,2})")
 
 
 def _lieux(t: str) -> List[str]:
@@ -212,7 +216,8 @@ def _type(t: str) -> List[Tuple[str, str]]:
     """(type d'étape, titre) détectés dans une ligne de l'histoire de la maladie, dans l'ordre logique."""
     n = _n(t)
     out = []
-    if re.search(r"SOIGN|CONTACT (DIRECT )?AVEC|EXPOS", n) and re.search(r"CONTAMINANT|SOURCE|RDC-|DECEDE LE", n) \
+    if re.search(r"SOIGN|CONTACT (DIRECT )?AVEC|EXPOS|TOILETTE", n) and (re.search(r"CONTAMINANT|SOURCE|DECEDE LE|FEBRIL", n)
+                                                                         or re.search(CODE, t)) \
             and not re.search(r"DEVENU SUSPECT", n):
         out.append(("Exposition", "Exposition (soins au cas source)" if "SOIGN" in n else "Exposition probable"))
     if re.search(r"DEVENU SUSPECT|DEBUT (DE LA )?MALADIE|PREMIERS SIGNES|A PRESENTE|AVEC COMME SIGNES", n):
@@ -222,6 +227,12 @@ def _type(t: str) -> List[Tuple[str, str]]:
         out.append(("Soins / consultation", "Soins / consultation"))
     if re.search(r"DEPLAC|S'EST RENDU|RETOURNE", n) or (re.search(r"REFERE|REFERENCE", n) and "REFUS" not in n):
         out.append(("Déplacement", "Déplacement"))
+    if re.search(r"MARCHE|VENDRE|VENTE|ECOLE|CEREMONIE", n) and not out:
+        out.append(("Activité communautaire", "Activité communautaire"))
+    if re.search(r"CULTE|EGLISE|PRIERE|MESSE|MOSQUEE", n):
+        out.append(("Rassemblement religieux", "Rassemblement religieux"))
+    if re.search(r"LISTEE? COMME CONTACT|SUIVIE? CHAQUE|RELAIS|VACCINATION EN ANNEAU|PROPOSITION DE VACCIN", n) and not out:
+        out.append(("Riposte", "Riposte (suivi / vaccination)"))
     if re.search(r"HOSPITALIS|ISOLE AU|ADMIS", n):
         out.append(("Hospitalisation", "Hospitalisation"))
     if re.search(r"ALERTE DECES|DECES COMMUNAUTAIRE|EST DECEDE|DECEDE A|DECEDE AU", n):
@@ -233,12 +244,17 @@ def _type(t: str) -> List[Tuple[str, str]]:
     if re.search(r"ENTERREMENT|INHUMATION|FUNERAILLES", n):
         out.append(("Enterrement" if "FUNERAILLES" not in n else "Funérailles",
                     "Enterrement non sécurisé" if "NON SECURISE" in n else "Enterrement"))
+    if re.search(r"PATIENTS", n) and not out:
+        out.append(("Soins / consultation", "Activité de soins (patients)"))
+    if re.search(r"AGGRAVATION|APPARITION", n) and not out:
+        out.append(("Autre", "Aggravation des signes"))
     if not out:
         out.append(("Autre", "Étape du parcours"))
     return out
 
 
-MOTIFS = {"Exposition": r"SOIGN|CONTACT|EXPOS", "Début maladie": r"SUSPECT|DEBUT|SIGNES", "Soins / consultation":
+MOTIFS = {"Activité communautaire": r"MARCHE|VEND|ECOLE", "Rassemblement religieux": r"CULTE|EGLISE|PRIERE",
+          "Riposte": r"LISTE|SUIVI|RELAIS|VACCIN", "Exposition": r"SOIGN|CONTACT|EXPOS|TOILETTE", "Début maladie": r"SUSPECT|DEBUT|SIGNES", "Soins / consultation":
           r"TRADIPRATICIEN|GUERISSEU|CONSULT|TRAITE|INFIRMIER|AUTOMEDICATION", "Déplacement": r"DEPLAC|RENDU|RETOURN|REFER",
           "Hospitalisation": r"HOSPITALIS|ISOLE|ADMIS", "Décès": r"DECES|DECEDE", "Prélèvement": r"SWAB|PRELEVEMENT",
           "Laboratoire": r"LABO|RESULTAT", "Enterrement": r"ENTERREMENT|INHUMATION", "Funérailles": r"FUNERAILLES"}
@@ -266,6 +282,8 @@ def _etapes(histoire: List[str], annee: Optional[int], masquer) -> List[Event]:
             continue
         dl = dates(t, annee)
         for typ, titre in _type(t):
+            if typ == "Décès" and any(e.type == "Décès" for e in evs) and re.search(r"ALERTE", _n(t)):
+                continue          # l'alerte d'un décès déjà daté n'est pas un second décès
             ph = _phrase(t, typ) if len(_type(t)) > 1 else t
             d1, d2 = periode(ph, annee)
             d1 = d1 or dl[0]
@@ -311,8 +329,8 @@ def lire(path: Path | str, ls: Optional[List[str]] = None) -> Optional[Lecture]:
     noms = [x for x in (_valeur(ls, "NOM"), _valeur(ls, "POST NOM", "POSTNOM"), _valeur(ls, "PRENOM")) if x and len(x) > 2
             and not _est_label(x)]
     code_source = ""
-    m = re.search(r"\bRDC[-\s]?[A-Z]{2,4}[-\s]?[A-Z]{2,4}[-\s]?\d{2}[-\s]?\d{3,9}(?:[-\s]?[A-Z]{2,4})?\b",
-                  " ".join(_bloc(ls, "CAS CONTACT CONNU", ("CAS VACCINE",))))
+    m = re.search(CODE,
+                  " ".join(_bloc(ls, "CAS CONTACT CONNU", ("CAS VACCINE", "DATE DU DERNIER CONTACT"))))
     if m:
         code_source = re.sub(r"\s+", "", m.group(0))
     nom_source = ""
@@ -394,7 +412,7 @@ def lire(path: Path | str, ls: Optional[List[str]] = None) -> Optional[Lecture]:
                             description="EDS réalisé", personnes="Équipe EDS", securise=True)
     cc = " ".join(_bloc(ls, "CAS CONTACT CONNU", ("CAS VACCINE",)))
     if coche(cc, "Oui"):
-        c.contact_connu = "Contact connu"
+        c.contact_connu = "Contact connu suivi" if re.search(r"CONTACT CONNU SUIVI|SUIVI \(|LISTE DE SUIVI", _n(cc)) else "Contact connu"
         c.id_cas_source = code_source
         trouves.append("Contact connu" + (" et ID du cas source" if code_source else ""))
     elif coche(cc, "Non"):
@@ -416,7 +434,7 @@ def lire(path: Path | str, ls: Optional[List[str]] = None) -> Optional[Lecture]:
     histoire = _bloc(ls, "HISTOIRE DE LA MALADIE", ("LISTAGE CONTACTS", "LISTAGE DES CONTACTS", "IV-", "IV -", "IV."))
     evs = _etapes(histoire, annee, masquer)
     texte_expo = " ".join(expo)
-    if c.contact_connu == "Contact connu":
+    if c.contact_connu in ("Contact connu", "Contact connu suivi"):
         lien = " ".join(_bloc(ls, "LIEN(S) EPIDEMIOLOGIQUE", ("HISTOIRE DE LA MALADIE",))) or texte_expo
         m = re.search(r"entre le ([^.;]{4,40}?\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4})", lien, re.I)
         ds = dates(m.group(1), annee) if m else []
