@@ -152,8 +152,8 @@ COLONNES_HEAT = ["Fiches complètes", "Contacts suivis", "PCI : sites décontami
 def command_center(cases: List[Case], ref: Optional[date] = None) -> dict:
     ref = ref or date.today()
     listes = _som(contacts_listes(c) for c in cases)
-    paires = [(contacts_listes(c), c.contacts_dhis2_listes) for c in cases
-              if contacts_listes(c) is not None and c.contacts_dhis2_listes is not None]
+    paires = [(contacts_listes(c), contacts_dhis2(c)) for c in cases]
+    paires = [(m, d) for m, d in paires if m is not None and d is not None]
     conc = _pct(sum(d for _m, d in paires), sum(m for m, _d in paires)) if paires else None
     ecart = sum(m - d for m, d in paires) if paires else None
     a_ok, n_act, n_ret = _actions_ok(cases, ref)
@@ -173,8 +173,8 @@ def command_center(cases: List[Case], ref: Optional[date] = None) -> dict:
         zones.append({"zs": z, "n": len(cs), "cells": [{"txt": _fmt_pct(v), "ton": _ton(v)} for v in vals]})
     ec = []
     for z, cs in _par_zs(cases).items():
-        p = [(contacts_listes(c), c.contacts_dhis2_listes) for c in cs
-             if contacts_listes(c) is not None and c.contacts_dhis2_listes is not None]
+        p = [(contacts_listes(c), contacts_dhis2(c)) for c in cs]
+        p = [(m, d) for m, d in p if m is not None and d is not None]
         if p:
             e = sum(m - d for m, d in p)
             ec.append((z, abs(e), f"{e:+d}", "re" if e > 0 else "bl"))
@@ -182,7 +182,7 @@ def command_center(cases: List[Case], ref: Optional[date] = None) -> dict:
     ton_issue = {"Guéri": "ok", "Vivant": "ok", "En traitement": "bl", "Décès": "re", "Inconnu": "nd"}
     return {"kpis": kpis, "colonnes": [tr(x) for x in COLONNES_HEAT], "zones": zones,
             "ecarts": barres(tr("Écarts de listing des contacts (fiche − DHIS2)"), sorted(ec, key=lambda x: -x[1]),
-                             tr("seulement les fiches où le nombre DHIS2 est saisi")),
+                             tr("fiches dont le nombre de contacts est connu dans le mapping et dans DHIS2")),
             "issues": barres(tr("État des cas"), [(tr(k), n, str(n), ton_issue.get(k, "nd"))
                                                   for k, n in issues.most_common()])}
 
@@ -286,40 +286,63 @@ def statut_concordance(m: Optional[int], d: Optional[int]) -> Tuple[str, str]:
     return (tr("Sous-listing potentiel"), "al") if m > d else (tr("Contacts supplémentaires dans DHIS2"), "bl")
 
 
+def contacts_dhis2(c: Case) -> Optional[int]:
+    """Contacts DHIS2 du cas : synchronisation DHIS2 si disponible, sinon nombre saisi dans la fiche."""
+    from core import dhis2
+    return dhis2.rapprochement(c)["dhis2"]
+
+
 def concordance(cases: List[Case]) -> dict:
+    from core import dhis2
+    d = dhis2.charger()
     rows, liens, statuts = [], [], Counter()
+    trouves = 0
     for c in sorted(cases, key=lambda c: (_zs(c), case_label(c))):
-        m, d = contacts_listes(c), c.contacts_dhis2_listes
-        st, ton = statut_concordance(m, d)
+        r = dhis2.rapprochement(c, d)
+        m, n = r["mapping"], r["dhis2"]
+        st, ton = statut_concordance(m, n)
+        if r["trouve"] is False:
+            st, ton = tr("Introuvable dans la linelist DHIS2"), "re"
         statuts[(st, ton)] += 1
-        rows.append([case_label(c), _zs(c), "ND" if m is None else str(m), "ND" if d is None else str(d),
-                     "ND" if c.contacts_dhis2_suivis is None else str(c.contacts_dhis2_suivis),
-                     "ND" if m is None or d is None else f"{m - d:+d}", (st, ton)])
+        trouves += bool(r["trouve"])
+        ret = ("ND", "nd") if r["trouve"] is None else ((tr("Oui") + (f" · {tr(r['classif'])}" if r["classif"] else ""), "ok")
+                                                         if r["trouve"] else (tr("Non"), "re"))
+        rows.append([case_label(c), _zs(c), ret, "ND" if m is None else str(m), "ND" if n is None else str(n),
+                     ("ND", "nd") if r["difference"] is None else (f"{r['difference']:+d}", "al" if r["difference"] > 0 else
+                                                                   ("bl" if r["difference"] < 0 else "ok")), (st, ton)])
         liens.append(f"/cas/{c.id}")
-    paires = [(contacts_listes(c), c.contacts_dhis2_listes) for c in cases
-              if contacts_listes(c) is not None and c.contacts_dhis2_listes is not None]
-    sm, sd = sum(m for m, _ in paires), sum(d for _, d in paires)
+    paires = [(contacts_listes(c), contacts_dhis2(c)) for c in cases]
+    paires = [(m, n) for m, n in paires if m is not None and n is not None]
+    sm, sd = sum(m for m, _ in paires), sum(n for _, n in paires)
     zs = []
     for z, cs in _par_zs(cases).items():
-        p = [(contacts_listes(c), c.contacts_dhis2_listes) for c in cs
-             if contacts_listes(c) is not None and c.contacts_dhis2_listes is not None]
+        p = [(contacts_listes(c), contacts_dhis2(c)) for c in cs]
+        p = [(m, n) for m, n in p if m is not None and n is not None]
         if p:
             a, b = sum(m for m, _ in p), sum(d for _, d in p)
             r = _pct(b, a)
             zs.append((z, r, f"{_fmt_pct(r)} · {a} / {b}", _ton(r)))
     conc = _pct(sd, sm) if paires else None
+    if d:
+        note = [trf("Données DHIS2 du {date} ({source}) : {n_ll} alertes de la liste linéaire, {n_ct} contacts. "
+                    "L'ID du mapping (N° EPID) est recherché dans la liste linéaire, puis les contacts rattachés à ce cas index sont comptés.",
+                    date=d["maj"].replace("T", " à "), source=tr(d["source"]), n_ll=d["n_ll"], n_ct=d["n_contacts"])]
+    else:
+        note = [tr("Aucune donnée DHIS2 synchronisée : le nombre DHIS2 saisi à la main dans la fiche (étape 5 Contacts) est utilisé.")]
+    note.append(tr("Même nombre ne veut pas dire mêmes personnes : un écart est un signal à investiguer, pas une preuve."))
     return page(tr("Concordance Mapping Épi × DHIS2"),
-                tr("Réconciliation des contacts par cas index (nombres seulement)"),
-                [tr("Le nombre DHIS2 est saisi à la main dans la fiche (étape 5 Contacts) en attendant la connexion automatique à DHIS2."),
-                 tr("Même nombre ne veut pas dire mêmes personnes : un écart est un signal à investiguer, pas une preuve.")],
-                [kpi(tr("Fiches comparables"), f"{len(paires)} / {len(cases)}", tr("nombre DHIS2 saisi")),
+                tr("Réconciliation des contacts par cas index (nombres seulement)"), note,
+                [kpi(tr("Retrouvés dans la linelist DHIS2"), f"{trouves} / {len(cases)}" if d else "ND",
+                     tr("ID du mapping = N° EPID"), "" if not d else _ton(_pct(trouves, len(cases)))),
+                 kpi(tr("Fiches comparables"), f"{len(paires)} / {len(cases)}", tr("contacts connus des deux côtés")),
                  kpi(tr("Contacts dans les fiches"), str(sm) if paires else "ND"),
                  kpi(tr("Contacts dans DHIS2"), str(sd) if paires else "ND"),
                  kpi(tr("Concordance"), _fmt_pct(conc), trf("écart : {n}", n=sm - sd) if paires else "", _ton(conc))],
                 [barres(tr("Statut des fiches"), [(st, n, str(n), ton) for (st, ton), n in statuts.most_common()]),
                  barres(tr("Complétude DHIS2 par zone de santé"), zs, tr("contacts DHIS2 / contacts de la fiche")),
-                 table(tr("Détail par cas index"), [tr("ID du cas"), tr("ZS"), tr("Fiche"), tr("DHIS2 listés"), tr("DHIS2 suivis"),
-                                                     tr("Écart"), tr("Statut")], rows, liens=liens)])
+                 table(tr("Détail par cas index"), [tr("ID du cas"), tr("ZS"), tr("Retrouvé dans la linelist DHIS2"),
+                                                     tr("Contacts déclarés dans le mapping"), tr("Contacts retrouvés dans DHIS2"),
+                                                     tr("Différence (mapping − DHIS2)"), tr("Statut")], rows, liens=liens)])
 
 
 # ------------------------------------------------------------------------------------------------ vaccination

@@ -9,6 +9,7 @@
     python manage.py activer IDENT          réactiver un compte
     python manage.py sauvegarde DOSSIER     copie cohérente de la base + fiches JSON (archive .tar.gz)
     python manage.py renommer-action "ANCIEN" "NOUVEAU" [--appliquer]
+    python manage.py dhis2-sync              synchroniser la concordance des contacts avec DHIS2 (variable DHIS2_TOKEN)
                                             renommer une action dans toutes les fiches (sans --appliquer : essai,
                                             rien n'est modifié ; avec --appliquer : sauvegarde de la base d'abord)
 """
@@ -155,6 +156,15 @@ def main(argv) -> int:
         return create("agent")
     if cmd == "sauvegarde":
         return backup(args[0] if args else str(data_dir().parent / "sauvegardes"))
+    if cmd == "dhis2-sync":
+        from core import dhis2
+        try:
+            d = dhis2.synchroniser_api(etape=lambda m: print("  " + m, flush=True))
+        except RuntimeError as exc:
+            print(f"Erreur : {exc}")
+            return 1
+        print(f"DHIS2 synchronisé : {d['n_ll']} alertes, {d['n_contacts']} contacts ({d['n_cas_avec_contacts']} cas index).")
+        return 0
     if cmd == "renommer-action":
         pos = [x for x in args if x != "--appliquer"]
         if len(pos) != 2:

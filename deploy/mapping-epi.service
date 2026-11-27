@@ -14,6 +14,8 @@ Environment=QT_QPA_PLATFORM=offscreen
 Environment=QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu --no-sandbox
 Environment=XDG_RUNTIME_DIR=/var/lib/mapping-epi/.run
 Environment=PYTHONUNBUFFERED=1
+# jeton de l'API DHIS2 (facultatif, jamais dans le code) : créé par « mapping-epi dhis2-jeton »
+EnvironmentFile=-/etc/mapping-epi/dhis2.env
 ExecStartPre=/usr/bin/install -d -m 700 /var/lib/mapping-epi/.run
 ExecStart=/opt/mapping-epi/.venv/bin/python /opt/mapping-epi/serveur_web.py --public --port 8050
 Restart=always

@@ -1,0 +1,28 @@
+{% extends "pilier.html" %}
+{% block avant %}
+<div class="card dh-panneau">
+  <div class="tb-ligne"><h3>{{ t("Données DHIS2") }}</h3>
+    <a class="btn small" style="margin-left:auto" href="{{ url_for('analyse_concordance_xlsx') }}">⬇ {{ t("Concordance (Excel)") }}</a></div>
+  {% if etat.en_cours %}
+    <p class="dh-cours">↻ {{ t("Synchronisation en cours…") }} {{ etat.message }}</p>
+    <meta http-equiv="refresh" content="5">
+  {% elif etat.erreur %}<p class="lvl-erreur">{{ t("Synchronisation impossible :") }} {{ etat.erreur }}</p>
+  {% elif etat.message %}<p class="lvl-info">{{ etat.message }}</p>{% endif %}
+  <p class="hint">{% if dh %}{{ tf("Dernière mise à jour : {date} · {source}", date=dh.maj.replace("T", " à "), source=t(dh.source)) }}{% else %}{{ t("Aucune donnée DHIS2 pour le moment.") }}{% endif %}</p>
+  <div class="row">
+    {% if jeton %}
+    <form method="post" action="{{ url_for('analyse_concordance_sync') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn primary" {{ "disabled" if etat.en_cours }}>↻ {{ t("Synchroniser avec DHIS2 maintenant") }}</button></form>
+    <span class="hint" style="margin:0">{{ t("Lecture seule, environ 1 à 2 minutes. Seuls les N° EPID et le nombre de contacts sont conservés.") }}</span>
+    {% else %}
+    <span class="hint" style="margin:0">{{ t("Connexion à l'API DHIS2 non configurée sur ce serveur (administrateur : « mapping-epi dhis2-jeton »). En attendant, téléversez les exports DHIS2 :") }}</span>
+    {% endif %}
+  </div>
+  <form method="post" action="{{ url_for('analyse_concordance_import') }}" enctype="multipart/form-data" class="row" style="margin-top:10px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="file" name="fichiers" multiple accept=".csv,.xlsx" required style="flex:1 1 260px">
+    <button class="btn">{{ t("Téléverser LINELIST et/ou SUIVI_CONTACTS") }}</button>
+  </form>
+  <p class="hint" style="margin-top:6px">{{ t("Seules les colonnes N° EPID, classification et identifiant du contact sont lues ; le fichier est supprimé aussitôt après.") }}</p>
+</div>
+{% endblock %}

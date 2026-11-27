@@ -54,6 +54,22 @@ case "${1:-aide}" in
     fi
     systemctl daemon-reload && systemctl restart mapping-epi
     sleep 3 && curl -fsS http://127.0.0.1:8050/sante && echo && echo "Mise à jour terminée." ;;
+  dhis2-jeton)
+    # jeton personnel DHIS2 (lecture seule) : saisi sans affichage, gardé dans un fichier lisible par root seulement
+    read -r -s -p "Jeton personnel DHIS2 (d2p_… ou d2pat_…) : " tok; echo
+    [ -n "$tok" ] || { echo "Aucun jeton saisi."; exit 1; }
+    install -d -m 755 /etc/mapping-epi
+    umask 077; printf 'DHIS2_TOKEN=%s\n' "$tok" > /etc/mapping-epi/dhis2.env; chmod 600 /etc/mapping-epi/dhis2.env
+    printf '# Synchronisation DHIS2 quotidienne (06h15)\n15 6 * * * root /usr/local/bin/mapping-epi dhis2-sync >/var/log/mapping-epi-dhis2.log 2>&1\n' > /etc/cron.d/mapping-epi-dhis2
+    systemctl restart mapping-epi
+    echo "Jeton enregistré. Première synchronisation (1 à 2 minutes)…"
+    "$0" dhis2-sync ;;
+  dhis2-sync)
+    [ -f /etc/mapping-epi/dhis2.env ] || { echo "Pas de jeton : lancez d'abord « mapping-epi dhis2-jeton »."; exit 1; }
+    tok="$(sed -n 's/^DHIS2_TOKEN=//p' /etc/mapping-epi/dhis2.env)"
+    sudo -u "$SVC_USER" env MAPPING_EPI_DONNEES="$DATA_DIR" DHIS2_TOKEN="$tok" "$PY" "$APP_DIR/manage.py" dhis2-sync ;;
+  dhis2-retirer)
+    rm -f /etc/mapping-epi/dhis2.env /etc/cron.d/mapping-epi-dhis2 && systemctl restart mapping-epi && echo "Jeton DHIS2 retiré." ;;
   etat)
     systemctl --no-pager status mapping-epi caddy | head -n 30
     echo "Adresse : https://$(cat /etc/mapping-epi/domaine 2>/dev/null)" ;;
@@ -243,6 +259,9 @@ Mapping Épi : commandes
   mise-a-jour            installer la dernière version publiée sur GitHub
   renommer-action "ANCIEN" "NOUVEAU" [--appliquer]
                          renommer une action dans toutes les fiches (essai sans --appliquer)
+  dhis2-jeton            enregistrer le jeton de l'API DHIS2 (saisie masquée) + synchronisation chaque jour à 06h15
+  dhis2-sync             synchroniser maintenant avec DHIS2 (concordance des contacts)
+  dhis2-retirer          retirer le jeton DHIS2
   etat | journal | redemarrer
 Autres sites (statiques) sur ce serveur :
   ajouter-site NOM DEPOT [SOUS-DOMAINE]   ex. ajouter-site ebola-hub https://github.com/Onesime243/ebola-hub-site outbreak

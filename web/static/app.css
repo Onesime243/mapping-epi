@@ -628,3 +628,5 @@ body.apercu-plein { overflow: hidden; }
 .ca-tk:hover { border-color: var(--accent); }
 .ca-tk .m { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
 .ca-tk .o { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.dh-panneau { margin-bottom: 14px; }
+.dh-cours { font-weight: 700; color: var(--accent); }

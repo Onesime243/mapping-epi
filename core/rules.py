@@ -631,7 +631,11 @@ def controles_qualite(case: Case) -> List[Issue]:
     suivi_fait = any("suivi" in (a.texte or "").lower() and a.statut == "Fait" for a in case.actions)
     if listes and sum(listes) > 0 and suivis and sum(suivis) == 0 and suivi_fait:
         out.append(Issue("alerte", tr("Contacts : 0 suivi saisi alors qu'une action de suivi est marquée « Fait » : à réconcilier.")))
-    dl, ds = case.contacts_dhis2_listes, case.contacts_dhis2_suivis
+    from core import dhis2 as _dhis2
+    rap = _dhis2.rapprochement(case)
+    if rap["trouve"] is False and case.code_cas.strip():
+        out.append(Issue("alerte", tr("ID du cas introuvable dans la liste linéaire DHIS2 : vérifier le N° EPID.")))
+    dl, ds = rap["dhis2"], (case.contacts_dhis2_suivis if rap["source"] == "saisi" else None)
     if dl is not None and ds is not None and ds > dl:
         out.append(Issue("erreur", tr("DHIS2 : plus de contacts suivis que de listés.")))
     if dl is not None and listes:

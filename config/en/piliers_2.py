@@ -161,3 +161,39 @@ EN = {
         "median delay identification → decontamination", "site(s)": "site(s)", "Identifié": "Identified", "Décontaminé": "Decontaminated",
     "Vérifié": "Checked",
 }
+
+# rapprochement DHIS2 (core/dhis2.py, page Concordance, liste des cas)
+EN.update({
+    "Introuvable dans la linelist DHIS2": "Not found in the DHIS2 line list", "Oui": "Yes", "Non": "No",
+    "Données DHIS2 du {date} ({source}) : {n_ll} alertes de la liste linéaire, {n_ct} contacts. L'ID du mapping (N° EPID) est recherché dans la liste linéaire, puis les contacts rattachés à ce cas index sont comptés.":
+        "DHIS2 data of {date} ({source}): {n_ll} line-list alerts, {n_ct} contacts. The mapping ID (EPID number) is looked up in the line list, then the contacts linked to that index case are counted.",
+    "Aucune donnée DHIS2 synchronisée : le nombre DHIS2 saisi à la main dans la fiche (étape 5 Contacts) est utilisé.":
+        "No synchronised DHIS2 data: the DHIS2 number entered by hand in the record (step 5 Contacts) is used.",
+    "Retrouvés dans la linelist DHIS2": "Found in the DHIS2 line list", "ID du mapping = N° EPID": "mapping ID = EPID number",
+    "contacts connus des deux côtés": "contacts known on both sides", "Retrouvé dans la linelist DHIS2": "Found in the DHIS2 line list",
+    "Contacts déclarés dans le mapping": "Contacts declared in the mapping", "Contacts retrouvés dans DHIS2": "Contacts found in DHIS2",
+    "Différence (mapping − DHIS2)": "Difference (mapping − DHIS2)", "Différence contacts (mapping − DHIS2)": "Contact difference (mapping − DHIS2)",
+    "fiches dont le nombre de contacts est connu dans le mapping et dans DHIS2": "records whose number of contacts is known in the mapping and in DHIS2",
+    "ID du cas introuvable dans la liste linéaire DHIS2 : vérifier le N° EPID.": "Case ID not found in the DHIS2 line list: check the EPID number.",
+    "Données DHIS2": "DHIS2 data", "Concordance (Excel)": "Agreement (Excel)", "Synchronisation en cours…": "Synchronisation in progress…",
+    "Synchronisation impossible :": "Synchronisation failed:", "Dernière mise à jour : {date} · {source}": "Last update: {date} · {source}",
+    "Aucune donnée DHIS2 pour le moment.": "No DHIS2 data yet.", "Synchroniser avec DHIS2 maintenant": "Synchronise with DHIS2 now",
+    "Lecture seule, environ 1 à 2 minutes. Seuls les N° EPID et le nombre de contacts sont conservés.":
+        "Read-only, about 1 to 2 minutes. Only EPID numbers and numbers of contacts are kept.",
+    "Connexion à l'API DHIS2 non configurée sur ce serveur (administrateur : « mapping-epi dhis2-jeton »). En attendant, téléversez les exports DHIS2 :":
+        "DHIS2 API connection not configured on this server (administrator: “mapping-epi dhis2-jeton”). Meanwhile, upload the DHIS2 exports:",
+    "Téléverser LINELIST et/ou SUIVI_CONTACTS": "Upload LINELIST and/or SUIVI_CONTACTS",
+    "Seules les colonnes N° EPID, classification et identifiant du contact sont lues ; le fichier est supprimé aussitôt après.":
+        "Only the EPID number, classification and contact ID columns are read; the file is deleted right afterwards.",
+    "Connexion à l'API DHIS2 non configurée sur ce serveur.": "DHIS2 API connection not configured on this server.",
+    "Une synchronisation est déjà en cours.": "A synchronisation is already in progress.",
+    "Formats acceptés : .csv et .xlsx exportés de DHIS2.": "Accepted formats: .csv and .xlsx exported from DHIS2.",
+    "Aucun fichier choisi.": "No file chosen.", "Données DHIS2 importées : {n_ll} alertes, {n_ct} contacts.": "DHIS2 data imported: {n_ll} alerts, {n_ct} contacts.",
+    "Import impossible : {e}": "Import failed: {e}", "colonnes attendues absentes": "expected columns missing",
+    "API DHIS2": "DHIS2 API", "Fichiers exportés de DHIS2": "Files exported from DHIS2", "Confirmé": "Confirmed", "Probable": "Probable",
+    "Suspect": "Suspect", "Non-cas": "Non-case", "Concordance DHIS2": "DHIS2 agreement", "ID du cas (mapping)": "Case ID (mapping)",
+    "Classification DHIS2": "DHIS2 classification", "Statut": "Status", "Source du nombre DHIS2": "Source of the DHIS2 number",
+    "Concordance Mapping Épi × DHIS2 : contacts par cas index": "Mapping Épi × DHIS2 agreement: contacts by index case",
+    " · données DHIS2 du {date} ({source})": " · DHIS2 data of {date} ({source})", " · nombre DHIS2 saisi dans les fiches": " · DHIS2 number entered in the records",
+    "Synchronisation DHIS2": "DHIS2 synchronisation", "Saisi dans la fiche": "Entered in the record",
+})

@@ -213,6 +213,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return
         if request.path == "/riposte/carte":
             request.max_content_length = 80 * 1024 * 1024      # contours des aires (GeoPackage)
+        if request.path == "/analyse/concordance/importer":
+            request.max_content_length = 400 * 1024 * 1024     # exports DHIS2 (SUIVI_CONTACTS : ~200 Mo)
         if request.method in ("POST", "PUT", "DELETE"):
             sent = request.headers.get("X-CSRF") or request.form.get("csrf")
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
@@ -716,7 +718,53 @@ def create_app(store: storage.Store | None = None) -> Flask:
     @login_required
     def analyse_concordance():
         from core import coordination as CO
-        return render_template("pilier.html", P=CO.concordance(cas_reels()))
+        from core import dhis2 as DH
+        return render_template("concordance.html", P=CO.concordance(cas_reels()), dh=DH.charger(), etat=DH.ETAT,
+                               jeton=bool(DH.jeton()))
+
+    @app.route("/analyse/concordance/synchroniser", methods=["POST"])
+    @login_required
+    def analyse_concordance_sync():
+        from core import dhis2 as DH
+        if not DH.jeton():
+            flash(tr("Connexion à l'API DHIS2 non configurée sur ce serveur."), "err")
+        elif not DH.lancer_synchronisation():
+            flash(tr("Une synchronisation est déjà en cours."), "err")
+        return redirect(url_for("analyse_concordance"))
+
+    @app.route("/analyse/concordance/importer", methods=["POST"])
+    @login_required
+    def analyse_concordance_import():
+        from core import dhis2 as DH
+        tmp = data_dir() / "exports" / f"dhis2_{secrets.token_hex(6)}"
+        tmp.mkdir(parents=True, exist_ok=True)
+        chemins = []
+        try:
+            for f in request.files.getlist("fichiers")[:4]:
+                ext = Path(f.filename or "").suffix.lower()
+                if ext not in (".csv", ".xlsx"):
+                    raise ValueError(tr("Formats acceptés : .csv et .xlsx exportés de DHIS2."))
+                p = tmp / f"f{len(chemins)}{ext}"
+                f.save(str(p))
+                chemins.append(p)
+            if not chemins:
+                raise ValueError(tr("Aucun fichier choisi."))
+            d = DH.importer_fichiers(chemins)
+            flash(trf("Données DHIS2 importées : {n_ll} alertes, {n_ct} contacts.", n_ll=d["n_ll"], n_ct=d["n_contacts"]), "ok")
+        except (ValueError, StopIteration, KeyError) as exc:
+            flash(trf("Import impossible : {e}", e=str(exc) or tr("colonnes attendues absentes")), "err")
+        finally:
+            import shutil
+            shutil.rmtree(tmp, ignore_errors=True)           # rien n'est gardé : les exports contiennent des noms
+        return redirect(url_for("analyse_concordance"))
+
+    @app.route("/analyse/concordance.xlsx")
+    @login_required
+    def analyse_concordance_xlsx():
+        from core import dhis2 as DH
+        out = data_dir() / "exports" / f"{secrets.token_hex(6)}.xlsx"
+        DH.export_xlsx(cas_reels(), out, g.user.perimetre)
+        return _send_and_delete(out, f"Concordance_Mapping_DHIS2_{date.today():%Y%m%d}.xlsx")
 
     @app.route("/riposte/vaccination")
     @login_required

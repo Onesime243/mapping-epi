@@ -165,7 +165,9 @@ COLONNES = [
     ("Début des symptômes (rapporté)", 13), ("Phase des premiers signes", 14), ("J0 retenu", 12),
     ("Notification", 12), ("Confirmation", 12), ("Isolement (1re hospitalisation)", 13),
     ("Début → isolement (j)", 10), ("État", 12), ("Date de décès", 12), ("Décès communautaire", 11),
-    ("Enterrement sécurisé", 11), ("Contacts listés", 9), ("Contacts suivis", 9), ("Risque global", 13),
+    ("Enterrement sécurisé", 11), ("Contacts listés", 9), ("Contacts suivis", 9),
+    ("Retrouvé dans la linelist DHIS2", 12), ("Contacts retrouvés dans DHIS2", 11), ("Différence contacts (mapping − DHIS2)", 12),
+    ("Risque global", 13),
     ("Complétude (%)", 10), ("Actions ouvertes", 9), ("Modifiée le", 15), ("Modifiée par", 14),
 ]
 
@@ -188,7 +190,7 @@ def _ligne(c: Case) -> list:
             c.profession, tr(c.agent_sante), tr(c.vaccine), c.date_vaccination, tr(c.contact_connu), c.id_cas_source,
             c.date_contact_source, c.debut_symptomes, tr(c.phase_dds), j0, c.date_notification, c.date_confirmation, iso,
             (iso - c.debut_symptomes).days if iso and c.debut_symptomes else None, tr(c.issue), c.date_deces, yn[dc],
-            yn[es], sum(lst) if lst else None, sum(sv) if sv else None, tr(risque or ""), rules.completeness(c)[0],
+            yn[es], sum(lst) if lst else None, sum(sv) if sv else None, *_dhis2_cols(c), tr(risque or ""), rules.completeness(c)[0],
             sum(1 for a in c.actions if a.texte.strip() and a.statut != "Fait"),
             c.modifie_le.strftime("%d/%m/%Y %H:%M") if c.modifie_le else "", c.modifie_par]
 
@@ -258,6 +260,8 @@ VARIABLES_MODELISATION = [
     ("date_enterrement", "Date de l'enterrement"),
     ("contacts_listes", "Contacts listés (catégories dénombrées)"), ("contacts_haut_risque", "Contacts à haut ou très haut risque"),
     ("contacts_suivis", "Contacts suivis"), ("contacts_vaccines", "Contacts vaccinés"),
+    ("dhis2_retrouve", "Retrouvé dans la linelist DHIS2"), ("dhis2_contacts", "Contacts retrouvés dans DHIS2"),
+    ("dhis2_difference", "Différence contacts (mapping − DHIS2)"),
     ("categories_contacts_inconnues", "Catégories de contacts non dénombrées"),
     ("nb_etapes", "Nombre d'étapes de la chronologie"), ("nb_lieux", "Nombre de lieux d'exposition"),
     ("nb_deplacements", "Nombre de déplacements"), ("transports", "Moyens de transport utilisés"),
@@ -271,6 +275,12 @@ VARIABLES_MODELISATION = [
 
 def _jours(a, b):
     return (b - a).days if a and b else None
+
+
+def _dhis2_cols(c: Case) -> list:
+    from core import dhis2
+    r = dhis2.rapprochement(c)
+    return ["" if r["trouve"] is None else (tr("Oui") if r["trouve"] else tr("Non")), r["dhis2"], r["difference"]]
 
 
 def _ligne_modelisation(c: Case) -> list:
@@ -324,6 +334,7 @@ def _ligne_modelisation(c: Case) -> list:
         sum(g.nombre for g in hr) if hr else None,
         sum(g.suivis for g in c.contacts if g.suivis is not None) if any(g.suivis is not None for g in c.contacts) else None,
         sum(g.vaccines for g in c.contacts if g.vaccines is not None) if any(g.vaccines is not None for g in c.contacts) else None,
+        *_dhis2_cols(c),
         sum(1 for g in c.contacts if g.nombre is None),
         len(c.events), len(c.places), sum(1 for e in c.events if e.lieu_arrivee.strip()),
         "; ".join(sorted({tr(e.transport) for e in c.events if e.transport})),

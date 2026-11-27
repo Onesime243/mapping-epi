@@ -56,6 +56,11 @@ def evenements(case: Case) -> Tuple[List[Tuple[str, date, str, str]], List[str]]
     return dates, manquants
 
 
+def _dhis2(case: Case) -> Optional[int]:
+    from core import dhis2
+    return dhis2.rapprochement(case)["dhis2"]
+
+
 def cascade(case: Case) -> List[Tuple[str, Optional[int], str]]:
     def som(k):
         v = [getattr(g, k) for g in case.contacts if getattr(g, k) is not None]
@@ -63,7 +68,7 @@ def cascade(case: Case) -> List[Tuple[str, Optional[int], str]]:
     return [(tr("Exposés estimés"), som("exposes"), GRIS), (tr("Listés"), som("nombre"), theme.BLUE),
             (tr("Suivis"), som("suivis"), theme.GREEN), (tr("Devenus symptomatiques"), som("symptomatiques"), theme.ORANGE),
             (tr("Devenus confirmés"), som("confirmes"), theme.RED),
-            (tr("Listés dans DHIS2"), case.contacts_dhis2_listes, theme.NAVY),
+            (tr("Listés dans DHIS2"), _dhis2(case), theme.NAVY),
             (tr("Suivis dans DHIS2"), case.contacts_dhis2_suivis, theme.TEAL)]
 
 
