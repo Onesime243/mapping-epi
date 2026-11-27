@@ -1,0 +1,22 @@
+{# Onglet À traiter, en haut : centre des actions interpiliers (core/coordination.py : centre_actions) #}
+<div class="card ca" id="ve-centre-actions">
+  <div class="tb-ligne"><h3>{{ t("Centre des actions") }}</h3>
+    <span class="hint" style="margin:0 0 0 auto">{{ t("Une action déclarée faite n'est close qu'après validation (champ « Vérifiée par » de la fiche).") }}</span></div>
+  <div class="ca-filtres">
+    <a class="{{ 'on' if not ca.pilier }}" href="{{ url_for('tableau_bord', **dict(request.args, pilier_ca='', onglet='traiter')) }}#ve-centre-actions">{{ t("Tous") }}</a>
+    {% for p, n in ca.piliers %}<a class="{{ 'on' if ca.pilier == p }}" href="{{ url_for('tableau_bord', **dict(request.args, pilier_ca=p, onglet='traiter')) }}#ve-centre-actions">{{ t(p) }} · {{ n }}</a>{% endfor %}
+  </div>
+  <div class="ca-kan">
+  {% for k, lib, items in ca.colonnes %}
+    <div class="ca-col ca-{{ k }}"><h4><span>● {{ lib }}</span><span>{{ items|length }}</span></h4>
+    {% for a in items[:25] %}<a class="ca-tk" href="{{ url_for('editor', cid=a.cid) }}">
+      <div class="m"><span class="pl-pill pl-bl">{{ t(a.pilier) }}</span><span class="pl-pill {{ 'pl-re' if a.priorite == 'Urgent' else ('pl-al' if a.priorite == 'Important' else 'pl-nd') }}">{{ t(a.priorite) }}</span></div>
+      <b>{{ a.texte }}</b>
+      <div class="o">{{ a.code }} · {{ a.zs }} · {{ a.responsable }}{% if a.echeance %} · {{ t("éch.") }} {{ a.echeance.strftime("%d/%m") }}{% endif %}{% if a.retard %} · <span class="lvl-erreur">{{ tf("{n} j de retard", n=a.retard) }}</span>{% endif %}</div>
+      {% if k == "avalider" %}<div class="o">{{ t("Preuve :") }} {{ a.preuve or t("non renseignée") }} · {{ t("validateur ?") }}</div>{% elif k == "validee" %}<div class="o">{{ t("Vérifiée par") }} {{ a.valide_par }}</div>{% endif %}
+    </a>{% endfor %}
+    {% if items|length > 25 %}<p class="hint">{{ tf("… et {n} autre(s)", n=items|length - 25) }}</p>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</div>

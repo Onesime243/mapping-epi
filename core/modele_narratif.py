@@ -34,7 +34,7 @@ N_COL = "N°"
 
 # chronologie : deux tableaux reliés par N° (17 colonnes ne tiennent pas lisiblement sur une page ou une diapositive)
 CHRONO_1 = ["date_debut", "date_fin", "heure", "heure_approx", "date_incertaine", "lieu", "lieu_arrivee", "type", "titre"]
-CHRONO_2 = ["description", "transport", "personnes", "contact_corps", "liquides", "sans_pci", "securise", "risque"]
+CHRONO_2 = ["description", "transport", "nb_trajets", "poe_poc", "personnes", "contact_corps", "liquides", "sans_pci", "securise", "risque"]
 LIGNES_VIDES = {"Chronologie": 12, "Lieux": 8, "Contacts": 10, "PCI": 6, "Laboratoire": 4, "Actions": 8}
 NUMEROS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"]
 

@@ -17,7 +17,8 @@ from core.models import Case
 
 COLONNES = [("ID du cas", 22), ("Province", 14), ("Zone de santé", 16), ("Aire de santé", 16),
             ("Lieu fréquenté", 34), ("Origine", 22), ("Première date", 13), ("Étape(s) du parcours", 34),
-            ("Adresse", 38), ("Statut PCI / décontamination", 18), ("Date PCI", 12), ("Équipe PCI", 18)]
+            ("Adresse", 38), ("Statut PCI / décontamination", 18), ("Date PCI", 12), ("Équipe PCI", 18),
+            ("Identifié le", 12), ("Vérifié le", 12), ("Preuve", 22)]
 
 
 def _norm(t: str) -> str:
@@ -73,6 +74,9 @@ def lignes(cases: List[Case]) -> List[dict]:
                 "statut": (s.statut if s and s.statut else "?") if s else "Pas de site PCI saisi",
                 "date_pci": s.date if s and s.date else None,
                 "equipe": (s.equipe.strip() if s and s.equipe.strip() else "?") if s else "?",
+                "identifie_le": s.identifie_le if s else None, "verifie_le": s.verifie_le if s else None,
+                "preuve": (s.preuve.strip() or "?") if s else "?",
+                "delai": ((s.date - s.identifie_le).days if s and s.date and s.identifie_le and s.date >= s.identifie_le else None),
             })
     return out
 
@@ -107,7 +111,8 @@ def xlsx(cases: List[Case], path: Path | str, perimetre: str = "") -> int:
     manque = PatternFill("solid", fgColor="FFF1DC")
     for r in rows:
         ws.append([r["id"], r["province"], r["zs"], r["as"], r["lieu"], tr(r["origine"]), r["date"] or "?",
-                   r["etapes"], r["adresse"], tr(r["statut"]), r["date_pci"] or "?", r["equipe"]])
+                   r["etapes"], r["adresse"], tr(r["statut"]), r["date_pci"] or "?", r["equipe"],
+                   r["identifie_le"] or "?", r["verifie_le"] or "?", r["preuve"]])
         for cell in ws[ws.max_row]:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
             if isinstance(cell.value, date):

@@ -1,0 +1,18 @@
+{# Onglet Analyse, en haut : command center de la coordination (core/coordination.py : command_center) #}
+{% from "_pilier_blocs.html" import kpis, section with context %}
+<div class="card cc" id="ve-command">
+  <div class="tb-ligne"><h3>{{ t("Command center : où sont les problèmes ?") }}</h3>
+    <span class="hint" style="margin:0 0 0 auto">{{ t("Rouge < 60 % · ambre 60 à 84 % · vert ≥ 85 % · ND = non documenté") }}</span></div>
+  {{ kpis(cc.kpis) }}
+  <div class="cc-g">
+    <div class="pl-sec"><h3>{{ t("Performance par zone de santé et par pilier") }}</h3>
+      <p class="hint">{{ t("Cliquez sur une zone pour voir ses cas.") }}</p>
+      {% if cc.zones %}<div class="tablewrap"><table class="cc-heat"><thead><tr><th>{{ t("ZS") }}</th>{% for c in cc.colonnes %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>
+      {% for z in cc.zones %}<tr><td><a href="{{ url_for('cases', zs=z.zs) }}"><b>{{ z.zs }}</b></a> <span class="muted">({{ z.n }})</span></td>
+        {% for c in z.cells %}<td class="h pl-{{ c.ton }}">{{ c.txt }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody></table></div>{% else %}<p class="muted">{{ t("Aucun cas.") }}</p>{% endif %}
+    </div>
+    {{ section(cc.ecarts) }}
+    {{ section(cc.issues) }}
+  </div>
+</div>

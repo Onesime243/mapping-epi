@@ -31,13 +31,13 @@ from core import obligatoires as OBL
 from web import i18n as I18N
 from core.langue import tr, trf
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
-from render import chains, chrono, common_places, dashboard, gantt, html_renderer as H, map_view, network
+from render import chains, chrono, clinique, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
 from web import render_client
 
 log = logging.getLogger("mapping_epi.web")
 ROOT = Path(__file__).resolve().parent.parent
-VISUALS = {"mapping": "Mapping", "chrono": "Chronologie simplifiée", "network": "Réseau de contacts", "route": "Carte du parcours",
+VISUALS = {"mapping": "Mapping", "chrono": "Chronologie simplifiée", "clin": "Parcours clinique", "network": "Réseau de contacts", "route": "Carte du parcours",
            "gantt": "Frise temporelle", "dashboard": "Multi-cas", "chains": "Chaînes de transmission",
            "common": "Lieux communs"}
 SORTS = {"code": "ID / fiche", "province": "Province", "zs": "ZS", "as": "AS", "j0": "J0",
@@ -702,6 +702,62 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return render_template("actions.html", frag=RIP.html_actions(items, lambda c: url_for("editor", cid=c.id)),
                                bilan=RIP.bilan_actions(items), prov=prov, provinces=provinces, toutes=toutes)
 
+    # ------------------------------------------------ Mapping Épi 2.0 : analyses et espaces des piliers
+    def cas_reels():
+        return [c for c in visible_cases() if not c.exemple() and (c.code_cas or "").strip()]
+
+    @app.route("/analyse/goulots")
+    @login_required
+    def analyse_goulots():
+        from core import coordination as CO
+        return render_template("pilier.html", P=CO.goulots(cas_reels()))
+
+    @app.route("/analyse/concordance")
+    @login_required
+    def analyse_concordance():
+        from core import coordination as CO
+        return render_template("pilier.html", P=CO.concordance(cas_reels()))
+
+    @app.route("/riposte/vaccination")
+    @login_required
+    def riposte_vaccination():
+        from core import coordination as CO
+        return render_template("pilier.html", P=CO.vaccination(cas_reels()))
+
+    @app.route("/riposte/psychosocial")
+    @login_required
+    def riposte_psychosocial():
+        from core import coordination as CO
+        return render_template("pilier.html", P=CO.psychosocial(cas_reels()))
+
+    @app.route("/riposte/services-essentiels")
+    @login_required
+    def riposte_services():
+        from core import coordination as CO
+        return render_template("pilier.html", P=CO.services(cas_reels()))
+
+    @app.route("/riposte/poe-poc", methods=["GET", "POST"])
+    @login_required
+    def riposte_poe():
+        from core import coordination as CO
+        from core import poe as POE
+        if request.method == "POST":
+            try:
+                if request.form.get("action") == "supprimer":
+                    POE.supprimer(request.form.get("rid", ""))
+                    flash(tr("Rapport supprimé."), "ok")
+                else:
+                    POE.ajouter(request.form, g.user.username)
+                    flash(tr("Rapport journalier enregistré."), "ok")
+            except ValueError as exc:
+                flash(trf("Rapport non enregistré : {e}", e=tr(str(exc))), "err")
+            return redirect(url_for("riposte_poe"))
+        rapports = POE.charger()
+        return render_template("poe.html", P=CO.poe_poc(rapports, cas_reels()), peut_saisir=True,
+                               aujourdhui=date.today().isoformat(),
+                               points=sorted({r.get("point", "") for r in rapports if r.get("point")}),
+                               derniers=sorted(rapports, key=lambda r: r.get("date", ""), reverse=True)[:10])
+
     @app.route("/riposte/carte", methods=["GET", "POST"])
     @login_required
     def riposte_carte():
@@ -824,8 +880,11 @@ def create_app(store: storage.Store | None = None) -> Flask:
         niveau = ("zone", prov or (cas_vue[0].province if cas_vue else ""), zs) if zs else (
             ("province", prov, "") if prov else ("national", "", ""))
         vue = VE.construire(cas_vue, debut, fin, perimetre_complet, niveau)
+        from core import coordination as CO
+        cc = CO.command_center([c for c in cas_vue if not c.exemple()])
+        ca = CO.centre_actions([c for c in cas_vue if not c.exemple()], pilier=request.args.get("pilier_ca", "").strip())
         focus = request.args.get("focus", "")
-        return render_template("tableau_bord.html", tb=tb, TB=TB, matrice=matrice, provinces=provinces, zones=zones,
+        return render_template("tableau_bord.html", tb=tb, TB=TB, matrice=matrice, cc=cc, ca=ca, provinces=provinces, zones=zones,
                                resolues=resolues, vue=vue, VE=VE, aires=aires, fx=fx,
                                focus=focus if focus in vue.focus else "", maintenant=datetime.now(),
                                statuts=theme.ISSUE_CHOICES, risques=["Très élevé", "Élevé", "Modéré", "Faible", "Inconnu"],
@@ -991,7 +1050,9 @@ def create_app(store: storage.Store | None = None) -> Flask:
             page = min(pages, max(1, int(request.args.get("page", "1"))))
         except ValueError:
             page = 1
+        from core import coordination as CO
         return render_template("pci.html", rows=rows[(page - 1) * par_page: page * par_page], bilan=PCI.bilan(rows),
+                               interv=CO.pci_delais(cas_id),
                                page=page, pages=pages, par_page=par_page, n=len(rows), sans_id=sans_id)
 
     def cas_avec_id():
@@ -1238,7 +1299,9 @@ def create_app(store: storage.Store | None = None) -> Flask:
             choices={"diseases": theme.DISEASES, "sexes": theme.SEXES, "status": theme.CASE_STATUS,
                      "issues": theme.ISSUE_CHOICES, "contact_status": theme.CONTACT_STATUS_CHOICES, "risks": theme.RISK_CHOICES, "symptoms": theme.SYMPTOMS, "symptom_groups": [[k, v] for k, v in theme.SYMPTOM_GROUPS.items()],
                      "hemorrhagic": sorted(theme.HEMORRHAGIC), "phase_dds": theme.PHASE_DDS_CHOICES,
-                     "oui_non": theme.OUI_NON},
+                     "oui_non": theme.OUI_NON, "besoin": theme.BESOIN_CHOICES, "psy": theme.PSY_CHOICES,
+                     "besoins_csse": [[k, tr(l)] for k, l in theme.BESOINS_CSSE],
+                     "besoins_psy": [[k, tr(l)] for k, l in theme.BESOINS_PSY]},
             annee_min=theme.ANNEE_MIN, obligatoires=[{"key": k, "label": tr(l)} for k, l in OBL.champs()],
             defaults={"events": Event().model_dump(mode="json"), "actions": Action().model_dump(mode="json")})
 
@@ -1377,6 +1440,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return H.render_svg_page(map_view.render_svg(c), tr("Parcours"), assets="/assets/")
         if key == "gantt":
             return H.render_svg_page(gantt.render_svg(c), tr("Frise"), assets="/assets/")
+        if key == "clin":
+            return H.render_svg_page(clinique.render_svg(c), tr("Parcours clinique"), assets="/assets/")
         if key == "chrono":
             return H.render_svg_page(chrono.render_svg(c), tr("Chronologie simplifiée"), assets="/assets/")
         if key == "dashboard":
@@ -1425,7 +1490,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             elif key in ("chains", "common"):
                 svg = multi_svg(c, key)
             else:
-                svg = {"network": network, "route": map_view, "gantt": gantt, "chrono": chrono}[key].render_svg(c)
+                svg = {"network": network, "route": map_view, "gantt": gantt, "chrono": chrono, "clin": clinique}[key].render_svg(c)
             return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name,
                              mimetype="image/svg+xml")
         if fmt == "pptx":
@@ -1512,7 +1577,7 @@ def _filename(c: Case, key: str, fmt: str) -> str:
 
     def slug(s):
         return re.sub(r"[^\w\-]+", "_", s or "", flags=re.UNICODE).strip("_") or "x"
-    base = {"mapping": "Mapping", "chrono": "Chronologie", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
+    base = {"mapping": "Mapping", "chrono": "Chronologie", "clin": "Parcours_clinique", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
             "chains": "Chaines_transmission", "common": "Lieux_communs"}[key]
     if fmt.startswith("rapport"):
         base = "Rapport"

@@ -148,15 +148,27 @@ def render_svg(case: Case) -> str:
         risk = rules.event_risk(leg.ev, case)
         col = theme.RED if leg.corps else theme.risk_color(risk)
         mk = "red" if leg.corps else K.risk_marker(risk)
-        dash = ' stroke-dasharray="7 5"' if leg.corps else ""
+        dash = ' stroke-dasharray="7 5"' if leg.corps or leg.ev.date_incertaine else ""
+        fois = leg.ev.nb_trajets if leg.ev.nb_trajets and leg.ev.nb_trajets > 1 else 1
+        sw = 3 + 1.6 * min(fois - 1, 6)              # trajets répétés : une seule flèche, plus épaisse
+        poe = f" · PoE/PoC {leg.ev.poe_poc}" if leg.ev.poe_poc.strip() else ""
+        if fois > 1:                                 # trait large en fond, pointe de flèche normale par-dessus
+            arrows.append(f'<path d="M{sx:.1f},{sy:.1f} Q{mx:.1f},{my:.1f} {ex - ux * 10:.1f},{ey - uy * 10:.1f}" fill="none" '
+                          f'stroke="{col}" stroke-opacity=".45" stroke-width="{sw:.1f}" stroke-linecap="round"/>')
         arrows.append(f'<path d="M{sx:.1f},{sy:.1f} Q{mx:.1f},{my:.1f} {ex:.1f},{ey:.1f}" fill="none" stroke="{col}" '
                       f'stroke-width="3" stroke-linecap="round"{dash} marker-end="url(#arr-{mk})">'
-                      f'<title>{leg.n}. {K.esc(date_label(leg.ev))} {K.esc(a)} → {K.esc(b)}</title></path>')
+                      f'<title>{leg.n}. {K.esc(date_label(leg.ev))} {K.esc(a)} → {K.esc(b)}'
+                      f'{K.esc(trf(" (×{n})", n=fois)) if fois > 1 else ""}{K.esc(poe)}</title></path>')
         bx, by = 0.25 * sx + 0.5 * mx + 0.25 * ex, 0.25 * sy + 0.5 * my + 0.25 * ey
         badge_xy.append((bx, by))
         badges.append(f'<circle cx="{bx:.1f}" cy="{by:.1f}" r="11" fill="#fff" stroke="{col}" stroke-width="2.2"/>'
                       f'<text x="{bx:.1f}" y="{by + 4:.1f}" text-anchor="middle" font-size="11" font-weight="800" '
-                      f'fill="{col}">{leg.n}</text>')
+                      f'fill="{col}">{leg.n}</text>'
+                      + (f'<text x="{bx + 14:.1f}" y="{by + 4:.1f}" font-size="11" font-weight="800" fill="{col}" '
+                         f'style="paint-order:stroke;stroke:#fff;stroke-width:4px">×{fois}</text>' if fois > 1 else "")
+                      + (f'<text x="{bx:.1f}" y="{by + 24:.1f}" text-anchor="middle" font-size="10" font-weight="700" '
+                         f'fill="{theme.NAVY}" style="paint-order:stroke;stroke:#fff;stroke-width:4px">{K.esc(K.ellipsize("PoE/PoC " + leg.ev.poe_poc.strip(), 150, 10, 700))}</text>'
+                         if leg.ev.poe_poc.strip() else ""))
     nodes, labels = [], []
     placer = K.LabelPlacer((24, 72, 856, 676))
     for bx_, by_ in badge_xy:

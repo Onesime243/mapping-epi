@@ -54,6 +54,8 @@
           <a href="{{ url_for('zones_page') }}">{{ t("Catégories des ZS, délais et incubation") }}</a>
           <a href="{{ url_for('frequent_places', niveau='zs') }}">{{ t("Lieux fréquentés par zone de santé") }}</a>
           <a href="{{ url_for('frequent_places', niveau='as') }}">{{ t("Lieux fréquentés par aire de santé") }}</a>
+          <a href="{{ url_for('analyse_goulots') }}">{{ t("Goulots de la surveillance") }}</a>
+          <a href="{{ url_for('analyse_concordance') }}">{{ t("Concordance Mapping Épi × DHIS2") }}</a>
         </div>
       </div>
       {% endif %}
@@ -64,6 +66,10 @@
           <a href="{{ url_for('riposte_indicateurs') }}">{{ t("Indicateurs clés et courbe épidémique") }}</a>
           <a href="{{ url_for('riposte_carte') }}">{{ t("Carte des cas") }}</a>
           <a href="{{ url_for('riposte_actions') }}">{{ t("Suivi des actions") }}</a>
+          <a href="{{ url_for('riposte_poe') }}">{{ t("PoE / PoC et mobilité") }}</a>
+          <a href="{{ url_for('riposte_services') }}">{{ t("Services de santé essentiels") }}</a>
+          <a href="{{ url_for('riposte_psychosocial') }}">{{ t("Psychosocial (agrégats)") }}</a>
+          <a href="{{ url_for('riposte_vaccination') }}">{{ t("Vaccination des contacts") }}</a>
           <a href="{{ url_for('riposte_reunion') }}" target="_blank" rel="noopener">{{ t("Mode réunion (diaporama)") }}</a>
         </div>
       </div>

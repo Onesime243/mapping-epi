@@ -318,6 +318,13 @@ _CASE_FIELDS = [
     ("date_alerte", "Date de l'alerte"), ("date_isolement", "Date d'isolement effectif"),
     ("date_admission_cte", "Date d'admission au CTE"), ("contacts_dhis2_listes", "Contacts listés dans DHIS2"),
     ("contacts_dhis2_suivis", "Contacts suivis dans DHIS2"),
+    ("date_premiere_consultation", "Date de la 1re consultation"), ("date_reference", "Date de la référence"),
+    ("date_decision_transfert", "Date de la décision de transfert"), ("date_debut_traitement", "Début du traitement spécifique"),
+    ("date_sortie", "Date de sortie du CTE"), ("date_rdv_post_guerison", "Rendez-vous post-guérison"),
+    ("suivi_obstetrical", "Suivi obstétrical"), ("suivi_nouveau_ne", "Suivi du nouveau-né"),
+    ("suivi_post_partum", "Suivi post-partum"), ("soutien_nutritionnel", "Soutien nutritionnel"),
+    ("continuite_sortie", "Continuité des soins après la sortie"), ("besoin_psychosocial", "Besoin psychosocial du cas"),
+    ("soutien_famille", "Soutien à la famille"),
 ]
 # anciens libellés de la feuille « Cas » encore acceptés à l'import
 CASE_ALIAS = {"Issue": "issue"}
@@ -332,7 +339,8 @@ SHEETS = {
         ("lieu_arrivee", "Lieu d'arrivée"), ("type", "Type"), ("titre", "Titre"),
         ("description", "Description"), ("transport", "Transport"), ("personnes", "Personnes présentes"),
         ("contact_corps", "Contact corps"), ("liquides", "Liquides biologiques"), ("sans_pci", "Sans PCI"),
-        ("securise", "Sécurisé"), ("risque", "Risque (vide = auto)")]),
+        ("securise", "Sécurisé"), ("risque", "Risque (vide = auto)"), ("nb_trajets", "Trajets (fois)"),
+        ("poe_poc", "PoE / PoC franchi")]),
     "Lieux": (Place, [
         ("nom", "Lieu"), ("type", "Type de structure"), ("population", "Personnes exposées"), ("nombre", "Nombre de personnes exposées"),
         ("risque", "Risque"), ("lat", "Latitude"), ("lon", "Longitude")]),
@@ -341,10 +349,12 @@ SHEETS = {
         ("libelle_nombre", "Libellé"), ("suivis", "Suivis"), ("risque", "Risque"), ("lieu", "Lieu de contact"),
         ("dernier_contact", "Dernier contact"), ("vaccines", "Vaccinés (? si inconnu)"),
         ("exposes", "Exposés estimés (? si inconnu)"), ("symptomatiques", "Devenus symptomatiques (? si inconnu)"),
-        ("confirmes", "Devenus confirmés (? si inconnu)")]),
+        ("confirmes", "Devenus confirmés (? si inconnu)"), ("eligibles", "Éligibles au vaccin (? si inconnu)"),
+        ("motif_non_vaccination", "Motif de non-vaccination")]),
     "PCI": (IPCSite, [
         ("site", "Site"), ("statut", "Statut"), ("date", "Date"), ("equipe", "Équipe"), ("produit", "Produit"),
-        ("adresse", "Adresse du site")]),
+        ("adresse", "Adresse du site"), ("identifie_le", "Identifié le"), ("verifie_le", "Vérifié le"),
+        ("preuve", "Preuve")]),
     "Laboratoire": (LabSample, [
         ("type", "Échantillon"), ("laboratoire", "Nom laboratoire"), ("prelevement", "Prélèvement"),
         ("envoi", "Envoi"), ("reception", "Réception"), ("resultat_le", "Résultat le"), ("resultat", "Résultat")]),

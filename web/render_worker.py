@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from core.models import Case  # noqa: E402
-from render import chains, chrono, common_places, dashboard, gantt, html_renderer as H, map_view, network  # noqa: E402
+from render import chains, chrono, clinique, common_places, dashboard, gantt, html_renderer as H, map_view, network  # noqa: E402
 from render.pptx_exporter import export_report_pptx  # noqa: E402
 
 
@@ -26,7 +26,7 @@ def visual_html(c: Case, key: str, others, zone: str = "", focus: bool = True) -
         return H.render_svg_page(mod.render_svg(others or [c], c if focus else None, zone), key)
     if key == "dashboard":
         return H.render_svg_page(dashboard.render_svg(others or [c], c.zs), "Multi-cas")
-    mod = {"network": network, "route": map_view, "gantt": gantt, "chrono": chrono}[key]
+    mod = {"network": network, "route": map_view, "gantt": gantt, "chrono": chrono, "clin": clinique}[key]
     return H.render_svg_page(mod.render_svg(c), key)
 
 

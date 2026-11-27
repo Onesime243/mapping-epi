@@ -1,0 +1,23 @@
+{% extends "pilier.html" %}
+{% block apres %}
+{% if peut_saisir %}
+<div class="card" style="margin-top:14px"><h3>{{ t("Ajouter un rapport journalier") }}</h3>
+  <p class="hint">{{ t("Nombres seulement, jamais de nom de voyageur. Vide = inconnu (jamais 0).") }}</p>
+  <form method="post" class="pl-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="ajouter">
+    <label>{{ t("Date") }}<input type="date" name="date" required value="{{ aujourdhui }}"></label>
+    <label>{{ t("Point (PoE / PoC)") }}<input name="point" required maxlength="80" list="dl-points"></label>
+    <label>{{ t("Zone de santé") }}<input name="zs" maxlength="60"></label>
+    <label>{{ t("Voyageurs") }}<input type="number" min="0" name="voyageurs"></label>
+    <label>{{ t("Screenés") }}<input type="number" min="0" name="screenes"></label>
+    <label>{{ t("Alertes") }}<input type="number" min="0" name="alertes"></label>
+    <label>{{ t("Investiguées") }}<input type="number" min="0" name="investiguees"></label>
+    <button class="btn primary">{{ t("Enregistrer") }}</button>
+  </form>
+  <datalist id="dl-points">{% for p in points %}<option value="{{ p }}">{% endfor %}</datalist>
+  {% if derniers %}<h3 style="margin-top:14px">{{ t("Supprimer un rapport saisi par erreur") }}</h3>
+  <table class="list pl-table"><tbody>{% for r in derniers %}<tr><td>{{ r.date }}</td><td><b>{{ r.point }}</b></td><td>{{ r.voyageurs if r.voyageurs is not none else "ND" }} / {{ r.screenes if r.screenes is not none else "ND" }}</td>
+    <td style="text-align:right"><form method="post" onsubmit="return confirm('{{ t("Supprimer ce rapport ?") }}')"><input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="action" value="supprimer"><input type="hidden" name="rid" value="{{ r.id }}"><button class="btn small danger">{{ t("Supprimer") }}</button></form></td></tr>{% endfor %}</tbody></table>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

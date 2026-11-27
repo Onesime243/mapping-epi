@@ -173,3 +173,13 @@ def risk_color(level: str) -> str:
 
 def risk_rank(level: str) -> int:
     return RISK_LEVELS.get(level, {"rank": 0})["rank"]
+
+
+# --- Mapping Épi 2.0 : besoins du cas (statuts seulement ; vide = « Non renseigné », jamais un statut inventé)
+BESOIN_CHOICES = ["Documenté", "À vérifier", "À planifier", "Sans objet"]
+PSY_CHOICES = ["Non évalué", "Évaluation en cours", "Besoin identifié", "Soutien en cours", "Satisfait", "Référé"]
+MOTIFS_NON_VACCINATION = ["Refus", "Non joignable", "Grossesse", "Âge", "Contre-indication", "Rupture de vaccins", "Autre"]
+BESOINS_CSSE = [("suivi_obstetrical", "Suivi obstétrical"), ("suivi_nouveau_ne", "Suivi du nouveau-né"),
+                ("suivi_post_partum", "Suivi post-partum"), ("soutien_nutritionnel", "Soutien nutritionnel"),
+                ("continuite_sortie", "Continuité des soins après la sortie")]
+BESOINS_PSY = [("besoin_psychosocial", "Besoin psychosocial du cas"), ("soutien_famille", "Soutien à la famille")]

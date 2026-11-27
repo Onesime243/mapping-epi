@@ -6,6 +6,8 @@
     <a href="#ve-indicateurs">{{ t("Indicateurs") }}</a><a href="#ve-epi">{{ t("Épidémiologie") }}</a>
     <a href="#ve-contacts">{{ t("Contacts") }}</a><a href="#ve-pci">{{ t("PCI et qualité") }}</a><a href="#ve-plus">{{ t("Délais, prise en charge, vaccination") }}</a></nav>
 
+  {% include "_command_center.html" %}
+
   <div class="ve-kpis" id="ve-indicateurs">
     {% for k in vue.kpis %}
     <a class="ve-kpi {{ k.ton }}" href="{{ lien_focus(k.cle) }}" title="{{ t('Voir les cas concernés') }}">
@@ -53,7 +55,7 @@
 {# ---------------------------------------------------------------- À traiter : listes et textes #}
 <section class="tb-panneau ve" data-panneau="traiter">
   <nav class="ve-allera" aria-label="{{ t('Aller à') }}">{{ t("Aller à :") }}
-    <a href="#tb-plan">{{ t("Plan de travail") }}</a><a href="#ve-prio">{{ t("Cas prioritaires") }}</a>
+    <a href="#ve-centre-actions">{{ t("Centre des actions") }}</a><a href="#tb-plan">{{ t("Plan de travail") }}</a><a href="#ve-prio">{{ t("Cas prioritaires") }}</a>
     <a href="#ve-sites">{{ t("Sites PCI critiques") }}</a><a href="#ve-actions">{{ t("Actions") }}</a><a href="#ve-zs">{{ t("Zones de santé") }}</a></nav>
 
   {% if focus %}
@@ -68,6 +70,8 @@
     {% else %}<p class="muted">{{ t("Aucun cas concerné.") }}</p>{% endif %}
   </div>
   {% endif %}
+
+  {% include "_centre_actions.html" %}
 
   <div class="ve-traiter">
     <div class="card">{% include "_plan_travail.html" %}</div>

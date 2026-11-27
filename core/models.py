@@ -41,6 +41,8 @@ class Event(BaseModel):
     sans_pci: bool = False          # soins ou contact sans mesures PCI
     securise: bool = False          # enterrement digne et sécurisé / transport sécurisé
     risque: str = ""                # vide = risque suggéré automatiquement
+    nb_trajets: Optional[int] = None  # déplacement répété (ex. 5 allers) : une seule flèche épaisse sur la carte
+    poe_poc: str = ""               # point d'entrée / de contrôle franchi pendant ce déplacement
 
 
 class Place(BaseModel):
@@ -69,6 +71,8 @@ class ContactGroup(BaseModel):
     exposes: Optional[int] = None         # personnes exposées estimées
     symptomatiques: Optional[int] = None  # contacts devenus symptomatiques
     confirmes: Optional[int] = None       # contacts devenus cas confirmés
+    eligibles: Optional[int] = None       # contacts éligibles à la vaccination
+    motif_non_vaccination: str = ""       # principal motif de non-vaccination (config.theme.MOTIFS_NON_VACCINATION)
 
 
 class IPCSite(BaseModel):
@@ -79,6 +83,9 @@ class IPCSite(BaseModel):
     equipe: str = ""
     produit: str = ""
     adresse: str = ""               # adresse du site (avenue, quartier, repère) : carte du parcours, pas le mapping
+    identifie_le: Optional[_dt.date] = None   # site identifié comme à décontaminer
+    verifie_le: Optional[_dt.date] = None     # vérification après décontamination
+    preuve: str = ""                # preuve de l'intervention (photo, fiche, rapport)
 
 
 class LabSample(BaseModel):
@@ -139,6 +146,21 @@ class Case(BaseModel):
     date_admission_cte: Optional[date] = None    # admission au CTE / CTI
     contacts_dhis2_listes: Optional[int] = None  # contacts listés dans DHIS2 (saisie manuelle en attendant l'API)
     contacts_dhis2_suivis: Optional[int] = None  # contacts suivis dans DHIS2
+    # parcours de prise en charge (étape 2 Clinique)
+    date_premiere_consultation: Optional[date] = None
+    date_reference: Optional[date] = None
+    date_decision_transfert: Optional[date] = None
+    date_debut_traitement: Optional[date] = None
+    date_sortie: Optional[date] = None
+    date_rdv_post_guerison: Optional[date] = None
+    # besoins du cas (étape 9) : statuts seulement, vide = « Non renseigné »
+    suivi_obstetrical: str = ""
+    suivi_nouveau_ne: str = ""
+    suivi_post_partum: str = ""
+    soutien_nutritionnel: str = ""
+    continuite_sortie: str = ""
+    besoin_psychosocial: str = ""
+    soutien_famille: str = ""
     vaccine: str = "Inconnu"                 # Oui / Non / Inconnu
     date_vaccination: Optional[date] = None
     date_debut_anneau: Optional[date] = None     # début de la vaccination de l'anneau autour du cas

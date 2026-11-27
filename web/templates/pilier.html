@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_pilier_blocs.html" import kpis, section with context %}
+{% block title %}{{ P.titre }} · Mapping Épi{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between; margin-bottom:10px">
+  <div><a class="muted" href="/">← {{ t("Accueil") }}</a>
+    <h1 style="margin:2px 0 0">{{ P.titre }}</h1>
+    <div class="muted" style="font-size:14px">{{ P.sous }} · {{ t(me.perimetre) }}</div></div>
+</div>
+{% if P.note %}<div class="pl-note"><ul>{% for n in P.note %}<li>{{ n }}</li>{% endfor %}</ul></div>{% endif %}
+{% block avant %}{% endblock %}
+{{ kpis(P.kpis) }}
+<div class="pl-grille">{% for s in P.sections %}{{ section(s) }}{% endfor %}</div>
+{% block apres %}{% endblock %}
+{% endblock %}

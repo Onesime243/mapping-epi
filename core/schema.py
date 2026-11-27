@@ -30,6 +30,8 @@ EVENT_COLS = [
     Col("titre", "Titre affiché", width=195),
     Col("description", "Description", width=286, tip="Utiliser • pour séparer les éléments"),
     Col("transport", "Transport", "combo", theme.TRANSPORTS, width=123),
+    Col("nb_trajets", "Trajets (fois)", "int?", width=90, tip="déplacement répété : nombre d'allers ; une seule flèche épaisse sur la carte"),
+    Col("poe_poc", "PoE / PoC franchi", width=150, tip="point d'entrée ou de contrôle franchi ; vide = aucun ou inconnu"),
     Col("personnes", "Personnes présentes", width=195, tip="Obligatoire : vide = « à compléter » en rouge sur le mapping"),
     Col("contact_corps", "Corps", "bool", width=65, tip="Contact avec le corps → risque très élevé"),
     Col("liquides", "Liquides", "bool", width=78, tip="Liquides biologiques → +1 niveau"),
@@ -56,7 +58,9 @@ CONTACT_COLS = [
         Col("libelle_nombre", "Libellé", width=91, tip="ex. « listés »"), Col("suivis", "Suivis", "int?", width=91),
         Col("symptomatiques", "Devenus symptomatiques", "int?", width=120, tip="contacts devenus symptomatiques ; ? = inconnu"),
         Col("confirmes", "Devenus confirmés", "int?", width=110, tip="contacts devenus cas confirmés ; ? = inconnu"),
+        Col("eligibles", "Éligibles au vaccin", "int?", width=110, tip="contacts éligibles à la vaccination ; ? = inconnu"),
         Col("vaccines", "Vaccinés", "int?", width=91, tip="contacts vaccinés (anneau) ; ? = inconnu"),
+        Col("motif_non_vaccination", "Motif de non-vaccination", "combo", [""] + theme.MOTIFS_NON_VACCINATION, width=170),
         Col("risque", "Risque", "choice", theme.CONTACT_RISK_CHOICES, width=123),
         Col("lieu", "Lieu de contact", width=195, complete=True), Col("dernier_contact", "Dernier contact", "date", width=143),
         Col("_fin", "Fin du suivi", "computed", width=130)]
@@ -66,7 +70,11 @@ IPC_COLS = [
         Col("adresse", "Adresse du site", width=260, tip="avenue, n°, quartier, repère : pour retrouver le site ; "
             "affichée sur la carte du parcours, pas sur le mapping"),
         Col("statut", "Statut", "choice", theme.IPC_CHOICES, width=156),
-        Col("date", "Date", "date", width=130), Col("equipe", "Équipe", width=208), Col("produit", "Produit", width=208)]
+        Col("identifie_le", "Identifié le", "date", width=130, tip="date où le site a été identifié comme à décontaminer"),
+        Col("date", "Décontaminé le", "date", width=130), Col("verifie_le", "Vérifié le", "date", width=130,
+            tip="vérification après la décontamination"),
+        Col("equipe", "Équipe", width=208), Col("produit", "Produit", width=208),
+        Col("preuve", "Preuve", width=180, tip="photo, fiche, rapport")]
 
 LAB_COLS = [
         Col("type", "Échantillon", "combo", ["Swab", "Sang total", "Plasma", "Urine", "Autre"], width=143),

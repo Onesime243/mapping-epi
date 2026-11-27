@@ -1,0 +1,16 @@
+{# Blocs communs aux pages des piliers et au command center : indicateurs, barres, tableaux (core/coordination.py) #}
+{% macro kpis(liste) -%}
+<div class="pl-kpis">{% for k in liste %}<div class="pl-kpi {{ k.ton }}"><div class="kt">{{ k.t }}</div><div class="kv">{{ k.v }}</div>{% if k.d %}<div class="ks">{{ k.d }}</div>{% endif %}</div>{% endfor %}</div>
+{%- endmacro %}
+{% macro section(s) -%}
+<div class="card pl-sec{% if s.large %} large{% endif %}"><h3>{{ s.titre }}</h3>{% if s.aide %}<p class="hint">{{ s.aide }}</p>{% endif %}
+{% if s.type == "barres" %}
+  <table class="pl-barres">{% for l in s.lignes %}<tr><td>{{ l.l }}</td><td><div class="tb-pile"><i class="pl-{{ l.ton or 'bl' }}" style="width:{{ l.w }}%"></i></div></td><td class="num">{{ l.txt }}</td></tr>{% endfor %}</table>
+{% elif s.type == "table" %}
+  {% if s.lignes %}<div class="tablewrap"><table class="list pl-table"><thead><tr>{% for h in s.entetes %}<th>{{ h }}</th>{% endfor %}{% if s.lignes[0].lien %}<th></th>{% endif %}</tr></thead><tbody>
+  {% for r in s.lignes %}<tr>{% for txt, ton in r.cells %}<td>{% if ton %}<span class="pl-pill pl-{{ ton }}">{{ txt }}</span>{% elif loop.first %}<b>{{ txt }}</b>{% else %}{{ txt }}{% endif %}</td>{% endfor %}
+    {% if r.lien %}<td style="text-align:right"><a href="{{ r.lien }}">{{ t("Ouvrir la fiche") }} →</a></td>{% endif %}</tr>{% endfor %}
+  </tbody></table></div>{% else %}<p class="muted">{{ t("Rien à afficher.") }}</p>{% endif %}
+{% endif %}
+</div>
+{%- endmacro %}

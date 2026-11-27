@@ -15,15 +15,23 @@
   <div><b>{{ bilan.avec_adresse }}</b><span>{{ t("avec adresse") }}</span></div>
   <div class="{{ 'manque' if bilan.lieux - bilan.avec_adresse }}"><b>{{ bilan.lieux - bilan.avec_adresse }}</b><span>{{ t("sans adresse (à compléter dans l'onglet PCI de la fiche)") }}</span></div>
 </div>
+<div class="pci-bilan">
+  <div><b>{{ interv.decontamines }} / {{ interv.sites }}</b><span>{{ t("sites PCI décontaminés") }}</span></div>
+  <div><b>{{ interv.verifies }}</b><span>{{ t("vérifiés après décontamination") }}</span></div>
+  <div><b>{{ interv.avec_preuve }}</b><span>{{ t("avec preuve (photo, fiche, rapport)") }}</span></div>
+  <div><b>{{ ((interv.delai_median|string).replace(".", ",") ~ " " ~ t("j")) if interv.delai_median is not none else "ND" }}</b><span>{{ t("délai médian identification → décontamination") }}{% if interv.delai_n %} ({{ interv.delai_n }} {{ t("site(s)") }}){% endif %}</span></div>
+</div>
 {% if sans_id %}<p class="hint">{{ tf("{n} fiche(s) sans ID du cas non affichée(s) (anciennes fiches, à compléter ou à supprimer).", n=sans_id) }}</p>{% endif %}
 {% if rows %}
 <p class="hint">{{ t("Lignes") }} {{ (page - 1) * par_page + 1 }} {{ t("à") }} {{ (page - 1) * par_page + rows|length }} {{ t("sur") }} {{ n }}. {{ t("Le fichier Excel contient toutes les lignes et un résumé par cas.") }}</p>
 <div class="tablewrap"><table class="list">
-  <thead><tr><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Lieu fréquenté") }}</th><th>{{ t("Origine") }}</th><th>{{ t("Première date") }}</th><th>{{ t("Adresse") }}</th><th>{{ t("Statut PCI") }}</th></tr></thead>
+  <thead><tr><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Lieu fréquenté") }}</th><th>{{ t("Origine") }}</th><th>{{ t("Première date") }}</th><th>{{ t("Adresse") }}</th><th>{{ t("Statut PCI") }}</th><th>{{ t("Identifié") }}</th><th>{{ t("Décontaminé") }}</th><th>{{ t("Vérifié") }}</th><th>{{ t("Délai") }}</th></tr></thead>
   <tbody>{% for r in rows %}
     <tr><td><b>{{ r.id }}</b></td><td>{{ r.zs }}</td><td>{{ r.lieu }}</td><td class="muted">{{ t(r.origine) }}</td>
       <td>{{ r.date.strftime("%d/%m/%Y") if r.date else "?" }}</td>
-      <td class="{{ 'pci-manque' if r.adresse == '?' }}">{{ r.adresse }}</td><td>{{ t(r.statut) }}</td></tr>
+      <td class="{{ 'pci-manque' if r.adresse == '?' }}">{{ r.adresse }}</td><td>{{ t(r.statut) }}</td>
+      <td>{{ r.identifie_le.strftime("%d/%m") if r.identifie_le else "?" }}</td><td>{{ r.date_pci.strftime("%d/%m") if r.date_pci else "?" }}</td>
+      <td>{{ r.verifie_le.strftime("%d/%m") if r.verifie_le else "?" }}</td><td>{{ (r.delai ~ " " ~ t("j")) if r.delai is not none else "?" }}</td></tr>
   {% endfor %}</tbody>
 </table></div>
 {% if pages > 1 %}

@@ -20,7 +20,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from config import credits, theme
 from core import rules, storage
 from core.models import Action, Case, Event
-from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
+from render import chains, chrono, clinique, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx, export_report_pptx
 from core.netinfo import WEB_PORT, lan_urls
 from core.paths import data_dir
@@ -163,7 +163,8 @@ class MainWindow(QMainWindow):
         # --- aperçus -------------------------------------------------------
         self.previews: Dict[str, Preview] = {}
         self.preview_tabs = QTabWidget()
-        for key, name in [("mapping", "Mapping"), ("network", "Réseau de contacts"), ("route", "Carte du parcours"),
+        for key, name in [("mapping", "Mapping"), ("chrono", "Chronologie simplifiée"), ("clin", "Parcours clinique"),
+                          ("network", "Réseau de contacts"), ("route", "Carte du parcours"),
                           ("gantt", "Frise temporelle"), ("dashboard", "Multi-cas"),
                           ("chains", "Chaînes de transmission"), ("common", "Lieux communs")]:
             p = Preview()
@@ -641,6 +642,10 @@ class MainWindow(QMainWindow):
             return map_view.render_html(c)
         if key == "gantt":
             return gantt.render_html(c)
+        if key == "chrono":
+            return H.render_svg_page(chrono.render_svg(c), "Chronologie simplifiée")
+        if key == "clin":
+            return H.render_svg_page(clinique.render_svg(c), "Parcours clinique")
         if key == "chains":
             return chains.render_html(self._all_cases(), c)
         if key == "common":
@@ -651,7 +656,8 @@ class MainWindow(QMainWindow):
         c = self.case
         return {"mapping": lambda: H.html_to_svg_wrapper(H.render_mapping_html(c)),
                 "network": lambda: network.render_svg(c), "route": lambda: map_view.render_svg(c),
-                "gantt": lambda: gantt.render_svg(c),
+                "gantt": lambda: gantt.render_svg(c), "chrono": lambda: chrono.render_svg(c),
+                "clin": lambda: clinique.render_svg(c),
                 "dashboard": lambda: dashboard.render_svg(self._all_cases(), c.zs),
                 "chains": lambda: chains.render_svg(self._all_cases(), c),
                 "common": lambda: common_places.render_svg(self._all_cases(), c)}[key]()
@@ -720,6 +726,7 @@ class MainWindow(QMainWindow):
     def _default_name(self, key: str, ext: str) -> str:
         c = self.case
         base = {"mapping": "Mapping", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
+                "chrono": "Chronologie", "clin": "Parcours_clinique",
                 "chains": "Chaines_transmission", "common": "Lieux_communs",
                 "report": "Rapport"}[key]
         rang = f"Cas{c.rang}" if c.rang else "Cas"

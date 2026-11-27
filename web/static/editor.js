@@ -49,7 +49,7 @@
 
   function changed() {
     if (RO) return;
-    markRequired(); renderObligatoires(); renderEtapes(); majCascade();
+    markRequired(); renderObligatoires(); renderEtapes(); majCascade(); majVacc();
     dirty = true; setStatus(T('Modifications non enregistrées…'), 'pending');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -551,7 +551,7 @@
   // ------------------------------------------------------------- fiche par étapes
   const SANS_PERSONNES = new Set(['Investigation', 'Laboratoire', 'Riposte']);     // config/theme.py SANS_PERSONNES
   const ETAPES = [['identite', '1. Identité'], ['clinique', '2. Clinique'], ['events', '3. Chronologie'], ['places', '4. Lieux'],
-    ['contacts', '5. Contacts'], ['ipc', '6. PCI'], ['labs', '7. Laboratoire'], ['actions', '8. Actions']].map(([k, v]) => [k, T(v)]);
+    ['contacts', '5. Contacts'], ['ipc', '6. PCI'], ['labs', '7. Laboratoire'], ['actions', '8. Actions'], ['besoins', '9. Besoins']].map(([k, v]) => [k, T(v)]);
   // pluriel : le mot (singulier ou pluriel français) est traduit tel quel
   const pl = (n, s, p) => n + ' ' + T(n > 1 ? (p || s + 's') : s);
   function etatEtape(p) {
@@ -578,6 +578,10 @@
       }
       case 'ipc': return rows.length ? {e: 'ok', t: pl(rows.length, 'site')} : {e: 'no', t: T('aucun site saisi')};
       case 'labs': return rows.length ? {e: 'ok', t: pl(rows.length, 'prélèvement')} : {e: 'no', t: T('aucun prélèvement')};
+      case 'besoins': {
+        const n = BESOINS_CLES().filter(k => (C[k] || '').trim()).length;
+        return n ? {e: 'ok', t: pl(n, 'statut')} : {e: 'no', t: T('facultatif')};
+      }
       case 'actions': {
         if (rows.length) return {e: 'ok', t: pl(rows.length, 'action')};
         const n = CTRL && CTRL.suggestions ? CTRL.suggestions.length : 0;
@@ -788,6 +792,56 @@
     t.textContent = txt;
   }
 
+
+  // ------------------------------------------- étape 2 : parcours de prise en charge ; étape 9 : besoins du cas
+  function renderParcoursClinique() {
+    const p = $('#p-clinique'); if (!p) return;
+    const box = el('div', {class: 'bloc-cles', id: 'parcoursPEC', style: 'margin-top:16px'});
+    box.appendChild(el('b', {text: T('Parcours de prise en charge')}));
+    box.appendChild(el('p', {class: 'hint', style: 'margin:2px 0 8px', text: T("Rempli par la prise en charge. L'admission au CTE se saisit à l'étape 3 (dates clés). Deux PCR négatives ne changent pas l'état du cas : la sortie est validée par l'équipe.")}));
+    const g = el('div', {class: 'grid'});
+    [['date_premiere_consultation', 'Date de la 1re consultation'], ['date_reference', 'Date de la référence'],
+     ['date_decision_transfert', 'Date de la décision de transfert'], ['date_debut_traitement', 'Début du traitement spécifique'],
+     ['date_sortie', 'Date de sortie du CTE'], ['date_rdv_post_guerison', 'Rendez-vous post-guérison']].forEach(([k, lbl]) => {
+      const i = el('input', {type: 'date', min: minDate(), value: C[k] || ''}); bindInput(i, k, 'date'); g.appendChild(field(lbl, i));
+    });
+    box.appendChild(g);
+    p.insertBefore(box, p.querySelector('h2'));
+  }
+  const BESOINS_CLES = () => (S.choices.besoins_csse || []).concat(S.choices.besoins_psy || []).map(x => x[0]);
+  function renderBesoins() {
+    const p = $('#p-besoins'); if (!p) return;
+    p.innerHTML = '';
+    p.appendChild(el('p', {class: 'hint', text: T("Statuts seulement : le détail reste chez chaque pilier. Laisser « Non renseigné » si on ne sait pas.")}));
+    const bloc = (titre, liste, choix, note) => {
+      const box = el('div', {class: 'bloc-cles'});
+      box.appendChild(el('b', {text: T(titre)}));
+      if (note) box.appendChild(el('p', {class: 'hint', style: 'margin:2px 0 8px', text: T(note)}));
+      const g = el('div', {class: 'grid', style: 'margin-top:8px'});
+      liste.forEach(([k, lbl]) => { const s = el('select'); options(s, [''].concat(choix), C[k] || '', 'Non renseigné');
+        bindInput(s, k, 'select'); g.appendChild(field(lbl, s)); });
+      box.appendChild(g); p.appendChild(box);
+    };
+    bloc('Services de santé essentiels', S.choices.besoins_csse || [], S.choices.besoin || []);
+    bloc('Psychosocial', S.choices.besoins_psy || [], S.choices.psy || [],
+         "Statut seulement : jamais de notes d'entretien ni de détail personnel dans la fiche.");
+    const v = el('div', {class: 'bloc-cles'});
+    v.appendChild(el('b', {text: T('Vaccination des contacts')}));
+    v.appendChild(el('p', {class: 'hint', style: 'margin:2px 0 0', text: T("Contacts éligibles, vaccinés et motif de non-vaccination : colonnes de l'étape 5 Contacts. Début de l'anneau : étape 1 Identité.")}));
+    v.appendChild(el('div', {id: 'vaccTxt', class: 'delais-cles'}));
+    p.appendChild(v);
+    majVacc();
+  }
+  function majVacc() {
+    const t = $('#vaccTxt'); if (!t) return;
+    const som = k => { const v = C.contacts.map(r => r[k]).filter(x => x !== null && x !== undefined && x !== '');
+      return v.length ? v.reduce((a, b) => a + (+b), 0) : null; };
+    const q = n => n === null ? '?' : String(n);
+    const motifs = [...new Set(C.contacts.map(r => r.motif_non_vaccination).filter(Boolean))].map(T).join(', ');
+    t.textContent = T('Listés') + ' ' + q(som('nombre')) + ' → ' + T('Éligibles') + ' ' + q(som('eligibles')) + ' → ' + T('Vaccinés') + ' ' + q(som('vaccines'))
+      + (motifs ? ' · ' + T('Motifs : ') + motifs : '') + ' · ' + T("Début de l'anneau : ") + fmtD(C.date_debut_anneau);
+  }
+
   // ----------------------------------------------------------------- init
   function lockEditor() {
     $$('.editor > section.card .pane').forEach(p => $$('input, select, textarea, button', p).forEach(x => { x.disabled = true; }));
@@ -799,7 +853,7 @@
       const [schema, pyr, data] = await Promise.all([api('/api/schema'), api('/api/pyramide'), api('/api/cas/' + ID)]);
       S = schema; PYR = pyr; C = data.case; CTRL = data.controls;
     } catch (e) { setStatus(T('Chargement impossible : ') + e.message, true); return; }
-    renderIdentity(); renderClinic(); renderDatesCles(); renderContactsDhis2();
+    renderIdentity(); renderClinic(); renderParcoursClinique(); renderDatesCles(); renderContactsDhis2(); renderBesoins();
     ['events', 'places', 'contacts', 'ipc', 'labs', 'actions'].forEach(renderTable);
     renderControls(); renderSuggestions(); updateTitle();
 
