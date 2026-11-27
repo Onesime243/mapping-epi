@@ -630,3 +630,6 @@ body.apercu-plein { overflow: hidden; }
 .ca-tk .o { color: var(--muted); font-size: 12px; margin-top: 4px; }
 .dh-panneau { margin-bottom: 14px; }
 .dh-cours { font-weight: 700; color: var(--accent); }
+
+.pl-kpi .kv, .ve-kpi .kv { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pl-kpi { min-width: 0; } .pl-kpi .kv { font-size: clamp(22px, 2.2vw, 30px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

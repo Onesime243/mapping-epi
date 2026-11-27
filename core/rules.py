@@ -617,6 +617,20 @@ def controles_qualite(case: Case) -> List[Issue]:
         if cte and case.date_admission_cte not in cte:
             out.append(Issue("alerte", trf("Contradiction : admission au CTE le {a}, mais la chronologie place le CTE le {b}. "
                                            "Valider la bonne date.", a=f"{case.date_admission_cte:%d/%m}", b=f"{cte[0]:%d/%m}")))
+    # nombres aberrants (souvent un téléphone tapé dans une colonne « Nombre ») : valeur supprimée, à ressaisir
+    from core.schema import CONTACT_COLS
+    lib_c = {c.key: tr(c.label).split(" (")[0] for c in CONTACT_COLS}
+    for g in case.contacts:
+        if g.aberrants:
+            out.append(Issue("erreur", trf("Contacts « {cat} » : nombre impossible dans {col} (plus de {n} ou négatif, peut-être un "
+                                           "téléphone) ; valeur supprimée, à ressaisir.", cat=g.categorie or "?",
+                                           col=", ".join(lib_c.get(k, k) for k in g.aberrants), n="10 000")))
+    for p in case.places:
+        if p.aberrants:
+            out.append(Issue("erreur", trf("Lieu « {lieu} » : nombre de personnes exposées impossible ; valeur supprimée, à ressaisir.",
+                                           lieu=p.nom or "?")))
+    if case.aberrants:
+        out.append(Issue("erreur", tr("Nombre de contacts DHIS2 impossible ; valeur supprimée, à ressaisir.")))
     # cascade des contacts : chaque étape a son propre nombre
     for g in case.contacts:
         cat = g.categorie or "?"

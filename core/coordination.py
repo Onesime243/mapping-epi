@@ -82,23 +82,31 @@ def _par_zs(cases: List[Case]) -> Dict[str, List[Case]]:
     return dict(sorted(d.items()))
 
 
+def milliers(txt: str) -> str:
+    """« 12450 » → « 12 450 » (espace fine insécable) ; « 3/9 », « 84 % », « ND » inchangés sauf les nombres longs."""
+    import re
+    sep = "," if _en() else "\u202f"
+    return re.sub(r"(?<![\d,.])\d{4,}(?![\d,.])", lambda m: f"{int(m.group()):,}".replace(",", sep), str(txt))
+
+
 def kpi(t: str, v: str, d: str = "", ton: str = "") -> dict:
-    return {"t": t, "v": v, "d": d, "ton": ton}
+    return {"t": t, "v": milliers(v), "d": milliers(d), "ton": ton}
 
 
 def barres(titre: str, lignes: List[Tuple[str, Optional[float], str, str]], aide: str = "", large: bool = False) -> dict:
     """lignes : (libellé, valeur ou None, texte affiché, ton)."""
     vmax = max([v for _l, v, _t, _c in lignes if v] + [1])
     return {"type": "barres", "titre": titre, "aide": aide, "large": large,
-            "lignes": [{"l": l, "w": (100 * v / vmax) if v else 0, "txt": t, "ton": c} for l, v, t, c in lignes]}
+            "lignes": [{"l": l, "w": (100 * v / vmax) if v else 0, "txt": milliers(t), "ton": c} for l, v, t, c in lignes]}
 
 
 def table(titre: str, entetes: List[str], lignes: List[list], aide: str = "", large: bool = True, liens=None) -> dict:
     """cellule : texte, ou (texte, ton) pour une pastille colorée."""
     rows = []
-    for i, l in enumerate(lignes):
-        rows.append({"cells": [c if isinstance(c, tuple) else (c, "") for c in l],
-                     "lien": liens[i] if liens else None})
+    for _i, l in enumerate(lignes):
+        rows.append({"cells": [(milliers(c[0]), c[1]) if isinstance(c, tuple) else (c if i == 0 else milliers(c), "")
+                               for i, c in enumerate(l)],
+                     "lien": liens[_i] if liens else None})
     return {"type": "table", "titre": titre, "aide": aide, "large": large, "entetes": entetes, "lignes": rows}
 
 
@@ -161,7 +169,7 @@ def command_center(cases: List[Case], ref: Optional[date] = None) -> dict:
     sui = _suivi(cases)
     kpis = [kpi(tr("Cas (fiches)"), str(len(cases)), tr("dans la période et le périmètre")),
             kpi(tr("Complétude des fiches"), _fmt_pct(comp), tr("cible ≥ 95 %"), _ton(comp)),
-            kpi(tr("Contacts listés"), "ND" if listes is None else f"{listes:,}".replace(",", " "),
+            kpi(tr("Contacts listés"), "ND" if listes is None else str(listes),
                 trf("suivis : {p}", p=_fmt_pct(sui)), _ton(sui)),
             kpi(tr("Concordance DHIS2"), _fmt_pct(conc), (trf("écart : {n}", n=ecart) if ecart is not None
                                                            else tr("nombre DHIS2 non saisi")), _ton(conc)),
@@ -462,8 +470,8 @@ def poe_poc(rapports: List[dict], cases: List[Case], ref: Optional[date] = None)
     return page(tr("PoE / PoC et mobilité"), tr("Couverture du screening aux points d'entrée et de contrôle · 7 derniers jours"),
                 [tr("Rapports journaliers saisis par point (formulaire ci-dessous) ; les passages des cas viennent de la chronologie des fiches (colonne « PoE / PoC franchi »)."),
                  tr("Couverture = voyageurs screenés / voyageurs enregistrés ; objectif 95 %.")],
-                [kpi(tr("Voyageurs enregistrés"), "ND" if voy is None else f"{voy:,}".replace(",", " "), tr("7 derniers jours")),
-                 kpi(tr("Screenés"), "ND" if scr is None else f"{scr:,}".replace(",", " ")),
+                [kpi(tr("Voyageurs enregistrés"), "ND" if voy is None else str(voy), tr("7 derniers jours")),
+                 kpi(tr("Screenés"), "ND" if scr is None else str(scr)),
                  kpi(tr("Couverture"), _fmt_pct(couv), tr("objectif 95 %"), "re" if couv is not None and couv < SEUIL_RAPPORT else ("ok" if couv else "")),
                  kpi(tr("Alertes détectées"), "ND" if al is None else str(al), trf("{n} investiguées", n="ND" if inv is None else inv)),
                  kpi(tr("Passages de cas documentés"), str(len(passages)), tr("chronologie des fiches"))],

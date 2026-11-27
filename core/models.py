@@ -11,12 +11,32 @@ import uuid
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _id() -> str:
     return uuid.uuid4().hex[:10]
 
+
+
+# Nombres plausibles : au-delà, la valeur est une erreur de saisie (souvent un numéro de téléphone tapé dans
+# une colonne « Nombre »). Elle n'est ni affichée ni additionnée ni conservée (un téléphone ne doit pas rester
+# dans l'outil) ; le champ redevient « ? » et l'anomalie est signalée dans les contrôles de la fiche.
+LIMITE_GROUPE = 10000        # personnes d'une catégorie de contacts (listés, suivis, vaccinés…)
+LIMITE_LIEU = 100000         # personnes exposées dans un lieu
+
+
+def _plausible(obj, champs, limite):
+    garde = set(obj.aberrants)
+    for k in champs:
+        v = getattr(obj, k)
+        if v is not None and (v < 0 or v > limite):
+            object.__setattr__(obj, k, None)
+            garde.add(k)
+        elif v is not None:
+            garde.discard(k)              # valeur ressaisie correctement : l'alerte disparaît
+    object.__setattr__(obj, "aberrants", sorted(garde))
+    return obj
 
 
 NOTE_PIED_DEFAUT = "TASK FORCE PRÉSIDENTIELLE EBOLA 17 - Système de Gestion de l'Incident MVE 17"
@@ -54,6 +74,11 @@ class Place(BaseModel):
     risque: str = ""
     lat: Optional[float] = None
     lon: Optional[float] = None
+    aberrants: List[str] = Field(default_factory=list)   # colonnes dont la valeur saisie était aberrante (supprimée)
+
+    @model_validator(mode="after")
+    def _nombres(self):
+        return _plausible(self, ("nombre",), LIMITE_LIEU)
 
 
 class ContactGroup(BaseModel):
@@ -73,6 +98,12 @@ class ContactGroup(BaseModel):
     confirmes: Optional[int] = None       # contacts devenus cas confirmés
     eligibles: Optional[int] = None       # contacts éligibles à la vaccination
     motif_non_vaccination: str = ""       # principal motif de non-vaccination (config.theme.MOTIFS_NON_VACCINATION)
+    aberrants: List[str] = Field(default_factory=list)   # colonnes dont la valeur saisie était aberrante (supprimée)
+
+    @model_validator(mode="after")
+    def _nombres(self):
+        return _plausible(self, ("nombre", "suivis", "vaccines", "exposes", "symptomatiques", "confirmes", "eligibles"),
+                          LIMITE_GROUPE)
 
 
 class IPCSite(BaseModel):
@@ -199,6 +230,11 @@ class Case(BaseModel):
     labs: List[LabSample] = Field(default_factory=list)
     actions: List[Action] = Field(default_factory=list)
     suggestions_rejetees: List[str] = Field(default_factory=list)
+    aberrants: List[str] = Field(default_factory=list)   # champs dont la valeur saisie était aberrante (supprimée)
+
+    @model_validator(mode="after")
+    def _nombres(self):
+        return _plausible(self, ("contacts_dhis2_listes", "contacts_dhis2_suivis"), 10 * LIMITE_GROUPE)
 
     entrainement: bool = False      # exemple fictif : hors liste des cas, analyses, carte et synchronisation
     note_pied: str = NOTE_PIED_DEFAUT

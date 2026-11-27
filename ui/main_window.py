@@ -163,10 +163,10 @@ class MainWindow(QMainWindow):
         # --- aperçus -------------------------------------------------------
         self.previews: Dict[str, Preview] = {}
         self.preview_tabs = QTabWidget()
-        for key, name in [("mapping", "Mapping"), ("chrono", "Chronologie simplifiée"), ("clin", "Parcours clinique"),
-                          ("network", "Réseau de contacts"), ("route", "Carte du parcours"),
+        for key, name in [("mapping", "Mapping"), ("network", "Réseau de contacts"), ("route", "Carte du parcours"),
                           ("gantt", "Frise temporelle"), ("dashboard", "Multi-cas"),
-                          ("chains", "Chaînes de transmission"), ("common", "Lieux communs")]:
+                          ("chains", "Chaînes de transmission"), ("common", "Lieux communs"),
+                          ("chrono", "Chronologie simplifiée"), ("clin", "Parcours clinique")]:
             p = Preview()
             self.previews[key] = p
             self.preview_tabs.addTab(p, name)

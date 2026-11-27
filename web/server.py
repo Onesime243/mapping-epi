@@ -37,9 +37,9 @@ from web import render_client
 
 log = logging.getLogger("mapping_epi.web")
 ROOT = Path(__file__).resolve().parent.parent
-VISUALS = {"mapping": "Mapping", "chrono": "Chronologie simplifiée", "clin": "Parcours clinique", "network": "Réseau de contacts", "route": "Carte du parcours",
+VISUALS = {"mapping": "Mapping", "network": "Réseau de contacts", "route": "Carte du parcours",
            "gantt": "Frise temporelle", "dashboard": "Multi-cas", "chains": "Chaînes de transmission",
-           "common": "Lieux communs"}
+           "common": "Lieux communs", "chrono": "Chronologie simplifiée", "clin": "Parcours clinique"}
 SORTS = {"code": "ID / fiche", "province": "Province", "zs": "ZS", "as": "AS", "j0": "J0",
          "owner": "Compte", "cree": "Créée le", "updated": "Modifiée le"}
 

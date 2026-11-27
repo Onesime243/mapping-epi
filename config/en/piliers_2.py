@@ -197,3 +197,12 @@ EN.update({
     " · données DHIS2 du {date} ({source})": " · DHIS2 data of {date} ({source})", " · nombre DHIS2 saisi dans les fiches": " · DHIS2 number entered in the records",
     "Synchronisation DHIS2": "DHIS2 synchronisation", "Saisi dans la fiche": "Entered in the record",
 })
+
+EN.update({
+    "Contacts « {cat} » : nombre impossible dans {col} (plus de {n} ou négatif, peut-être un téléphone) ; valeur supprimée, à ressaisir.":
+        "Contacts “{cat}”: impossible number in {col} (over {n} or negative, perhaps a phone number); value removed, to be re-entered.",
+    "Lieu « {lieu} » : nombre de personnes exposées impossible ; valeur supprimée, à ressaisir.":
+        "Place “{lieu}”: impossible number of exposed people; value removed, to be re-entered.",
+    "Nombre de contacts DHIS2 impossible ; valeur supprimée, à ressaisir.": "Impossible DHIS2 contact number; value removed, to be re-entered.",
+    "Nombre impossible (maximum {n}) : vérifier la saisie": "Impossible number (maximum {n}): check the entry",
+})

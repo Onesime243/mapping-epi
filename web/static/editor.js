@@ -413,7 +413,15 @@
         break;
       case 'int?':
         inp = el('input', {inputmode: 'numeric', value: v === null || v === undefined ? '' : v, placeholder: '?', style: 'width:90px'});
-        inp.addEventListener('input', () => { const t = inp.value.trim(); set(t === '' || t === '?' ? null : (parseInt(t, 10) || 0)); });
+        inp.addEventListener('input', () => {
+          const t = inp.value.trim().replace(/\s/g, '');
+          const n = /^\d+$/.test(t) ? parseInt(t, 10) : null;
+          const lim = table === 'places' ? 100000 : 10000;
+          const faux = t !== '' && t !== '?' && (n === null || n > lim);   // lettres, téléphone… : jamais un 0 inventé
+          inp.classList.toggle('req-missing', faux);
+          inp.title = faux ? TF('Nombre impossible (maximum {n}) : vérifier la saisie', {n: lim.toLocaleString(LOC)}) : '';
+          set(faux ? null : n);
+        });
         break;
       case 'float?':
         inp = el('input', {type: 'number', step: 'any', value: v ?? '', style: 'width:110px'});

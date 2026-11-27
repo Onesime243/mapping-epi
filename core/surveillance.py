@@ -43,7 +43,9 @@ def _somme(vals: List[Optional[int]]) -> Optional[int]:
 def texte(v: Optional[int]) -> str:
     if v is None:
         return "?"
-    return f"{int(v)}+?" if getattr(v, "partiel", False) else str(int(v))
+    from core.langue import actuelle
+    n = f"{int(v):,}".replace(",", "," if actuelle() == "en" else "\u202f")
+    return f"{n}+?" if getattr(v, "partiel", False) else n
 
 
 def lieux_du_cas(c: Case) -> List[dict]:
