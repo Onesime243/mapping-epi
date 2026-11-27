@@ -65,6 +65,10 @@ class ContactGroup(BaseModel):
     lieu: str = ""
     dernier_contact: Optional[date] = None
     libelle_nombre: str = ""        # suffixe affiché, ex. « listés »
+    # cascade des contacts : chaque étape a son propre nombre, saisi, jamais déduit (None = « ? »)
+    exposes: Optional[int] = None         # personnes exposées estimées
+    symptomatiques: Optional[int] = None  # contacts devenus symptomatiques
+    confirmes: Optional[int] = None       # contacts devenus cas confirmés
 
 
 class IPCSite(BaseModel):
@@ -130,6 +134,11 @@ class Case(BaseModel):
     id_cas_source: str = ""                  # ID du cas dont il est le contact (obligatoire si contact connu)
     date_contact_source: Optional[date] = None   # dernier contact avec le cas source (contact connu)
     date_notification: Optional[date] = None
+    date_alerte: Optional[date] = None           # alerte remontée (structure, communauté, RECO…)
+    date_isolement: Optional[date] = None        # isolement effectif du cas
+    date_admission_cte: Optional[date] = None    # admission au CTE / CTI
+    contacts_dhis2_listes: Optional[int] = None  # contacts listés dans DHIS2 (saisie manuelle en attendant l'API)
+    contacts_dhis2_suivis: Optional[int] = None  # contacts suivis dans DHIS2
     vaccine: str = "Inconnu"                 # Oui / Non / Inconnu
     date_vaccination: Optional[date] = None
     date_debut_anneau: Optional[date] = None     # début de la vaccination de l'anneau autour du cas

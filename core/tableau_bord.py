@@ -502,7 +502,22 @@ def construire(cases_perimetre: List[Case], debut: date, fin: date, province: st
     # qualité
     manq = Counter(m.split(" :")[0] for c in cases for m in rules.completeness(c)[1])
     incoh = sum(1 for c in cases if any(i.niveau == "erreur" for i in rules.check_consistency(c)))
+    # anomalies à vérifier : contradictions de dates, cascade des contacts, DHIS2, issue, lieux en double
+    from core.lieux import case_label
+    rang = {"erreur": 0, "alerte": 1, "info": 2}
+    anomalies = []
+    for c in cases:
+        vus = set()
+        for i in [x for x in rules.check_consistency(c) if x.niveau == "erreur"] + rules.controles_qualite(c):
+            if i.message not in vus:
+                vus.add(i.message)
+                anomalies.append({"id": c.id, "code": case_label(c), "zs": c.zs, "niveau": i.niveau, "message": i.message})
+    anomalies.sort(key=lambda a: (rang.get(a["niveau"], 3), a["zs"] or "", a["code"]))
+    par_niveau = Counter(a["niveau"] for a in anomalies)
     qualite = {"manquants": manq.most_common(8), "incoherences": incoh, "brouillons": brouillons,
+               "anomalies": anomalies[:60], "anomalies_n": len(anomalies),
+               "anomalies_niveaux": [(k, par_niveau.get(k, 0)) for k in ("erreur", "alerte", "info")],
+               "anomalies_cas": len({a["id"] for a in anomalies}),
                "par_zs": [(z["zs"], z["completude"]) for z in par_zs]}
 
     tuiles = _tuiles(_indicateurs(cases, ref), _indicateurs(prev, ref))

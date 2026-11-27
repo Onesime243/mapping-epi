@@ -31,13 +31,13 @@ from core import obligatoires as OBL
 from web import i18n as I18N
 from core.langue import tr, trf
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
-from render import chains, common_places, dashboard, gantt, html_renderer as H, map_view, network
+from render import chains, chrono, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
 from web import render_client
 
 log = logging.getLogger("mapping_epi.web")
 ROOT = Path(__file__).resolve().parent.parent
-VISUALS = {"mapping": "Mapping", "network": "Réseau de contacts", "route": "Carte du parcours",
+VISUALS = {"mapping": "Mapping", "chrono": "Chronologie simplifiée", "network": "Réseau de contacts", "route": "Carte du parcours",
            "gantt": "Frise temporelle", "dashboard": "Multi-cas", "chains": "Chaînes de transmission",
            "common": "Lieux communs"}
 SORTS = {"code": "ID / fiche", "province": "Province", "zs": "ZS", "as": "AS", "j0": "J0",
@@ -1377,6 +1377,8 @@ def create_app(store: storage.Store | None = None) -> Flask:
             return H.render_svg_page(map_view.render_svg(c), tr("Parcours"), assets="/assets/")
         if key == "gantt":
             return H.render_svg_page(gantt.render_svg(c), tr("Frise"), assets="/assets/")
+        if key == "chrono":
+            return H.render_svg_page(chrono.render_svg(c), tr("Chronologie simplifiée"), assets="/assets/")
         if key == "dashboard":
             return H.render_svg_page(dashboard.render_svg(zone_cases(c), c.zs), tr("Multi-cas"), assets="/assets/")
         if key in ("chains", "common"):
@@ -1423,7 +1425,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
             elif key in ("chains", "common"):
                 svg = multi_svg(c, key)
             else:
-                svg = {"network": network, "route": map_view, "gantt": gantt}[key].render_svg(c)
+                svg = {"network": network, "route": map_view, "gantt": gantt, "chrono": chrono}[key].render_svg(c)
             return send_file(io.BytesIO(svg.encode("utf-8")), as_attachment=True, download_name=name,
                              mimetype="image/svg+xml")
         if fmt == "pptx":
@@ -1510,7 +1512,7 @@ def _filename(c: Case, key: str, fmt: str) -> str:
 
     def slug(s):
         return re.sub(r"[^\w\-]+", "_", s or "", flags=re.UNICODE).strip("_") or "x"
-    base = {"mapping": "Mapping", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
+    base = {"mapping": "Mapping", "chrono": "Chronologie", "network": "Reseau", "route": "Parcours", "gantt": "Frise", "dashboard": "MultiCas",
             "chains": "Chaines_transmission", "common": "Lieux_communs"}[key]
     if fmt.startswith("rapport"):
         base = "Rapport"

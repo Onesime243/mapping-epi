@@ -315,6 +315,9 @@ _CASE_FIELDS = [
     ("date_notification", "Date de notification"), ("vaccine", "Vacciné"), ("date_vaccination", "Date de vaccination"),
     ("agent_sante", "Agent de santé (PPL)"), ("agent_sante_structure", "Catégorie et structure de l'agent de santé"),
     ("date_debut_anneau", "Début de la vaccination de l'anneau"), ("sequencage", "Séquençage"),
+    ("date_alerte", "Date de l'alerte"), ("date_isolement", "Date d'isolement effectif"),
+    ("date_admission_cte", "Date d'admission au CTE"), ("contacts_dhis2_listes", "Contacts listés dans DHIS2"),
+    ("contacts_dhis2_suivis", "Contacts suivis dans DHIS2"),
 ]
 # anciens libellés de la feuille « Cas » encore acceptés à l'import
 CASE_ALIAS = {"Issue": "issue"}
@@ -336,7 +339,9 @@ SHEETS = {
     "Contacts": (ContactGroup, [
         ("categorie", "Catégorie"), ("lien", "Lien avec le cas"), ("nombre", "Nombre (? si inconnu)"),
         ("libelle_nombre", "Libellé"), ("suivis", "Suivis"), ("risque", "Risque"), ("lieu", "Lieu de contact"),
-        ("dernier_contact", "Dernier contact"), ("vaccines", "Vaccinés (? si inconnu)")]),
+        ("dernier_contact", "Dernier contact"), ("vaccines", "Vaccinés (? si inconnu)"),
+        ("exposes", "Exposés estimés (? si inconnu)"), ("symptomatiques", "Devenus symptomatiques (? si inconnu)"),
+        ("confirmes", "Devenus confirmés (? si inconnu)")]),
     "PCI": (IPCSite, [
         ("site", "Site"), ("statut", "Statut"), ("date", "Date"), ("equipe", "Équipe"), ("produit", "Produit"),
         ("adresse", "Adresse du site")]),

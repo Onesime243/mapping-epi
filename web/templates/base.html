@@ -77,6 +77,7 @@
           {% if droits.super %}<a href="{{ url_for('donnees_export', quoi='rapport-situation.docx') }}">{{ t("Rapport de situation (Word)") }}</a>{% endif %}
           <a href="{{ url_for('donnees_page') }}">{{ t("Échanger des fiches (paquet hors ligne)") }}</a>
           <a href="{{ url_for('donnees_doublons') }}">{{ t("Doublons possibles") }}</a>
+          {% if droits.tdb %}<a href="{{ url_for('tableau_bord') }}?onglet=qualite">{{ t("Qualité des données") }}</a>{% endif %}
         </div>
       </div>
       {% endif %}

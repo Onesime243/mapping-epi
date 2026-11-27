@@ -49,7 +49,7 @@
 
   function changed() {
     if (RO) return;
-    markRequired(); renderObligatoires(); renderEtapes();
+    markRequired(); renderObligatoires(); renderEtapes(); majCascade();
     dirty = true; setStatus(T('Modifications non enregistrées…'), 'pending');
     clearTimeout(timer); timer = setTimeout(() => save(false), 900);
   }
@@ -527,7 +527,7 @@
   }
 
   function renderControls() {
-    markRequired(); renderMissing(); renderSourceInfo(); renderObligatoires();
+    markRequired(); renderMissing(); renderSourceInfo(); renderObligatoires(); majDelais(); majCascade();
     const p = $('#p-controles'); if (!CTRL) return; p.innerHTML = '';
     const fmt = d => d ? new Date(d + 'T00:00').toLocaleDateString('fr-FR') : '?';
     p.appendChild(el('div', {class: 'row'}, [el('b', {text: T('Complétude : ') + CTRL.score + PCT})]));
@@ -713,6 +713,81 @@
     });
   }
 
+
+  // ------------------------------------------------- dates clés du cas (étape 3) et contacts DHIS2 (étape 5)
+  const fmtD = d => d ? new Date(d + 'T00:00').toLocaleDateString(LOC) : '?';
+  const jours = (a, b) => (a && b) ? Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 86400000) : null;
+  function lu(label, valeur, aide) {
+    return el('div', {}, [el('label', {class: 'f', text: T(label)}), el('div', {class: 'lu', text: valeur}),
+                          aide ? el('small', {class: 'muted', text: T(aide)}) : null]);
+  }
+  function renderDatesCles() {
+    const box = $('#datesCles'); if (!box) return;
+    box.innerHTML = '';
+    box.appendChild(el('b', {text: T('Dates clés du cas')}));
+    box.appendChild(el('p', {class: 'hint', style: 'margin:2px 0 8px', text: T("Elles forment la chronologie simplifiée (aperçu à droite). Le J0 rapporté se saisit à l'étape 2 Clinique ; le J0 retenu est calculé.")}));
+    const g = el('div', {class: 'grid'});
+    g.appendChild(lu('J0 rapporté (début des signes)', fmtD(C.debut_symptomes), 'étape 2 Clinique'));
+    g.appendChild(el('div', {id: 'j0Cles'}));
+    const expo = ['Contact connu', 'Contact connu suivi'].includes(C.contact_connu || '') ? fmtD(C.date_contact_source) : T('sans objet (pas de contact connu)');
+    g.appendChild(lu('Dernière exposition connue', expo, 'étape 1 Identité'));
+    const inp = (key, label) => { const i = el('input', {type: 'date', min: minDate(), value: C[key] || ''}); bindInput(i, key, 'date');
+      i.addEventListener('input', majDelais); g.appendChild(field(label, i)); };
+    inp('date_alerte', "Date de l'alerte");
+    g.appendChild(lu('Investigation', fmtD(C.date_investigation), 'étape 1 Identité'));
+    g.appendChild(lu('Notification · confirmation', fmtD(C.date_notification) + ' · ' + fmtD(C.date_confirmation), 'étape 1 Identité'));
+    inp('date_isolement', "Isolement effectif");
+    inp('date_admission_cte', "Admission au CTE");
+    box.appendChild(g);
+    box.appendChild(el('div', {id: 'delaisCles', class: 'delais-cles'}));
+    majDelais();
+  }
+  function majDelais() {
+    const j = $('#j0Cles');
+    if (j) { j.innerHTML = ''; j.appendChild(lu('J0 retenu (ajusté)', CTRL && CTRL.j0_retenu ? fmtD(CTRL.j0_retenu) : '?',
+      CTRL && CTRL.j0_retenu ? TF('date rapportée − {n} j (phase des premiers signes)', {n: CTRL.recul}) : 'calculé après enregistrement')); }
+    const d = $('#delaisCles'); if (!d) return;
+    const bits = [];
+    const a = jours(C.debut_symptomes, C.date_confirmation), b = CTRL && CTRL.j0_retenu ? jours(CTRL.j0_retenu, C.date_confirmation) : null;
+    if (a !== null) bits.push(TF('Signes → confirmation : {a} j (J0 rapporté)', {a}) + (b !== null && b !== a ? TF(' / {b} j (J0 retenu)', {b}) : ''));
+    const i = jours(C.date_confirmation, C.date_isolement);
+    if (i !== null) bits.push(TF('Confirmation → isolement : {n} j', {n: i}));
+    const al = jours(C.date_alerte, C.date_investigation);
+    if (al !== null) bits.push(TF('Alerte → investigation : {n} j', {n: al}));
+    const cte = jours(C.date_confirmation, C.date_admission_cte);
+    if (cte !== null) bits.push(TF('Confirmation → admission CTE : {n} j', {n: cte}));
+    d.textContent = bits.length ? bits.join(' · ') : T('Délais calculés dès que les dates sont saisies.');
+  }
+  function renderContactsDhis2() {
+    const box = $('#contactsDhis2'); if (!box) return;
+    box.innerHTML = '';
+    box.appendChild(el('b', {text: T('Cascade des contacts et DHIS2')}));
+    box.appendChild(el('div', {id: 'cascadeTxt', class: 'delais-cles'}));
+    const g = el('div', {class: 'grid', style: 'margin-top:8px'});
+    [['contacts_dhis2_listes', 'Contacts listés dans DHIS2'], ['contacts_dhis2_suivis', 'Contacts suivis dans DHIS2']].forEach(([k, lbl]) => {
+      const i = el('input', {type: 'number', min: 0, value: C[k] ?? '', placeholder: T('vide si inconnu')}); bindInput(i, k, 'int');
+      i.addEventListener('input', majCascade); g.appendChild(field(lbl, i));
+    });
+    box.appendChild(g);
+    box.appendChild(el('p', {class: 'hint', style: 'margin:6px 0 0', text: T("Nombres lus dans DHIS2, saisis à la main en attendant la connexion automatique. Même nombre ne veut pas dire mêmes personnes : un écart est à investiguer.")}));
+    majCascade();
+  }
+  function majCascade() {
+    const t = $('#cascadeTxt'); if (!t) return;
+    const som = k => { const v = C.contacts.map(r => r[k]).filter(x => x !== null && x !== undefined && x !== '');
+      return v.length ? v.reduce((a, b) => a + (+b), 0) : null; };
+    const q = n => n === null ? '?' : String(n);
+    const etapes = [['Exposés estimés', som('exposes')], ['Listés', som('nombre')], ['Suivis', som('suivis')],
+                    ['Devenus symptomatiques', som('symptomatiques')], ['Devenus confirmés', som('confirmes')]];
+    let txt = etapes.map(([l, n]) => T(l) + ' ' + q(n)).join(' → ');
+    const m = som('nombre'), dl = C.contacts_dhis2_listes;
+    if (m !== null && dl !== null && dl !== undefined && dl !== '') {
+      const e = m - dl;
+      txt += ' · ' + TF('DHIS2 : {n} listés', {n: dl}) + ' (' + (e > 0 ? TF('sous-listing potentiel, écart {e}', {e}) : e < 0 ? TF('{e} contacts de plus dans DHIS2', {e: -e}) : T('concordance numérique')) + ')';
+    }
+    t.textContent = txt;
+  }
+
   // ----------------------------------------------------------------- init
   function lockEditor() {
     $$('.editor > section.card .pane').forEach(p => $$('input, select, textarea, button', p).forEach(x => { x.disabled = true; }));
@@ -724,7 +799,7 @@
       const [schema, pyr, data] = await Promise.all([api('/api/schema'), api('/api/pyramide'), api('/api/cas/' + ID)]);
       S = schema; PYR = pyr; C = data.case; CTRL = data.controls;
     } catch (e) { setStatus(T('Chargement impossible : ') + e.message, true); return; }
-    renderIdentity(); renderClinic();
+    renderIdentity(); renderClinic(); renderDatesCles(); renderContactsDhis2();
     ['events', 'places', 'contacts', 'ipc', 'labs', 'actions'].forEach(renderTable);
     renderControls(); renderSuggestions(); updateTitle();
 

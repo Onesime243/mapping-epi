@@ -573,6 +573,7 @@ def check_consistency(case: Case) -> List[Issue]:
             if last and e.date_debut < last[0]:
                 out.append(Issue("alerte", trf("« {etape} » est placé après « {avant} » mais daté avant.", etape=e.titre or tr(e.type), avant=last[1])))
             last = (e.date_debut, e.titre or tr(e.type))
+    out.extend(controles_qualite(case))
     for gap in coverage_gaps(case):
         out.append(Issue("info", trf("Période non couverte du {debut} au {fin} : ajouter une étape « Période à documenter » ?",
                                     debut=f"{gap[0]:%d/%m}", fin=f"{gap[1]:%d/%m}")))
@@ -583,6 +584,86 @@ def check_consistency(case: Case) -> List[Issue]:
         cites = ", ".join(f"« {e} »" for e in ex)
         out.append(Issue("alerte", trf("Nom de personne ? {ou} : {cites}. L'outil ne doit contenir que des identifiants : "
                                       "remplacez le nom par un ID ou un rôle (ex. « mère du cas »).", ou=ou, cites=cites)))
+    return out
+
+
+def _mentionne_cte(e: Event) -> bool:
+    import re
+    txt = f" {e.lieu_arrivee or e.lieu} {e.titre} "
+    return bool(re.search(r"\bCT[EI]\b", txt, re.I))
+
+
+def controles_qualite(case: Case) -> List[Issue]:
+    """Contrôles de la chronologie simplifiée et de la cascade des contacts (lot 1 de Mapping Épi 2.0).
+    Rien n'est corrigé automatiquement : chaque point est signalé pour vérification."""
+    out: List[Issue] = []
+    j0 = case.debut_symptomes
+    conf = case.date_confirmation
+    if case.date_alerte and j0 and case.date_alerte < j0:
+        out.append(Issue("alerte", tr("L'alerte précède le début des symptômes rapporté.")))
+    if case.date_alerte and case.date_investigation and case.date_investigation < case.date_alerte:
+        out.append(Issue("alerte", tr("L'investigation précède l'alerte.")))
+    if conf and case.date_isolement and (case.date_isolement - conf).days > 1:
+        out.append(Issue("alerte", trf("Isolement effectif {n} j après la confirmation (seuil 1 j) : motif à documenter.",
+                                       n=(case.date_isolement - conf).days)))
+    if j0 and case.date_isolement and case.date_isolement < j0:
+        out.append(Issue("alerte", tr("L'isolement est daté avant le début des symptômes rapporté.")))
+    if case.date_admission_cte:
+        if case.date_deces and case.date_deces < case.date_admission_cte:
+            out.append(Issue("erreur", tr("Le décès est daté avant l'admission au CTE.")))
+        if j0 and case.date_admission_cte < j0:
+            out.append(Issue("alerte", tr("L'admission au CTE précède le début des symptômes rapporté.")))
+        cte = [e.date_debut for e in case.sorted_events() if e.date_debut and _mentionne_cte(e)]
+        if cte and case.date_admission_cte not in cte:
+            out.append(Issue("alerte", trf("Contradiction : admission au CTE le {a}, mais la chronologie place le CTE le {b}. "
+                                           "Valider la bonne date.", a=f"{case.date_admission_cte:%d/%m}", b=f"{cte[0]:%d/%m}")))
+    # cascade des contacts : chaque étape a son propre nombre
+    for g in case.contacts:
+        cat = g.categorie or "?"
+        if g.exposes is not None and g.nombre is not None and g.nombre > g.exposes:
+            out.append(Issue("alerte", trf("Contacts « {cat} » : plus de listés que d'exposés estimés.", cat=cat)))
+        if g.nombre is not None and g.symptomatiques is not None and g.symptomatiques > g.nombre:
+            out.append(Issue("erreur", trf("Contacts « {cat} » : plus de contacts devenus symptomatiques que de listés.", cat=cat)))
+        if g.nombre is not None and g.confirmes is not None and g.confirmes > g.nombre:
+            out.append(Issue("erreur", trf("Contacts « {cat} » : plus de contacts devenus confirmés que de listés.", cat=cat)))
+    listes = [g.nombre for g in case.contacts if g.nombre is not None]
+    suivis = [g.suivis for g in case.contacts if g.suivis is not None]
+    suivi_fait = any("suivi" in (a.texte or "").lower() and a.statut == "Fait" for a in case.actions)
+    if listes and sum(listes) > 0 and suivis and sum(suivis) == 0 and suivi_fait:
+        out.append(Issue("alerte", tr("Contacts : 0 suivi saisi alors qu'une action de suivi est marquée « Fait » : à réconcilier.")))
+    dl, ds = case.contacts_dhis2_listes, case.contacts_dhis2_suivis
+    if dl is not None and ds is not None and ds > dl:
+        out.append(Issue("erreur", tr("DHIS2 : plus de contacts suivis que de listés.")))
+    if dl is not None and listes:
+        ecart = sum(listes) - dl
+        if ecart > 0:
+            out.append(Issue("info", trf("Contacts : {m} listés dans la fiche, {d} dans DHIS2 (sous-listing potentiel, écart {e}). "
+                                         "Même nombre ne veut pas dire mêmes personnes.", m=sum(listes), d=dl, e=ecart)))
+        elif ecart < 0:
+            out.append(Issue("info", trf("Contacts : {d} listés dans DHIS2, {m} dans la fiche ({e} de plus dans DHIS2).",
+                                         m=sum(listes), d=dl, e=-ecart)))
+    # issue clinique : deux PCR négatives après le dernier résultat positif, cas toujours « En traitement »
+    res = sorted([(l.resultat_le or l.prelevement, l.resultat) for l in case.labs if (l.resultat_le or l.prelevement) and l.resultat],
+                 key=lambda r: r[0])
+    neg = 0
+    for _d, r in res:
+        neg = neg + 1 if r == "Négatif" else 0
+    if neg >= 2 and any(r == "Positif" for _d, r in res) and case.issue == "En traitement":
+        out.append(Issue("info", tr("Deux PCR négatives après le résultat positif et cas toujours « En traitement » : "
+                                    "issue à valider par la prise en charge.")))
+    # lieux peut-être identiques (même nom une fois les sigles et accents retirés)
+    from core.lieux import cle
+    vus: dict = {}
+    noms = [p.nom.strip() for p in case.places if p.nom.strip()]
+    generiques = {"cm", "cs", "csr", "ps", "hgr", "ch", "chu", "hopital", "clinique", "centre", "medical", "sante",
+                  "poste", "de", "du", "des", "la", "le", "les", "l", "d"}
+    for n in noms:
+        k = " ".join(w for w in cle(n).split() if w not in generiques)
+        if len(k) < 4:
+            continue
+        if k in vus and vus[k] != n:
+            out.append(Issue("info", trf("Lieux peut-être identiques : « {a} » et « {b} » (fusionner ?).", a=vus[k], b=n)))
+        vus.setdefault(k, n)
     return out
 
 

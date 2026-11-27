@@ -39,6 +39,7 @@
     <div class="pane on" id="p-identite"></div>
     <div class="pane" id="p-clinique"></div>
     <div class="pane" id="p-events">
+      <div class="bloc-cles" id="datesCles"></div>
       <p class="hint">{{ t("Une ligne = une étape du parcours, dans l'ordre voulu (↑↓ pour réordonner). Laisser « Risque » vide pour le risque suggéré. Une information inconnue reste vide.") }}</p>
       <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="events">{{ t("＋ Ajouter une étape") }}</button>
         <button class="btn small" id="sortEvents">{{ t("Trier par date") }}</button><button class="btn small" id="fillGaps">{{ t("Combler les trous") }}</button></div>
@@ -54,6 +55,7 @@
       <p class="hint">{{ t("Nombre vide = « ? » (inconnu, jamais 0). Le « Minimum documenté » et la fin du suivi sont calculés.") }}</p>
       <div class="row" style="margin-bottom:8px"><button class="btn small" data-add="contacts">{{ t("＋ Ajouter une catégorie") }}</button></div>
       <div class="tablewrap"><table class="edit" id="t-contacts"></table></div>
+      <div class="bloc-cles" id="contactsDhis2" style="margin-top:12px"></div>
     </div>
     <div class="pane" id="p-ipc">
       <p class="hint">{{ t("Documenter date / équipe / produit pour chaque décontamination.") }}</p>

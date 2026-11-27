@@ -232,6 +232,18 @@
         <li><b>{{ tb.qualite.brouillons }}</b> {{ t("brouillon(s) non enregistré(s) dans le périmètre.") }}</li></ul>
     </div>
   </div>
+  <div class="card tb-anomalies"><h3>{{ t("Anomalies à vérifier") }}</h3>
+    <p class="hint">{{ t("Contrôles automatiques sur les fiches : contradictions de dates, cascade des contacts, écart avec DHIS2, issue à valider, lieux en double. Rien n'est corrigé automatiquement : ouvrez la fiche pour vérifier.") }}</p>
+    <div class="tb-anom-n">{% for k, n in tb.qualite.anomalies_niveaux %}<span class="lvl-{{ k }}">{{ n }} {{ t({"erreur": "erreur(s)", "alerte": "alerte(s)", "info": "information(s)"}[k]) }}</span>{% endfor %}
+      <span class="muted">{{ tb.qualite.anomalies_cas }} {{ t("fiche(s) concernée(s)") }}</span></div>
+    {% if tb.qualite.anomalies %}
+    <div class="tablewrap"><table class="list"><thead><tr><th>{{ t("Gravité") }}</th><th>{{ t("ID du cas") }}</th><th>{{ t("ZS") }}</th><th>{{ t("Anomalie") }}</th><th></th></tr></thead><tbody>
+      {% for a in tb.qualite.anomalies %}<tr><td><span class="lvl-{{ a.niveau }}">{{ t(a.niveau)|upper }}</span></td><td><b>{{ a.code }}</b></td><td>{{ a.zs or "?" }}</td>
+        <td>{{ a.message }}</td><td><a class="btn small" href="/cas/{{ a.id }}">{{ t("Ouvrir la fiche") }}</a></td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if tb.qualite.anomalies_n > tb.qualite.anomalies|length %}<p class="hint">{{ t("Affichage des 60 premières anomalies sur") }} {{ tb.qualite.anomalies_n }}.</p>{% endif %}
+    {% else %}<p class="muted">{{ t("Aucune anomalie détectée.") }}</p>{% endif %}
+  </div>
 </section>
 
 {# ---------------------------------------------------------------- Matrice #}
