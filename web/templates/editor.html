@@ -102,8 +102,8 @@
       <b>{{ t("Fiche modifiable (Word / Excel)") }}</b>
       <p class="hint" style="margin:2px 0 8px">{{ t("Téléchargez la fiche remplie avec tout ce qui est saisi, corrigez-la dans Word ou Excel, puis réimportez-la ici : ce mapping est mis à jour (même cas, sans doublon).") }} {{ t("Le rapport d'investigation MVE (modèle terrain, .doc ou .docx) est aussi accepté.") }}</p>
       <div class="row">
-        <a class="btn small" href="{{ url_for('fiche_word', cid=case.id) }}">⬇ {{ t("Fiche Word") }}</a>
-        <a class="btn small" href="{{ url_for('fiche_excel', cid=case.id) }}">⬇ {{ t("Fiche Excel") }}</a>
+        <a class="btn small" href="{{ url_for('fiche_word', cid=case.id, apercu=1) }}">⬇ {{ t("Fiche Word") }}</a>
+        <a class="btn small" href="{{ url_for('fiche_excel', cid=case.id, apercu=1) }}">⬇ {{ t("Fiche Excel") }}</a>
       </div>
       {% if not readonly %}
       <form class="row" method="post" action="{{ url_for('reimporter', cid=case.id) }}" enctype="multipart/form-data" style="margin-top:8px"

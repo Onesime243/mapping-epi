@@ -7,7 +7,7 @@
     <h1 style="margin:2px 0 0">{{ t("PCI : lieux fréquentés et adresses") }}</h1>
     <div class="muted" style="font-size:14px">{{ t(me.perimetre) }}</div>
   </div>
-  <a class="btn primary" href="{{ url_for('pci_xlsx') }}">⬇ {{ t("Lieux fréquentés et adresses (Excel)") }}</a>
+  <a class="btn primary" href="{{ url_for('pci_xlsx', apercu=1) }}">⬇ {{ t("Lieux fréquentés et adresses (Excel)") }}</a>
 </div>
 <div class="pci-bilan">
   <div><b>{{ bilan.cas }}</b><span>{{ t("cas") }}</span></div>

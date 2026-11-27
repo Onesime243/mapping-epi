@@ -4,7 +4,7 @@
 <h1>{{ t("Rapports par pilier") }}</h1>
 <p class="hint">{{ t("Analyse des fiches de cas enregistrées, pilier par pilier, sur la période choisie : indicateurs, graphiques, réponses aux questions du cadre d'analyse des mappings MVE et points d'attention. Les questions qui demandent des données absentes de l'outil sont listées en annexe. Réservé aux super-administrateurs.") }}</p>
 <div class="card">
-  <form method="get" action="{{ url_for('rapports_generer') }}" class="stack">
+  <form method="get" action="{{ url_for('rapports_generer') }}" class="stack"><input type="hidden" name="apercu" value="1">
     <div class="row" style="gap:14px; flex-wrap:wrap">
       <div><label class="f">{{ t("Du") }}</label><input type="date" name="debut" value="{{ debut }}" required></div>
       <div><label class="f">{{ t("Au") }}</label><input type="date" name="fin" value="{{ fin }}" required></div>

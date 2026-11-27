@@ -39,8 +39,8 @@
   <div class="tb-boutons">
     <button class="btn small primary" type="submit">{{ t("Appliquer") }}</button>
     <a class="btn small" href="{{ url_for('tableau_bord') }}">{{ t("Réinitialiser") }}</a>
-    {% if droits.super %}<a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=docx">{{ t("Rapport Word") }}</a>
-    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=pptx">PowerPoint</a>{% endif %}
+    {% if droits.super %}<a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=docx&apercu=1">{{ t("Rapport Word") }}</a>
+    <a class="btn small" href="{{ url_for('rapports_generer') }}?{{ qs }}{% for k, _n in piliers_rapport %}&pilier={{ k }}{% endfor %}&format=pptx&apercu=1">PowerPoint</a>{% endif %}
   </div>
 </form>
 

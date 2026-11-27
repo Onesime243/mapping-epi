@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ t("Aperçu") }} · {{ nom }} · Mapping Épi{% endblock %}
+{% block content %}
+<div class="row ap-tete" style="justify-content:space-between; margin-bottom:12px">
+  <div><a class="muted" href="{{ retour }}">← {{ t("Retour") }}</a>
+    <h1 style="margin:2px 0 0">{{ t("Aperçu avant téléchargement") }}</h1>
+    <div class="muted" style="font-size:14px">{{ nom }}</div></div>
+  <a class="btn primary" href="{{ lien }}">⬇ {{ t("Télécharger le fichier") }}</a>
+</div>
+{% if A.type == "xlsx" %}
+  <div class="ap-onglets" role="tablist">{% for f in A.feuilles %}<button type="button" class="{{ 'on' if loop.first }}" data-f="{{ loop.index0 }}">{{ f.nom }} <span>{{ f.n }}</span></button>{% endfor %}</div>
+  {% for f in A.feuilles %}
+  <section class="card ap-feuille" data-f="{{ loop.index0 }}" {{ "hidden" if not loop.first }}>
+    {% if f.titre %}<h3 style="margin:0 0 4px">{{ f.titre }}</h3>{% endif %}
+    {% if f.lignes %}
+    <p class="hint">{% if f.total > f.lignes|length %}{{ tf("Aperçu des {n} premières lignes sur {total} ; le fichier téléchargé contient tout.", n=f.lignes|length - 1, total=f.n) }}{% else %}{{ tf("{n} ligne(s).", n=f.n) }}{% endif %}</p>
+    <div class="ap-tableau"><table>{% for l in f.lignes %}<tr>{% for v in l %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+    {% else %}<p class="muted">{{ t("Feuille vide.") }}</p>{% endif %}
+  </section>
+  {% endfor %}
+{% elif A.type == "docx" %}
+  <article class="card ap-doc">
+  {% for b in A.blocs %}
+    {% if b.t == "h" %}<h{{ b.n }}>{{ b.txt }}</h{{ b.n }}>
+    {% elif b.t == "p" %}<p class="{{ 'ap-li' if b.liste }}">{{ b.txt }}</p>
+    {% elif b.t == "img" %}<img src="{{ b.src }}" alt="">
+    {% elif b.t == "table" %}<div class="ap-tableau"><table>{% for l in b.lignes %}<tr>{% for v in l %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>{% endif %}
+  {% else %}<p class="muted">{{ t("Document vide.") }}</p>{% endfor %}
+  </article>
+{% elif A.type == "pptx" %}
+  <div class="ap-diapos">{% for d in A.diapos %}
+    <section class="card ap-diapo"><div class="ap-n">{{ t("Diapositive") }} {{ d.n }}</div>
+      {% if d.titre %}<h3>{{ d.titre }}</h3>{% endif %}
+      {% for src in d.images %}<img src="{{ src }}" alt="">{% endfor %}
+      {% for tb in d.tables %}<div class="ap-tableau"><table>{% for l in tb %}<tr>{% for v in l %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>{% endfor %}
+      {% for tx in d.textes %}<p>{{ tx }}</p>{% endfor %}
+    </section>{% endfor %}</div>
+{% endif %}
+<div class="row" style="justify-content:flex-end; margin-top:14px"><a class="btn primary" href="{{ lien }}">⬇ {{ t("Télécharger le fichier") }}</a></div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.ap-onglets button').forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll('.ap-onglets button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    document.querySelectorAll('.ap-feuille').forEach(function (s) { s.hidden = s.dataset.f !== b.dataset.f; });
+  };
+});
+</script>
+{% endblock %}

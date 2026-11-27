@@ -206,3 +206,11 @@ EN.update({
     "Nombre de contacts DHIS2 impossible ; valeur supprimée, à ressaisir.": "Impossible DHIS2 contact number; value removed, to be re-entered.",
     "Nombre impossible (maximum {n}) : vérifier la saisie": "Impossible number (maximum {n}): check the entry",
 })
+
+EN.update({
+    "Aperçu": "Preview", "Retour": "Back", "Aperçu avant téléchargement": "Preview before download",
+    "Télécharger le fichier": "Download the file",
+    "Aperçu des {n} premières lignes sur {total} ; le fichier téléchargé contient tout.":
+        "Preview of the first {n} rows out of {total}; the downloaded file contains everything.",
+    "{n} ligne(s).": "{n} row(s).", "Feuille vide.": "Empty sheet.", "Document vide.": "Empty document.", "Diapositive": "Slide",
+})

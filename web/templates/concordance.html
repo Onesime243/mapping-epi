@@ -2,7 +2,7 @@
 {% block avant %}
 <div class="card dh-panneau">
   <div class="tb-ligne"><h3>{{ t("Données DHIS2") }}</h3>
-    <a class="btn small" style="margin-left:auto" href="{{ url_for('analyse_concordance_xlsx') }}">⬇ {{ t("Concordance (Excel)") }}</a></div>
+    <a class="btn small" style="margin-left:auto" href="{{ url_for('analyse_concordance_xlsx', apercu=1) }}">⬇ {{ t("Concordance (Excel)") }}</a></div>
   {% if etat.en_cours %}
     <p class="dh-cours">↻ {{ t("Synchronisation en cours…") }} {{ etat.message }}</p>
     <meta http-equiv="refresh" content="5">

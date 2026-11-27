@@ -7,7 +7,7 @@
     <h1 style="margin:2px 0 0">{{ t("Surveillance des contacts") }}</h1>
     <div class="muted" style="font-size:14px">{{ t(me.perimetre) }}</div>
   </div>
-  <a class="btn primary" href="{{ url_for('surveillance_xlsx') }}">⬇ {{ t("Contacts par lieu (Excel)") }}</a>
+  <a class="btn primary" href="{{ url_for('surveillance_xlsx', apercu=1) }}">⬇ {{ t("Contacts par lieu (Excel)") }}</a>
 </div>
 <div class="pci-bilan">
   <div><b>{{ bilan.cas }}</b><span>{{ t("cas") }}</span></div>

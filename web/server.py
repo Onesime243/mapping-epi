@@ -1559,6 +1559,27 @@ def create_app(store: storage.Store | None = None) -> Flask:
         abort(404)
 
     def _send_and_delete(path: Path, name: str):
+        # ?apercu=1 : le fichier est d'abord affiché dans une page, avec un bouton « Télécharger le fichier »
+        if request.args.get("apercu") == "1" and path.suffix.lower() in (".xlsx", ".docx", ".pptx"):
+            from urllib.parse import urlencode
+            from core import apercu as AP
+            try:
+                contenu = AP.lire(path)
+            except Exception:
+                log.exception("Aperçu impossible : %s", name)
+                contenu = None
+            finally:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+            args = [(k, v) for k, vs in request.args.lists() for v in vs if k != "apercu"]
+            lien = request.path + ("?" + urlencode(args) if args else "")
+            if contenu is None:
+                return redirect(lien)
+            ref = request.referrer or "/"
+            retour = ref if ref.startswith(request.host_url) else "/"
+            return render_template("apercu.html", A=contenu, nom=name, lien=lien, retour=retour)
         data = path.read_bytes()
         try:
             path.unlink()
