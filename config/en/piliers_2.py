@@ -214,3 +214,27 @@ EN.update({
         "Preview of the first {n} rows out of {total}; the downloaded file contains everything.",
     "{n} ligne(s).": "{n} row(s).", "Feuille vide.": "Empty sheet.", "Document vide.": "Empty document.", "Diapositive": "Slide",
 })
+
+# Tableau de bord ▾ : les 12 tableaux de bord (menu, titres ; le contenu des graphiques est en français)
+EN.update({
+    "Vue stratégique": "Strategic view", "Couverture des mappings": "Mapping coverage", "Dynamique épidémiologique": "Epidemic dynamics",
+    "Parcours thérapeutique": "Care pathway", "Chaînes de transmission": "Transmission chains", "Surveillance et contacts": "Surveillance and contacts",
+    "Suivi des actions": "Action follow-up", "Analyse géospatiale": "Geospatial analysis", "Mobilité et déplacements": "Mobility and movements",
+    "PCI et structures sanitaires": "IPC and health facilities", "Profil clinique et symptômes": "Clinical profile and symptoms",
+    "Vue d'ensemble et alertes (actuelle)": "Overview and alerts (current)", "Vue d'ensemble et alertes": "Overview and alerts",
+    "TABLEAUX DE BORD": "DASHBOARDS", "Surveillance · Investigation · Riposte": "Surveillance · Investigation · Response",
+    "Données à jour": "Data up to date", "{n} fiches du périmètre · {perimetre}": "{n} records in scope · {perimetre}", "DHIS2 :": "DHIS2:",
+    "non synchronisé": "not synchronised", "Calcul en direct": "Live calculation", "Imprimer / PDF": "Print / PDF",
+    "Situation de la riposte MVE 17 en un coup d'œil": "The EVD 17 response at a glance",
+    "Collecte, complétude et couverture des mappings par zone de santé": "Collection, completeness and coverage of mappings by health zone",
+    "Évolution des cas, tendances et détection précoce des résurgences": "Case trends and early detection of resurgence",
+    "Du premier signe à l'issue : délais, isolement et décès": "From first sign to outcome: delays, isolation and deaths",
+    "Identification et suivi des liens épidémiologiques entre les cas": "Identification and follow-up of epidemiological links between cases",
+    "Listing, suivi des contacts et concordance avec DHIS2": "Listing, contact follow-up and agreement with DHIS2",
+    "Actions ouvertes sur les fiches et priorités opérationnelles": "Open actions on records and operational priorities",
+    "Répartition géographique et délai depuis le dernier cas": "Geographic distribution and time since the last case",
+    "Déplacements des cas pendant la période contagieuse": "Case movements during the infectious period",
+    "Lieux d'exposition, décontamination et infections en structure de soins": "Exposure places, decontamination and infections in health facilities",
+    "Âge, sexe, symptômes par phase et létalité": "Age, sex, symptoms by phase and case fatality",
+    "Fiabilité des données sur lesquelles reposent les décisions": "Reliability of the data behind decisions",
+})

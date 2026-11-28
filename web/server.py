@@ -31,6 +31,7 @@ from core import obligatoires as OBL
 from web import i18n as I18N
 from core.langue import tr, trf
 from core.users import NIVEAUX, SUPER_ADMIN, Users, generate_password
+from core import tableaux as TBX
 from render import chains, chrono, clinique, common_places, dashboard, gantt, html_renderer as H, map_view, network
 from render.pptx_exporter import export_mapping_pptx
 from web import render_client
@@ -241,7 +242,7 @@ def create_app(store: storage.Store | None = None) -> Flask:
         return {"csrf": csrf_token(), "me": getattr(g, "user", None) or current_user(), "app_version": _static_version(),
                 "credits": credits, "lang": lg, "langues": I18N.LANGUES, "t": lambda s: I18N.t(s, lg),
                 "tf": lambda s, **kw: I18N.t(s, lg).format(**kw),
-                "droits": droits(getattr(g, "user", None) or current_user())}
+                "droits": droits(getattr(g, "user", None) or current_user()), "vues_tdb": TBX.VUES}
 
     @app.route("/langue/<code>")
     def choisir_langue(code):
@@ -938,6 +939,59 @@ def create_app(store: storage.Store | None = None) -> Flask:
                                statuts=theme.ISSUE_CHOICES, risques=["Très élevé", "Élevé", "Modéré", "Faible", "Inconnu"],
                                piliers=theme.PILIERS, piliers_rapport=PIL.PILIERS_RAPPORT,
                                svg_semaines=TB.svg_semaines(tb.semaines))
+
+    SOUS_TITRES = {"strategique": "Situation de la riposte MVE 17 en un coup d'œil",
+                   "couverture": "Collecte, complétude et couverture des mappings par zone de santé",
+                   "dynamique": "Évolution des cas, tendances et détection précoce des résurgences",
+                   "parcours": "Du premier signe à l'issue : délais, isolement et décès",
+                   "chaines": "Identification et suivi des liens épidémiologiques entre les cas",
+                   "contacts": "Listing, suivi des contacts et concordance avec DHIS2",
+                   "actions": "Actions ouvertes sur les fiches et priorités opérationnelles",
+                   "geo": "Répartition géographique et délai depuis le dernier cas",
+                   "mobilite": "Déplacements des cas pendant la période contagieuse",
+                   "pci": "Lieux d'exposition, décontamination et infections en structure de soins",
+                   "clinique": "Âge, sexe, symptômes par phase et létalité",
+                   "qualite": "Fiabilité des données sur lesquelles reposent les décisions"}
+
+    @app.route("/tableau-de-bord/<vue>")
+    @login_required
+    def tableaux_vue(vue):
+        """Les 12 tableaux de bord (sous-menus de « Tableau de bord ») : calculés en direct sur les fiches du périmètre."""
+        if vue not in TBX.CLES:
+            abort(404)
+        from core import dhis2 as DH
+        from core.access import _same
+        tous = [c for c in visible_cases() if not c.exemple()]
+        def jour(c):
+            return c.date_confirmation or c.date_notification or c.debut_symptomes
+        dates = [jour(c) for c in tous if jour(c)]
+        fin = date.today()
+        try:
+            fin = date.fromisoformat(request.args["fin"]) if request.args.get("fin") else fin
+            debut = (date.fromisoformat(request.args["debut"]) if request.args.get("debut")
+                     else (min(dates) if dates else fin - timedelta(days=90)))
+        except ValueError:
+            debut, fin = (min(dates) if dates else date.today() - timedelta(days=90)), date.today()
+        if fin < debut:
+            debut, fin = fin, debut
+        prov = request.args.get("province", "").strip()
+        zs = request.args.get("zs", "").strip()
+        provinces = sorted({c.province for c in tous if c.province}, key=pyramide.norm)
+        zones = sorted({c.zs for c in tous if c.zs and (not prov or _same(c.province, prov))}, key=pyramide.norm)
+        cas = [c for c in tous if (not prov or _same(c.province, prov)) and (not zs or _same(c.zs, zs))
+               and (not jour(c) or debut <= jour(c) <= fin)]
+        D = TBX.construire(cas, ref=min(fin, date.today()))
+        cartes = {"nat": "", "prov": []}
+        if vue in ("strategique", "geo") and cas:
+            cartes = TBX.cartes(cas, ref=min(fin, date.today()), province=prov,
+                                lien=lambda niveau, p="", z="": url_for("tableaux_vue", vue="geo", province=p, zs=z))
+        titre, ico = next((l, i) for k, l, i in TBX.VUES if k == vue)
+        dh = DH.charger()
+        qs = {k: v for k, v in (("province", prov), ("zs", zs), ("debut", request.args.get("debut", "")),
+                                ("fin", request.args.get("fin", ""))) if v}
+        return render_template("tableaux.html", D=D, cartes=cartes, vue=vue, titre=titre, ico=ico, sous_titre=SOUS_TITRES[vue],
+                               provinces=provinces, zones=zones, province=prov, zs=zs, debut=debut, fin=fin, filtres_qs=qs,
+                               dh_maj=(dh["maj"].replace("T", " à ") if dh else ""))
 
     @app.route("/tableau-de-bord/alerte", methods=["POST"])
     @login_required

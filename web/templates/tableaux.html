@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ t(titre) }} · {{ t("Tableau de bord") }} · Mapping Épi{% endblock %}
+{% block mainclass %}tdb2-main{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='tableaux.css') }}?v={{ app_version }}">{% endblock %}
+{% block content %}
+<div class="tdb2"><div class="wrap">
+<aside>
+  <div class="logo"><div class="pin"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12zM12 12a2 2 0 100-4 2 2 0 000 4z"/></svg></div>
+    <div><b>Mapping Épi</b><small>MVE 17 · {{ t("Surveillance · Investigation · Riposte") }}</small></div></div>
+  <div class="lab">{{ t("TABLEAUX DE BORD") }}</div>
+  {% for k, lib, ic in vues_tdb %}<a class="it{{ ' on' if k == vue }}" href="{{ url_for('tableaux_vue', vue=k, **filtres_qs) }}"><span class="n">{{ '%02d' % loop.index }}</span><span class="ico" data-ico="{{ ic }}"></span><span>{{ t(lib) }}</span></a>{% endfor %}
+  <a class="it" href="{{ url_for('tableau_bord') }}" style="margin-top:10px;border-top:1px solid rgba(255,255,255,.12);border-radius:0;padding-top:14px"><span class="n">↩</span><span>{{ t("Vue d'ensemble et alertes") }}</span></a>
+  <div class="etat"><b><i></i>{{ t("Données à jour") }}</b>{{ tf("{n} fiches du périmètre · {perimetre}", n=D.n, perimetre=t(me.perimetre)) }}<br>{{ t("DHIS2 :") }} {{ dh_maj or t("non synchronisé") }}</div>
+</aside>
+<main>
+  <div class="head"><div class="ico" id="tdb-ico" data-ico="{{ ico }}"></div><div><h1>{{ t(titre) }}</h1><div class="sous">{{ t(sous_titre) }}</div></div>
+    <div class="maj"><div class="badge"><b>{{ t("Période") }}</b>{{ debut.strftime("%d/%m/%Y") }} → {{ fin.strftime("%d/%m/%Y") }}</div><div class="badge ok">✓ {{ t("Calcul en direct") }}</div></div></div>
+  <form class="filters" method="get">
+    <div class="f"><small>{{ t("Province") }}</small><select name="province" onchange="this.form.zs.value='';this.form.submit()"><option value="">{{ t("Toutes les provinces") }}</option>{% for p in provinces %}<option {{ 'selected' if p == province }}>{{ p }}</option>{% endfor %}</select></div>
+    <div class="f"><small>{{ t("Zone de santé") }}</small><select name="zs" onchange="this.form.submit()"><option value="">{{ t("Toutes les zones") }}</option>{% for z in zones %}<option {{ 'selected' if z == zs }}>{{ z }}</option>{% endfor %}</select></div>
+    <div class="f"><small>{{ t("Du") }}</small><input type="date" name="debut" value="{{ debut.isoformat() }}"></div>
+    <div class="f"><small>{{ t("Au") }}</small><input type="date" name="fin" value="{{ fin.isoformat() }}"></div>
+    <div class="sp"><a class="btn" href="{{ url_for('tableaux_vue', vue=vue) }}">{{ t("Réinitialiser") }}</a><button type="button" class="btn" onclick="window.print()">⬇ {{ t("Imprimer / PDF") }}</button><button class="btn p">↻ {{ t("Appliquer") }}</button></div>
+  </form>
+  <div id="tdb-vue"></div>
+</main></div></div>
+{% endblock %}
+{% block scripts %}
+<script>window.TDB = {{ D|tojson }}; window.TDB_CARTES = {{ cartes|tojson }}; window.TDB_VUE = {{ vue|tojson }};</script>
+<script src="{{ url_for('static', filename='tableaux.js') }}?v={{ app_version }}"></script>
+{% endblock %}
